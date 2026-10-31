@@ -1,0 +1,418 @@
+/**
+ * 管理后台共享类型。
+ * 字段命名与 docs/api.md「管理后台」章节保持一致；金额一律为「分」，时间为 ISO 8601。
+ */
+
+/** 管理员角色：超级管理员 / 运营 / 只读审计 */
+export type AdminRole = "super" | "ops" | "auditor";
+
+/** 徽标色系 */
+export type BadgeTone =
+  | "primary"
+  | "accent"
+  | "success"
+  | "warning"
+  | "danger"
+  | "neutral";
+
+/** 当前登录管理员身份 */
+export interface AdminIdentity {
+  id: string;
+  displayName: string;
+  emailMasked: string | null;
+  role: AdminRole;
+  createdAt: string | null;
+}
+
+/** 管理后台会话状态（GET /admin/auth/session） */
+export interface AdminSession {
+  authenticated: boolean;
+  pending2fa: boolean;
+  admin: AdminIdentity | null;
+  emailMasked: string | null;
+}
+
+/** 通用分页响应 */
+export interface Page<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** 趋势桶（按月或按日） */
+export interface TrendBucket {
+  /** 桶键：2026-01（月）或 2026-01-05（日） */
+  key: string;
+  /** 图上的短标签 */
+  label: string;
+  amountCents: number;
+  orderCount: number;
+}
+
+/** 总览页待处理事项 */
+export interface TodoItem {
+  id: string;
+  title: string;
+  detail: string | null;
+  level: BadgeTone;
+  createdAt: string | null;
+}
+
+/** GET /admin/overview */
+export interface Overview {
+  totalAmountCents: number;
+  monthAmountCents: number;
+  todayOrderCount: number;
+  userCount: number;
+  merchantCount: number;
+  trend: TrendBucket[];
+  recentOrders: AdminOrder[];
+  todos: TodoItem[];
+}
+
+/** 每日交易额桶 */
+export interface DailyBucket {
+  key: string;
+  label: string;
+  amountCents: number;
+  orderCount: number;
+}
+
+/** 每月交易额桶（含该月每日趋势） */
+export interface MonthlyBucket extends DailyBucket {
+  days: DailyBucket[];
+}
+
+/** GET /admin/monthly?year */
+export interface MonthlyData {
+  year: number;
+  months: MonthlyBucket[];
+}
+
+/* ------------------------------------------------------------------ 用户 */
+
+/** 用户管理列表行 */
+export interface AdminUser {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  studentNoMasked: string | null;
+  emailMasked: string | null;
+  isMerchant: boolean;
+  frozen: boolean;
+  createdAt: string | null;
+  orderCount: number;
+  totalAmountCents: number;
+}
+
+/** 用户详情（含脱敏/明文资料） */
+export interface AdminUserDetail extends AdminUser {
+  studentNo: string | null;
+  email: string | null;
+  cardNoMasked: string | null;
+  lastLoginAt: string | null;
+  frozenReason: string | null;
+}
+
+/** GET /admin/users/:id */
+export interface UserDetailPayload {
+  user: AdminUserDetail;
+  orderCount: number;
+  totalAmountCents: number;
+  recentOrders: AdminOrder[];
+}
+
+/* ---------------------------------------------------------------- 管理员 */
+
+/** 管理员管理列表行 */
+export interface AdminMember {
+  id: string;
+  userId: string;
+  displayName: string;
+  emailMasked: string | null;
+  role: AdminRole;
+  createdAt: string | null;
+}
+
+/* ------------------------------------------------------------------ 订单 */
+
+/** 订单状态（后端返回未知值时归一为 unknown） */
+export type OrderStatus =
+  | "pending_payment"
+  | "paid"
+  | "completed"
+  | "cancelled"
+  | "unknown";
+
+/** 付款渠道 */
+export type PayChannel = "alipay" | "wechat" | "qq" | "unknown";
+
+/** 管理后台订单行 */
+export interface AdminOrder {
+  id: string;
+  orderNo: string;
+  amountCents: number;
+  status: OrderStatus;
+  title: string;
+  payChannel: PayChannel | null;
+  createdAt: string | null;
+  paidAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  merchantName: string;
+  payerName: string;
+  merchantUserId: string | null;
+  payerUserId: string | null;
+  hasAppeal: boolean;
+  flagged: boolean;
+  flagReason: string | null;
+  reservedNote: string | null;
+  actualNote: string | null;
+  cancelReason: string | null;
+}
+
+/** 订单时间线事件 */
+export interface OrderEvent {
+  id: string;
+  type: string;
+  actorRole: string;
+  detail: string | null;
+  createdAt: string | null;
+}
+
+/** GET /admin/orders/:id */
+export interface AdminOrderDetail extends AdminOrder {
+  events: OrderEvent[];
+  appeal: AdminAppeal | null;
+}
+
+/** 订单筛选条件（金额单位：分） */
+export interface OrderFilters {
+  from?: string;
+  to?: string;
+  status?: OrderStatus | "all";
+  merchantId?: string;
+  payerId?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  query?: string;
+}
+
+/* ------------------------------------------------------------------ 申诉 */
+
+export type AppealStatus = "pending" | "resolved" | "rejected" | "unknown";
+
+/** 申诉记录 */
+export interface AdminAppeal {
+  id: string;
+  orderId: string;
+  orderNo: string;
+  reason: string;
+  status: AppealStatus;
+  createdAt: string | null;
+  payerName: string | null;
+  merchantName: string | null;
+  amountCents: number | null;
+  handledNote: string | null;
+}
+
+/* ------------------------------------------------------------------ 统计 */
+
+/** 商家排行行 */
+export interface MerchantRank {
+  id: string;
+  name: string;
+  amountCents: number;
+  orderCount: number;
+}
+
+/** 支付方式占比 */
+export interface PaymentMethodStat {
+  method: PayChannel;
+  label: string;
+  count: number;
+  amountCents: number;
+}
+
+/** 转化漏斗步骤 */
+export interface FunnelStep {
+  key: string;
+  label: string;
+  count: number;
+}
+
+/** GET /admin/stats */
+export interface AdminStats {
+  trend: TrendBucket[];
+  merchantRanking: MerchantRank[];
+  paymentMethods: PaymentMethodStat[];
+  funnel: FunnelStep[];
+  avgConfirmMinutes: number;
+}
+
+/* -------------------------------------------------------------- 系统状态 */
+
+export type ServiceHealth = "up" | "degraded" | "down" | "unknown";
+
+export interface ServiceStatus {
+  name: string;
+  status: ServiceHealth;
+  latencyMs: number | null;
+  /** 错误率，单位：百分比（0-100） */
+  errorRate: number | null;
+  /** 可用率，单位：百分比（0-100） */
+  uptime: number | null;
+}
+
+export interface MailStatus {
+  /** 成功率，单位：百分比（0-100） */
+  successRate: number;
+  sent: number;
+  failed: number;
+}
+
+export interface CampuxStatus {
+  ok: boolean;
+  latencyMs: number | null;
+  message: string | null;
+}
+
+export interface StorageStatus {
+  dbSizeBytes: number;
+  uploadsSizeBytes: number;
+  /** 磁盘占用，单位：百分比（0-100） */
+  diskUsedPercent: number | null;
+}
+
+export interface QueueStatus {
+  pending: number;
+  failed: number;
+  processed: number | null;
+}
+
+export interface SystemAlert {
+  id: string;
+  level: BadgeTone;
+  message: string;
+}
+
+/** GET /admin/system/status */
+export interface SystemStatus {
+  services: ServiceStatus[];
+  mail: MailStatus;
+  campux: CampuxStatus;
+  storage: StorageStatus;
+  queue: QueueStatus;
+  alerts: SystemAlert[];
+  updatedAt: string | null;
+}
+
+/* ------------------------------------------------------------------ 公告 */
+
+export type AnnouncementStatus = "scheduled" | "active" | "expired";
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  pinned: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+/** 新建/编辑公告入参 */
+export interface AnnouncementInput {
+  title: string;
+  content: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  pinned: boolean;
+}
+
+/* ------------------------------------------------------------------ 日志 */
+
+export type LogType = "audit" | "login" | "risk" | "error";
+
+/** 日志行（不同页签按类型展示不同列） */
+export interface AdminLog {
+  id: string;
+  type: LogType;
+  createdAt: string | null;
+  actorName: string | null;
+  action: string | null;
+  target: string | null;
+  detail: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  result: string | null;
+  level: string | null;
+  message: string | null;
+}
+
+/** 日志筛选条件 */
+export interface LogFilters {
+  from?: string;
+  to?: string;
+  query?: string;
+}
+
+/* ------------------------------------------------------------------ 配置 */
+
+export interface MailConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  fromName: string;
+  fromAddress: string;
+  /** 是否已配置 SMTP 密码（不回显明文） */
+  passwordConfigured: boolean;
+}
+
+export interface SecurityConfig {
+  /** 支付密码连续错误次数上限 */
+  paymentPasswordMaxAttempts: number;
+  /** 支付密码锁定时长（分钟） */
+  paymentPasswordLockMinutes: number;
+  /** 单笔金额上限（分） */
+  singlePaymentLimitCents: number;
+  /** 每日金额上限（分） */
+  dailyPaymentLimitCents: number;
+  /** 动态码有效期（秒） */
+  dynamicCodeTtlSeconds: number;
+  /** 邮箱验证码有效期（秒） */
+  emailCodeTtlSeconds: number;
+  /** 会话有效天数 */
+  sessionTtlDays: number;
+}
+
+/** GET /admin/config */
+export interface AdminConfig {
+  mail: MailConfig;
+  security: SecurityConfig;
+}
+
+/** PUT /admin/config 入参 */
+export interface AdminConfigInput {
+  mail: {
+    host: string;
+    port: number;
+    secure: boolean;
+    username: string;
+    fromName: string;
+    fromAddress: string;
+    /** 仅当填写新密码时提交 */
+    password?: string;
+  };
+  security: SecurityConfig;
+}
+
+/* ------------------------------------------------------------- 通用查询 */
+
+export type AdminQuery = Record<
+  string,
+  string | number | boolean | null | undefined
+>;

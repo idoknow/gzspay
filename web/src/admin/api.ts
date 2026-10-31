@@ -1,0 +1,1441 @@
+/**
+ * 管理后台 API 客户端。
+ * 统一处理：X-Requested-With（CSRF）、鉴权失效回调、分页/字段容错解析、CSV 下载。
+ * 路径均相对 /api（由 web/src/lib/http.ts 的 request 拼接）。
+ */
+import { ApiError, request } from "../lib/http";
+import { formatMonthLabel, payChannelLabel, trendLabel } from "./format";
+import {
+  firstArray,
+  firstBoolean,
+  firstNumber,
+  firstText,
+  isRecord,
+  isoOrNull,
+  nameOf,
+  numberOr,
+  pickPage,
+  ratioToPercent,
+  record,
+  text,
+  textOr,
+} from "./normalize";
+import type {
+  AdminAppeal,
+  AdminConfig,
+  AdminConfigInput,
+  AdminIdentity,
+  AdminLog,
+  AdminMember,
+  AdminOrder,
+  AdminOrderDetail,
+  AdminQuery,
+  AdminRole,
+  AdminSession,
+  AdminStats,
+  AdminUser,
+  AdminUserDetail,
+  Announcement,
+  AnnouncementInput,
+  AppealStatus,
+  DailyBucket,
+  FunnelStep,
+  LogFilters,
+  LogType,
+  MailStatus,
+  MonthlyBucket,
+  MonthlyData,
+  OrderEvent,
+  OrderFilters,
+  OrderStatus,
+  Overview,
+  Page,
+  PayChannel,
+  PaymentMethodStat,
+  SecurityConfig,
+  ServiceHealth,
+  ServiceStatus,
+  StorageStatus,
+  SystemAlert,
+  SystemStatus,
+  TodoItem,
+  TrendBucket,
+  UserDetailPayload,
+} from "./types";
+
+/* ------------------------------------------------------------ 基础请求层 */
+
+const CSRF_HEADERS: Record<string, string> = { "X-Requested-With": "gzspay" };
+
+type AuthInvalidReason = "anonymous" | "pending2fa";
+
+let authInvalidHandler: ((reason: AuthInvalidReason) => void) | null = null;
+
+/** 注册鉴权失效回调（401 / ADMIN_2FA_REQUIRED），由 AdminApp 在挂载时注入 */
+export function setAuthInvalidHandler(
+  handler: ((reason: AuthInvalidReason) => void) | null,
+): void {
+  authInvalidHandler = handler;
+}
+
+function notifyAuthInvalid(error: unknown): void {
+  if (!(error instanceof ApiError)) return;
+  const authCode =
+    error.code === "UNAUTHENTICATED" || error.code === "ADMIN_2FA_REQUIRED";
+  if (error.status === 401 || authCode) {
+    authInvalidHandler?.(
+      error.code === "ADMIN_2FA_REQUIRED" ? "pending2fa" : "anonymous",
+    );
+  }
+}
+
+async function getJson<T>(
+  path: string,
+  query?: AdminQuery,
+  notify = true,
+): Promise<T> {
+  try {
+    return await request<T>(path, { query, headers: CSRF_HEADERS });
+  } catch (error) {
+    if (notify) notifyAuthInvalid(error);
+    throw error;
+  }
+}
+
+type WriteMethod = "POST" | "PATCH" | "PUT" | "DELETE";
+
+async function writeJson<T>(
+  method: WriteMethod,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  try {
+    return await request<T>(path, { method, body, headers: CSRF_HEADERS });
+  } catch (error) {
+    notifyAuthInvalid(error);
+    throw error;
+  }
+}
+
+async function postAction(path: string, body?: unknown): Promise<void> {
+  await writeJson<unknown>("POST", path, body);
+}
+
+/* ------------------------------------------------------------ 基础映射器 */
+
+function mapRole(value: unknown): AdminRole {
+  const role = text(value);
+  if (role === "super" || role === "ops" || role === "auditor") return role;
+  return "auditor";
+}
+
+function mapAdminIdentity(raw: unknown): AdminIdentity {
+  const source = record(raw);
+  return {
+    id: textOr(
+      firstText(source, ["id", "adminId", "userId"]),
+      "unknown",
+    ),
+    displayName: textOr(
+      firstText(source, ["displayName", "name", "fullName"]),
+      "管理员",
+    ),
+    emailMasked: firstText(source, ["emailMasked", "email"]),
+    role: mapRole(firstText(source, ["role"])),
+    createdAt: isoOrNull(firstText(source, ["createdAt", "joinedAt"])),
+  };
+}
+
+function mapSessionPayload(payload: unknown): AdminSession {
+  const source = record(payload);
+  const adminSource = isRecord(source.admin)
+    ? source.admin
+    : isRecord(source.profile)
+      ? source.profile
+      : null;
+  const identity = adminSource
+    ? mapAdminIdentity(adminSource)
+    : firstText(source, ["displayName", "name", "fullName", "role"])
+      ? mapAdminIdentity(source)
+      : null;
+  const pending2fa = firstBoolean(source, [
+    "pending2fa",
+    "needs2fa",
+    "requires2fa",
+    "pending2FA",
+  ]);
+  let authenticated = firstBoolean(source, ["authenticated", "loggedIn"]) ?? false;
+  if (!authenticated && identity && pending2fa !== true) authenticated = true;
+  if (!authenticated && source.ok === true && identity) authenticated = true;
+  const emailMasked =
+    firstText(source, ["emailMasked", "email"]) ?? identity?.emailMasked ?? null;
+  return {
+    authenticated,
+    pending2fa: !authenticated && (pending2fa ?? false),
+    admin: authenticated ? identity : null,
+    emailMasked,
+  };
+}
+
+function mapTone(
+  value: string | null,
+  fallback: "primary" | "success" | "warning" | "danger" | "neutral" = "primary",
+): "primary" | "success" | "warning" | "danger" | "neutral" | "accent" {
+  switch ((value ?? "").toLowerCase()) {
+    case "success":
+    case "ok":
+    case "up":
+      return "success";
+    case "warn":
+    case "warning":
+    case "degraded":
+      return "warning";
+    case "danger":
+    case "error":
+    case "critical":
+    case "down":
+      return "danger";
+    case "info":
+    case "primary":
+      return "primary";
+    case "accent":
+    case "todo":
+      return "accent";
+    case "neutral":
+      return "neutral";
+    default:
+      return fallback;
+  }
+}
+
+/* ------------------------------------------------------------------ 认证 */
+
+/** 发起校园墙 OAuth 登录的地址（整页跳转，不走 fetch） */
+export const ADMIN_LOGIN_URL = "/api/admin/auth/login";
+
+/** GET /admin/auth/session */
+export async function fetchSession(): Promise<AdminSession> {
+  try {
+    const payload = await getJson<unknown>("/admin/auth/session", undefined, false);
+    return mapSessionPayload(payload);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.code === "ADMIN_2FA_REQUIRED") {
+        return {
+          authenticated: false,
+          pending2fa: true,
+          admin: null,
+          emailMasked: text(record(error.details).emailMasked),
+        };
+      }
+      if (error.status === 401 || error.code === "UNAUTHENTICATED") {
+        return {
+          authenticated: false,
+          pending2fa: false,
+          admin: null,
+          emailMasked: null,
+        };
+      }
+    }
+    throw error;
+  }
+}
+
+export interface VerifyResult {
+  admin: AdminIdentity | null;
+}
+
+/** POST /admin/auth/verify */
+export async function verifyAdminCode(code: string): Promise<VerifyResult> {
+  const payload = await writeJson<unknown>("POST", "/admin/auth/verify", { code });
+  const source = record(payload);
+  const adminSource = isRecord(source.admin) ? source.admin : null;
+  return { admin: adminSource ? mapAdminIdentity(adminSource) : null };
+}
+
+/** POST /admin/auth/logout */
+export async function logoutAdmin(): Promise<void> {
+  await postAction("/admin/auth/logout");
+}
+
+/* ------------------------------------------------------------------ 总览 */
+
+function mapAmountCents(source: Record<string, unknown>, keys: string[]): number {
+  return numberOr(firstNumber(source, keys), 0);
+}
+
+function mapTrendBucket(raw: unknown, index: number): TrendBucket {
+  const source = record(raw);
+  const key =
+    firstText(source, ["key", "month", "date", "bucket", "label"]) ??
+    `bucket-${index}`;
+  const label = firstText(source, ["label"]) ?? trendLabel(key);
+  return {
+    key,
+    label,
+    amountCents: mapAmountCents(source, [
+      "amountCents",
+      "amount",
+      "totalCents",
+      "totalAmountCents",
+      "value",
+    ]),
+    orderCount: numberOr(
+      firstNumber(source, ["orderCount", "count", "orders", "orderNum"]),
+      0,
+    ),
+  };
+}
+
+function mapTrendList(raw: unknown[]): TrendBucket[] {
+  return raw.map(mapTrendBucket);
+}
+
+function mapTodo(raw: unknown, index: number): TodoItem {
+  const source = record(raw);
+  return {
+    id: textOr(firstText(source, ["id"]), `todo-${index}`),
+    title: textOr(
+      firstText(source, ["title", "name", "label", "message"]),
+      "待处理事项",
+    ),
+    detail: firstText(source, ["detail", "description", "desc"]),
+    level: mapTone(firstText(source, ["level", "tone", "type", "severity"])),
+    createdAt: isoOrNull(firstText(source, ["createdAt", "time"])),
+  };
+}
+
+/** GET /admin/overview */
+export async function getOverview(): Promise<Overview> {
+  const payload = await getJson<unknown>("/admin/overview");
+  const source = record(payload);
+  const nested = record(source.metrics ?? source.summary ?? source.cards);
+  const metric = (keys: string[]): number => {
+    const direct = firstNumber(source, keys);
+    if (direct !== null) return direct;
+    const deep = firstNumber(nested, keys);
+    return deep ?? 0;
+  };
+  return {
+    totalAmountCents: metric([
+      "totalAmountCents",
+      "totalTransactionCents",
+      "totalCents",
+      "totalAmount",
+    ]),
+    monthAmountCents: metric([
+      "monthAmountCents",
+      "currentMonthAmountCents",
+      "monthCents",
+      "monthlyAmountCents",
+    ]),
+    todayOrderCount: metric([
+      "todayOrderCount",
+      "todayOrders",
+      "todayOrderNum",
+      "ordersToday",
+    ]),
+    userCount: metric(["userCount", "users", "totalUsers", "userTotal"]),
+    merchantCount: metric([
+      "merchantCount",
+      "merchants",
+      "totalMerchants",
+      "merchantTotal",
+    ]),
+    trend: mapTrendList(
+      firstArray(source, ["trend", "trends", "monthlyTrend", "months", "buckets"]),
+    ),
+    recentOrders: firstArray(source, [
+      "recentOrders",
+      "latestOrders",
+      "orders",
+    ]).map(mapOrder),
+    todos: firstArray(source, ["todos", "pendingItems", "todoList", "alerts"]).map(
+      mapTodo,
+    ),
+  };
+}
+
+/* -------------------------------------------------------------- 每月交易额 */
+
+function mapDailyBucket(
+  raw: unknown,
+  index: number,
+  fallbackMonth: string,
+): DailyBucket {
+  const source = record(raw);
+  const key =
+    firstText(source, ["key", "date", "day", "label"]) ??
+    `${fallbackMonth}-${String(index + 1).padStart(2, "0")}`;
+  const label = firstText(source, ["label"]) ?? trendLabel(key);
+  return {
+    key,
+    label,
+    amountCents: mapAmountCents(source, [
+      "amountCents",
+      "amount",
+      "totalCents",
+      "value",
+    ]),
+    orderCount: numberOr(
+      firstNumber(source, ["orderCount", "count", "orders"]),
+      0,
+    ),
+  };
+}
+
+function mapMonthlyBucket(
+  raw: unknown,
+  index: number,
+  year: number,
+): MonthlyBucket {
+  const monthKey = `${year}-${String(index + 1).padStart(2, "0")}`;
+  const dailySource = firstArray(record(raw), [
+    "days",
+    "daily",
+    "dailyTrend",
+    "buckets",
+    "daysTrend",
+  ]);
+  const base = mapDailyBucket(raw, index, String(year));
+  const key = /^\d{4}-\d{2}$/.test(base.key) ? base.key : monthKey;
+  return {
+    ...base,
+    key,
+    label: formatMonthLabel(key),
+    days: dailySource.map((item, dayIndex) =>
+      mapDailyBucket(item, dayIndex, key),
+    ),
+  };
+}
+
+/** GET /admin/monthly?year=2026 */
+export async function getMonthly(year: number): Promise<MonthlyData> {
+  const payload = await getJson<unknown>("/admin/monthly", { year });
+  const source = record(payload);
+  const monthsRaw = firstArray(source, ["months", "items", "buckets", "data"]);
+  return {
+    year: numberOr(firstNumber(source, ["year"]), year),
+    months: monthsRaw.map((row, index) => mapMonthlyBucket(row, index, year)),
+  };
+}
+
+/**
+ * 兜底按月份拉取每日趋势：GET /admin/monthly?year=2026&month=01
+ * 仅当总体响应中某月的 days 为空时调用。
+ */
+export async function getMonthlyDays(
+  year: number,
+  monthKey: string,
+): Promise<DailyBucket[]> {
+  const month = monthKey.length >= 7 ? monthKey.slice(5, 7) : monthKey;
+  const payload = await getJson<unknown>("/admin/monthly", { year, month });
+  if (Array.isArray(payload)) {
+    return payload.map((row, index) =>
+      mapDailyBucket(row, index, monthKey),
+    );
+  }
+  const source = record(payload);
+  const yearPrefix = monthKey.slice(0, 4) || String(year);
+  const fallbackMonth = `${yearPrefix}-${month}`;
+  return firstArray(source, ["days", "buckets", "items", "data", "daily"]).map(
+    (row, index) => mapDailyBucket(row, index, fallbackMonth),
+  );
+}
+
+/* ---------------------------------------------------------------- 用户管理 */
+
+function mapUser(raw: unknown): AdminUser {
+  const source = record(raw);
+  const frozenRaw =
+    firstBoolean(source, ["frozen", "isFrozen", "locked", "isLocked"]) ?? false;
+  const statusText = text(firstText(source, ["status", "state"]));
+  return {
+    id: textOr(firstText(source, ["id", "userId"]), ""),
+    displayName: textOr(
+      firstText(source, ["displayName", "name", "fullName"]),
+      "未知用户",
+    ),
+    avatarUrl: firstText(source, ["avatarUrl", "avatar"]),
+    studentNoMasked: firstText(source, ["studentNoMasked", "studentNo"]),
+    emailMasked: firstText(source, ["emailMasked", "email"]),
+    isMerchant:
+      firstBoolean(source, ["isMerchant", "merchant"]) ?? false,
+    frozen:
+      frozenRaw || statusText === "frozen" || statusText === "locked",
+    createdAt: isoOrNull(firstText(source, ["createdAt", "registeredAt"])),
+    orderCount: numberOr(
+      firstNumber(source, ["orderCount", "orders", "orderTotal"]),
+      0,
+    ),
+    totalAmountCents: mapAmountCents(source, [
+      "totalAmountCents",
+      "totalCents",
+      "totalAmount",
+    ]),
+  };
+}
+
+function mapUserDetail(raw: unknown): AdminUserDetail {
+  const user = mapUser(raw);
+  const source = record(raw);
+  return {
+    ...user,
+    studentNo: firstText(source, ["studentNo"]),
+    email: firstText(source, ["email"]),
+    cardNoMasked: firstText(source, ["cardNoMasked", "cardNo"]),
+    lastLoginAt: isoOrNull(
+      firstText(source, ["lastLoginAt", "lastLogin", "lastSeenAt"]),
+    ),
+    frozenReason: firstText(source, ["frozenReason", "lockReason", "freezeReason"]),
+  };
+}
+
+function mapPage<T>(payload: unknown, mapper: (raw: unknown, index: number) => T): Page<T> {
+  const rawPage = pickPage(payload);
+  return {
+    items: rawPage.rows.map(mapper),
+    total: rawPage.total,
+    page: rawPage.page,
+    pageSize: rawPage.pageSize,
+  };
+}
+
+/** GET /admin/users?query&page&pageSize */
+export async function getUsers(
+  query: string,
+  page: number,
+  pageSize: number,
+): Promise<Page<AdminUser>> {
+  const payload = await getJson<unknown>("/admin/users", {
+    query: query.trim() || undefined,
+    page,
+    pageSize,
+  });
+  return mapPage(payload, mapUser);
+}
+
+/** GET /admin/users/:id */
+export async function getUserDetail(id: string): Promise<UserDetailPayload> {
+  const payload = await getJson<unknown>(`/admin/users/${encodeURIComponent(id)}`);
+  const source = record(payload);
+  const user = mapUserDetail(isRecord(source.user) ? source.user : source);
+  const recentOrders = firstArray(source, ["recentOrders", "orders", "recent"]).map(
+    mapOrder,
+  );
+  return {
+    user,
+    orderCount:
+      numberOr(
+        firstNumber(source, ["orderCount", "orders", "orderTotal"]),
+        recentOrders.length,
+      ) || user.orderCount,
+    totalAmountCents:
+      firstNumber(source, ["totalAmountCents", "totalCents", "totalAmount"]) ??
+      user.totalAmountCents,
+    recentOrders,
+  };
+}
+
+/** POST /admin/users/:id/freeze —— 冻结用户 */
+export async function freezeUser(id: string): Promise<void> {
+  await postAction(`/admin/users/${encodeURIComponent(id)}/freeze`);
+}
+
+/** POST /admin/users/:id/unfreeze —— 解冻用户 */
+export async function unfreezeUser(id: string): Promise<void> {
+  await postAction(`/admin/users/${encodeURIComponent(id)}/unfreeze`);
+}
+
+/** POST /admin/users/:id/reset-card —— 重置绑卡（需用户重新绑卡） */
+export async function resetUserCard(id: string): Promise<void> {
+  await postAction(`/admin/users/${encodeURIComponent(id)}/reset-card`);
+}
+
+/** POST /admin/users/:id/force-logout —— 强制下线 */
+export async function forceLogoutUser(id: string): Promise<void> {
+  await postAction(`/admin/users/${encodeURIComponent(id)}/force-logout`);
+}
+
+/** GET /admin/users/growth?months=12 */
+export async function getUsersGrowth(months = 12): Promise<TrendBucket[]> {
+  const payload = await getJson<unknown>("/admin/users/growth", { months });
+  const source = record(payload);
+  const buckets = firstArray(source, ["buckets", "months", "items", "data", "trend"]);
+  return buckets.map((raw, index) => {
+    const item = record(raw);
+    const key =
+      firstText(item, ["key", "month", "date", "label"]) ?? `bucket-${index}`;
+    return {
+      key,
+      label: firstText(item, ["label"]) ?? trendLabel(key),
+      amountCents: 0,
+      orderCount: numberOr(
+        firstNumber(item, ["count", "value", "newUsers", "users", "total"]),
+        0,
+      ),
+    };
+  });
+}
+
+/* --------------------------------------------------------------- 管理员管理 */
+
+function mapAdminMember(raw: unknown): AdminMember {
+  const source = record(raw);
+  const userId = firstText(source, ["userId", "id", "adminUserId"]);
+  return {
+    id: textOr(firstText(source, ["id", "adminId"]), userId ?? ""),
+    userId: textOr(userId, ""),
+    displayName: textOr(
+      firstText(source, ["displayName", "name", "fullName"]),
+      "管理员",
+    ),
+    emailMasked: firstText(source, ["emailMasked", "email"]),
+    role: mapRole(firstText(source, ["role"])),
+    createdAt: isoOrNull(firstText(source, ["createdAt", "joinedAt"])),
+  };
+}
+
+/** GET /admin/admins */
+export async function getAdmins(): Promise<AdminMember[]> {
+  const payload = await getJson<unknown>("/admin/admins");
+  const source = record(payload);
+  const rows = Array.isArray(payload)
+    ? payload
+    : firstArray(source, ["items", "admins", "data", "list"]);
+  return rows.map(mapAdminMember);
+}
+
+/** POST /admin/admins */
+export async function addAdmin(userId: string, role: AdminRole): Promise<void> {
+  await postAction("/admin/admins", { userId, role });
+}
+
+/** DELETE /admin/admins/:userId */
+export async function removeAdmin(userId: string): Promise<void> {
+  await writeJson<unknown>("DELETE", `/admin/admins/${encodeURIComponent(userId)}`);
+}
+
+/* ---------------------------------------------------------------- 交易明细 */
+
+function mapOrderStatus(value: string | null): OrderStatus {
+  switch ((value ?? "").toLowerCase()) {
+    case "pending_payment":
+    case "pending":
+    case "unpaid":
+    case "待付款":
+      return "pending_payment";
+    case "paid":
+    case "已支付":
+      return "paid";
+    case "completed":
+    case "complete":
+    case "settled":
+    case "已支付完成":
+    case "已完成":
+      return "completed";
+    case "cancelled":
+    case "canceled":
+    case "closed":
+    case "已取消":
+      return "cancelled";
+    default:
+      return "unknown";
+  }
+}
+
+function mapPayChannel(value: unknown): PayChannel | null {
+  const channel = text(value);
+  if (!channel) return null;
+  switch (channel) {
+    case "alipay":
+    case "wechat":
+    case "qq":
+      return channel;
+    default:
+      return "unknown";
+  }
+}
+
+function mapOrder(raw: unknown): AdminOrder {
+  const source = record(raw);
+  const merchantSource = source.merchant ?? source.merchantUser;
+  const payerSource = source.payer ?? source.payerUser;
+  const appealRaw = source.appeal;
+  const hasAppealFlag = firstBoolean(source, ["hasAppeal", "appeal"]);
+  return {
+    id: textOr(firstText(source, ["id", "orderId"]), ""),
+    orderNo: textOr(
+      firstText(source, ["orderNo", "orderNumber", "no"]),
+      "—",
+    ),
+    amountCents: mapAmountCents(source, [
+      "amountCents",
+      "amount",
+      "totalCents",
+      "totalAmountCents",
+    ]),
+    status: mapOrderStatus(firstText(source, ["status"])),
+    title: textOr(
+      firstText(source, ["title", "summary", "subject", "itemTitle"]),
+      "自定义付款",
+    ),
+    payChannel: mapPayChannel(
+      firstText(source, ["payChannel", "channel", "paymentMethod"]),
+    ),
+    createdAt: isoOrNull(firstText(source, ["createdAt", "createdTime"])),
+    paidAt: isoOrNull(firstText(source, ["paidAt", "payTime"])),
+    completedAt: isoOrNull(firstText(source, ["completedAt", "completeTime"])),
+    cancelledAt: isoOrNull(firstText(source, ["cancelledAt", "cancelTime"])),
+    merchantName: textOr(
+      firstText(source, ["merchantName", "merchantDisplayName"]) ??
+        nameOf(merchantSource),
+      "—",
+    ),
+    payerName: textOr(
+      firstText(source, ["payerName", "payerNameSnapshot", "payerDisplayName"]) ??
+        nameOf(payerSource),
+      "—",
+    ),
+    merchantUserId:
+      firstText(source, ["merchantUserId", "merchantId"]) ??
+      (isRecord(merchantSource)
+        ? firstText(merchantSource, ["id", "userId"])
+        : null),
+    payerUserId:
+      firstText(source, ["payerUserId", "payerId"]) ??
+      (isRecord(payerSource) ? firstText(payerSource, ["id", "userId"]) : null),
+    hasAppeal: hasAppealFlag ?? (appealRaw !== null && appealRaw !== undefined),
+    flagged: firstBoolean(source, ["flagged", "abnormal", "isFlagged"]) ?? false,
+    flagReason: firstText(source, [
+      "flagReason",
+      "abnormalReason",
+      "flaggedReason",
+    ]),
+    reservedNote: firstText(source, ["reservedNote", "note", "remark"]),
+    actualNote: firstText(source, ["actualNote", "actualPayNote"]),
+    cancelReason: firstText(source, ["cancelReason", "reason"]),
+  };
+}
+
+function mapOrderEvent(raw: unknown, index: number): OrderEvent {
+  const source = record(raw);
+  return {
+    id: textOr(firstText(source, ["id"]), `event-${index}`),
+    type: textOr(firstText(source, ["type", "eventType"]), "event"),
+    actorRole: textOr(firstText(source, ["actorRole", "role"]), ""),
+    detail: firstText(source, ["detail", "description", "note"]),
+    createdAt: isoOrNull(firstText(source, ["createdAt", "time"])),
+  };
+}
+
+function mapAppealStatus(value: string | null): AppealStatus {
+  switch ((value ?? "").toLowerCase()) {
+    case "open":
+    case "pending":
+      return "pending";
+    case "closed":
+    case "resolved":
+      return "resolved";
+    case "flagged":
+    case "rejected":
+      return "rejected";
+    default:
+      return "unknown";
+  }
+}
+
+function mapAppeal(raw: unknown, order?: AdminOrder): AdminAppeal {
+  const source = record(raw);
+  const nestedOrder = record(source.order);
+  return {
+    id: textOr(firstText(source, ["id", "appealId"]), ""),
+    orderId:
+      firstText(source, ["orderId"]) ??
+      firstText(nestedOrder, ["id"]) ??
+      order?.id ??
+      "",
+    orderNo:
+      firstText(source, ["orderNo"]) ??
+      firstText(nestedOrder, ["orderNo"]) ??
+      order?.orderNo ??
+      "—",
+    reason: textOr(
+      firstText(source, ["reason", "appealReason", "description", "content"]),
+      "—",
+    ),
+    status: mapAppealStatus(firstText(source, ["status"])),
+    createdAt: isoOrNull(firstText(source, ["createdAt", "time"])),
+    payerName:
+      firstText(source, ["payerName"]) ?? order?.payerName ?? null,
+    merchantName:
+      firstText(source, ["merchantName"]) ?? order?.merchantName ?? null,
+    amountCents:
+      firstNumber(source, ["amountCents", "amount"]) ??
+      firstNumber(nestedOrder, ["amountCents", "amount"]) ??
+      order?.amountCents ??
+      null,
+    handledNote: firstText(source, ["handledNote", "note", "resolution"]),
+  };
+}
+
+function mapOrderDetail(payload: unknown): AdminOrderDetail {
+  const source = record(payload);
+  const orderRaw = isRecord(source.order) ? source.order : source;
+  const order = mapOrder(orderRaw);
+  const orderSource = record(orderRaw);
+  let eventsRaw = firstArray(source, ["events", "timeline", "orderEvents"]);
+  if (eventsRaw.length === 0) {
+    eventsRaw = firstArray(orderSource, ["events", "timeline", "orderEvents"]);
+  }
+  const appealRaw = source.appeal ?? orderSource.appeal;
+  return {
+    ...order,
+    events: eventsRaw.map(mapOrderEvent),
+    appeal: isRecord(appealRaw) ? mapAppeal(appealRaw, order) : null,
+  };
+}
+
+function buildOrderQuery(filters: OrderFilters): AdminQuery {
+  return {
+    from: filters.from,
+    to: filters.to,
+    status: filters.status && filters.status !== "all" ? filters.status : undefined,
+    merchantId: filters.merchantId?.trim() || undefined,
+    payerId: filters.payerId?.trim() || undefined,
+    minAmount: typeof filters.minAmount === "number" ? filters.minAmount : undefined,
+    maxAmount: typeof filters.maxAmount === "number" ? filters.maxAmount : undefined,
+    query: filters.query?.trim() || undefined,
+  };
+}
+
+/** GET /admin/orders?... */
+export async function getOrders(
+  filters: OrderFilters,
+  page: number,
+  pageSize: number,
+): Promise<Page<AdminOrder>> {
+  const payload = await getJson<unknown>("/admin/orders", {
+    ...buildOrderQuery(filters),
+    page,
+    pageSize,
+  });
+  return mapPage(payload, mapOrder);
+}
+
+/** GET /admin/orders/:id */
+export async function getOrderDetail(id: string): Promise<AdminOrderDetail> {
+  const payload = await getJson<unknown>(
+    `/admin/orders/${encodeURIComponent(id)}`,
+  );
+  return mapOrderDetail(payload);
+}
+
+/** POST /admin/orders/:id/close */
+export async function closeOrder(id: string, note: string): Promise<void> {
+  await postAction(`/admin/orders/${encodeURIComponent(id)}/close`, { note });
+}
+
+/** POST /admin/orders/:id/flag */
+export async function flagOrder(id: string, note: string): Promise<void> {
+  await postAction(`/admin/orders/${encodeURIComponent(id)}/flag`, { note });
+}
+
+/* ------------------------------------------------------------------ 申诉 */
+
+/** GET /admin/appeals?status&page&pageSize */
+export async function getAppeals(
+  status: AppealStatus | "all",
+  page: number,
+  pageSize: number,
+): Promise<Page<AdminAppeal>> {
+  const payload = await getJson<unknown>("/admin/appeals", {
+    status: status !== "all" && status !== "unknown" ? status : undefined,
+    page,
+    pageSize,
+  });
+  return mapPage(payload, (raw) => mapAppeal(raw));
+}
+
+/** POST /admin/appeals/:id/handle */
+export async function handleAppeal(
+  id: string,
+  status: "resolved" | "rejected",
+  note: string,
+): Promise<void> {
+  await postAction(`/admin/appeals/${encodeURIComponent(id)}/handle`, {
+    status,
+    note,
+  });
+}
+
+/* ---------------------------------------------------------------- 数据统计 */
+
+function mapMerchantRank(raw: unknown, index: number): {
+  id: string;
+  name: string;
+  amountCents: number;
+  orderCount: number;
+} {
+  const source = record(raw);
+  return {
+    id: textOr(firstText(source, ["id", "userId", "merchantId"]), `rank-${index}`),
+    name: textOr(
+      firstText(source, ["name", "displayName", "merchantName"]),
+      "未知商家",
+    ),
+    amountCents: mapAmountCents(source, [
+      "amountCents",
+      "totalCents",
+      "amount",
+      "totalAmountCents",
+    ]),
+    orderCount: numberOr(
+      firstNumber(source, ["orderCount", "count", "orders"]),
+      0,
+    ),
+  };
+}
+
+function mapPaymentMethod(raw: unknown, index: number): PaymentMethodStat {
+  const source = record(raw);
+  const methodRaw = text(firstText(source, ["method", "channel", "payChannel"]));
+  const method: PayChannel =
+    methodRaw === "alipay" || methodRaw === "wechat" || methodRaw === "qq"
+      ? methodRaw
+      : "unknown";
+  return {
+    method,
+    label:
+      textOr(firstText(source, ["label", "name"]), payChannelLabel(method)) ||
+      `其他 ${index + 1}`,
+    count: numberOr(firstNumber(source, ["count", "orderCount", "value"]), 0),
+    amountCents: mapAmountCents(source, [
+      "amountCents",
+      "amount",
+      "totalCents",
+      "value",
+    ]),
+  };
+}
+
+function mapFunnel(value: unknown): FunnelStep[] {
+  const labels = ["创建订单", "已支付", "已完成"];
+  const keys = ["created", "paid", "completed"] as const;
+  if (Array.isArray(value)) {
+    return value.map((raw, index) => {
+      const source = record(raw);
+      return {
+        key: textOr(firstText(source, ["key"]), keys[index] ?? `step-${index}`),
+        label: textOr(
+          firstText(source, ["label", "name"]),
+          labels[index] ?? `步骤 ${index + 1}`,
+        ),
+        count: numberOr(firstNumber(source, ["count", "value"]), 0),
+      };
+    });
+  }
+  const source = record(value);
+  return keys.map((key, index) => ({
+    key,
+    label: labels[index] ?? key,
+    count: numberOr(
+      firstNumber(source, [key, `${key}Count`, `${key}Orders`]),
+      0,
+    ),
+  }));
+}
+
+/** GET /admin/stats */
+export async function getStats(): Promise<AdminStats> {
+  const payload = await getJson<unknown>("/admin/stats");
+  const source = record(payload);
+  const avgFromSeconds = firstNumber(source, [
+    "avgConfirmSeconds",
+    "averageConfirmSeconds",
+  ]);
+  const avgFromMinutes = firstNumber(source, [
+    "avgConfirmMinutes",
+    "averageConfirmMinutes",
+    "avgConfirmDurationMinutes",
+  ]);
+  return {
+    trend: mapTrendList(
+      firstArray(source, ["trend", "trends", "timeseries", "buckets", "months"]),
+    ),
+    merchantRanking: firstArray(source, [
+      "merchantRanking",
+      "merchantRank",
+      "topMerchants",
+      "merchants",
+    ]).map(mapMerchantRank),
+    paymentMethods: firstArray(source, [
+      "paymentMethods",
+      "payMethods",
+      "channels",
+      "paymentChannels",
+    ]).map(mapPaymentMethod),
+    funnel: mapFunnel(source.funnel ?? source.conversion),
+    avgConfirmMinutes:
+      avgFromMinutes ?? (avgFromSeconds !== null ? avgFromSeconds / 60 : 0),
+  };
+}
+
+/* ---------------------------------------------------------------- 系统状态 */
+
+function mapServiceHealth(value: string | null): ServiceHealth {
+  switch ((value ?? "").toLowerCase()) {
+    case "up":
+    case "ok":
+    case "healthy":
+    case "pass":
+    case "正常":
+      return "up";
+    case "degraded":
+    case "warn":
+    case "warning":
+    case "降级":
+      return "degraded";
+    case "down":
+    case "error":
+    case "fail":
+    case "critical":
+    case "异常":
+      return "down";
+    default:
+      return "unknown";
+  }
+}
+
+function mapServiceStatus(raw: unknown, fallbackName: string): ServiceStatus {
+  const source = record(raw);
+  return {
+    name: textOr(firstText(source, ["name", "service", "label"]), fallbackName),
+    status: mapServiceHealth(
+      firstText(source, ["status", "health", "state"]),
+    ),
+    latencyMs: firstNumber(source, [
+      "latencyMs",
+      "latency",
+      "avgLatencyMs",
+      "responseMs",
+    ]),
+    errorRate: ratioToPercent(
+      firstNumber(source, ["errorRate", "errorPercent", "failureRate"]),
+    ),
+    uptime: ratioToPercent(
+      firstNumber(source, ["uptime", "uptimeRate", "availability"]),
+    ),
+  };
+}
+
+function mapServices(value: unknown): ServiceStatus[] {
+  if (Array.isArray(value)) {
+    return value.map((raw, index) =>
+      mapServiceStatus(raw, `服务 ${index + 1}`),
+    );
+  }
+  const source = record(value);
+  return Object.entries(source).map(([name, raw]) => {
+    if (typeof raw === "string") {
+      return {
+        name,
+        status: mapServiceHealth(raw),
+        latencyMs: null,
+        errorRate: null,
+        uptime: null,
+      };
+    }
+    return mapServiceStatus(raw, name);
+  });
+}
+
+/** GET /admin/system/status */
+export async function getSystemStatus(): Promise<SystemStatus> {
+  const payload = await getJson<unknown>("/admin/system/status");
+  const source = record(payload);
+  const mailSource = record(source.mail ?? source.email ?? source.mailStatus);
+  const successRateRaw = firstNumber(mailSource, [
+    "successRate",
+    "successPercent",
+    "deliveryRate",
+  ]);
+  const mail: MailStatus = {
+    successRate: ratioToPercent(successRateRaw) ?? 0,
+    sent: numberOr(firstNumber(mailSource, ["sent", "total", "sentCount"]), 0),
+    failed: numberOr(
+      firstNumber(mailSource, ["failed", "failCount", "failure"]),
+      0,
+    ),
+  };
+  const campuxSource = record(
+    source.campux ?? source.oauth ?? source.campuxStatus,
+  );
+  const campuxStatusText = firstText(campuxSource, ["status", "state"]);
+  const campuxOkBoolean = firstBoolean(campuxSource, ["ok", "healthy", "connected"]);
+  const campux: {
+    ok: boolean;
+    latencyMs: number | null;
+    message: string | null;
+  } = {
+    ok:
+      campuxOkBoolean ??
+      (campuxStatusText !== null
+        ? mapServiceHealth(campuxStatusText) === "up"
+        : false),
+    latencyMs: firstNumber(campuxSource, ["latencyMs", "latency", "responseMs"]),
+    message: firstText(campuxSource, ["message", "detail", "error"]),
+  };
+  const storageSource = record(source.storage ?? source.disk ?? source.resources);
+  const storage: StorageStatus = {
+    dbSizeBytes: mapAmountCents(storageSource, [
+      "dbSizeBytes",
+      "databaseBytes",
+      "dbBytes",
+      "dbSize",
+    ]),
+    uploadsSizeBytes: mapAmountCents(storageSource, [
+      "uploadsSizeBytes",
+      "uploadBytes",
+      "filesBytes",
+      "uploadsSize",
+    ]),
+    diskUsedPercent: ratioToPercent(
+      firstNumber(storageSource, [
+        "diskUsedPercent",
+        "usedPercent",
+        "diskUsage",
+      ]),
+    ),
+  };
+  const queueSource = record(source.queue ?? source.jobs);
+  const alertsRaw = firstArray(source, ["alerts", "warnings", "issues"]);
+  const alerts: SystemAlert[] = alertsRaw.map((raw, index) => {
+    if (typeof raw === "string") {
+      return { id: `alert-${index}`, level: "danger", message: raw };
+    }
+    const item = record(raw);
+    return {
+      id: textOr(firstText(item, ["id"]), `alert-${index}`),
+      level: mapTone(firstText(item, ["level", "severity", "tone"]), "danger"),
+      message: textOr(
+        firstText(item, ["message", "title", "detail"]),
+        "检测到异常",
+      ),
+    };
+  });
+  return {
+    services: mapServices(source.services ?? source.checks),
+    mail,
+    campux,
+    storage,
+    queue: {
+      pending: numberOr(firstNumber(queueSource, ["pending", "waiting"]), 0),
+      failed: numberOr(firstNumber(queueSource, ["failed", "errors"]), 0),
+      processed: firstNumber(queueSource, ["processed", "done", "completed"]),
+    },
+    alerts,
+    updatedAt: isoOrNull(
+      firstText(source, ["updatedAt", "time", "checkedAt", "generatedAt"]),
+    ),
+  };
+}
+
+/* ------------------------------------------------------------------ 公告 */
+
+function mapAnnouncement(raw: unknown): Announcement {
+  const source = record(raw);
+  return {
+    id: textOr(firstText(source, ["id"]), ""),
+    title: textOr(firstText(source, ["title"]), "未命名公告"),
+    content: textOr(firstText(source, ["content", "body"]), ""),
+    startsAt: isoOrNull(firstText(source, ["startsAt", "startAt", "effectiveAt"])),
+    endsAt: isoOrNull(firstText(source, ["endsAt", "endAt", "expiresAt"])),
+    pinned: firstBoolean(source, ["pinned", "isPinned", "top"]) ?? false,
+    createdAt: isoOrNull(firstText(source, ["createdAt"])),
+    updatedAt: isoOrNull(firstText(source, ["updatedAt", "modifiedAt"])),
+  };
+}
+
+/** GET /admin/announcements */
+export async function getAnnouncements(): Promise<Announcement[]> {
+  const payload = await getJson<unknown>("/admin/announcements");
+  const source = record(payload);
+  const rows = Array.isArray(payload)
+    ? payload
+    : firstArray(source, ["items", "announcements", "data", "list"]);
+  return rows.map(mapAnnouncement);
+}
+
+/** POST /admin/announcements */
+export async function createAnnouncement(
+  input: AnnouncementInput,
+): Promise<void> {
+  await postAction("/admin/announcements", input);
+}
+
+/** PATCH /admin/announcements/:id */
+export async function updateAnnouncement(
+  id: string,
+  input: AnnouncementInput,
+): Promise<void> {
+  await writeJson<unknown>(
+    "PATCH",
+    `/admin/announcements/${encodeURIComponent(id)}`,
+    input,
+  );
+}
+
+/** DELETE /admin/announcements/:id */
+export async function deleteAnnouncement(id: string): Promise<void> {
+  await writeJson<unknown>(
+    "DELETE",
+    `/admin/announcements/${encodeURIComponent(id)}`,
+  );
+}
+
+/* ------------------------------------------------------------------ 日志 */
+
+function mapLog(raw: unknown, fallbackType: LogType): AdminLog {
+  const source = record(raw);
+  const typeText = text(firstText(source, ["type"]));
+  const type: LogType =
+    typeText === "audit" ||
+    typeText === "login" ||
+    typeText === "risk" ||
+    typeText === "error"
+      ? typeText
+      : fallbackType;
+  return {
+    id: textOr(firstText(source, ["id"]), ""),
+    type,
+    createdAt: isoOrNull(firstText(source, ["createdAt", "time"])),
+    actorName: firstText(source, [
+      "actorName",
+      "operatorName",
+      "userName",
+      "displayName",
+    ]),
+    action: firstText(source, ["action", "event", "operation"]),
+    target: firstText(source, ["target", "targetName", "object"]),
+    detail: firstText(source, ["detail", "description", "content", "message"]),
+    ip: firstText(source, ["ip", "ipMasked", "ipAddress"]),
+    userAgent: firstText(source, ["userAgent", "ua"]),
+    result: firstText(source, ["result", "outcome", "status"]),
+    level: firstText(source, ["level", "severity"]),
+    message: firstText(source, ["message", "error", "errorMessage"]),
+  };
+}
+
+/** GET /admin/logs?type&from&to&query&page&pageSize */
+export async function getLogs(
+  type: LogType,
+  filters: LogFilters,
+  page: number,
+  pageSize: number,
+): Promise<Page<AdminLog>> {
+  const payload = await getJson<unknown>("/admin/logs", {
+    type,
+    from: filters.from,
+    to: filters.to,
+    query: filters.query?.trim() || undefined,
+    page,
+    pageSize,
+  });
+  return mapPage(payload, (raw) => mapLog(raw, type));
+}
+
+/* ------------------------------------------------------------------ 配置 */
+
+function mapSecurityConfig(source: Record<string, unknown>): SecurityConfig {
+  const security = record(source.security ?? source.protection ?? source.securitySettings);
+  const merged = Object.keys(security).length > 0 ? security : source;
+  return {
+    paymentPasswordMaxAttempts: numberOr(
+      firstNumber(merged, [
+        "paymentPasswordMaxAttempts",
+        "passwordMaxAttempts",
+        "maxAttempts",
+      ]),
+      5,
+    ),
+    paymentPasswordLockMinutes: numberOr(
+      firstNumber(merged, [
+        "paymentPasswordLockMinutes",
+        "passwordLockMinutes",
+        "lockMinutes",
+      ]),
+      30,
+    ),
+    singlePaymentLimitCents: numberOr(
+      firstNumber(merged, [
+        "singlePaymentLimitCents",
+        "singleLimitCents",
+        "singlePaymentLimit",
+      ]),
+      0,
+    ),
+    dailyPaymentLimitCents: numberOr(
+      firstNumber(merged, [
+        "dailyPaymentLimitCents",
+        "dailyLimitCents",
+        "dailyPaymentLimit",
+      ]),
+      0,
+    ),
+    dynamicCodeTtlSeconds: numberOr(
+      firstNumber(merged, [
+        "dynamicCodeTtlSeconds",
+        "dynamicCodeTtl",
+        "dynamicCodeExpireSeconds",
+      ]),
+      60,
+    ),
+    emailCodeTtlSeconds: numberOr(
+      firstNumber(merged, [
+        "emailCodeTtlSeconds",
+        "emailCodeTtl",
+        "emailCodeExpireSeconds",
+      ]),
+      600,
+    ),
+    sessionTtlDays: numberOr(
+      firstNumber(merged, ["sessionTtlDays", "sessionTtl", "sessionDays"]),
+      7,
+    ),
+  };
+}
+
+/** GET /admin/config */
+export async function getConfig(): Promise<AdminConfig> {
+  const payload = await getJson<unknown>("/admin/config");
+  const source = record(payload);
+  const mailSource = record(source.mail ?? source.smtp ?? source.mailConfig);
+  return {
+    mail: {
+      host: textOr(
+        firstText(mailSource, ["host", "smtpHost", "server"]),
+        "",
+      ),
+      port: numberOr(firstNumber(mailSource, ["port", "smtpPort"]), 465),
+      secure:
+        firstBoolean(mailSource, ["secure", "ssl", "useTls"]) ??
+        numberOr(firstNumber(mailSource, ["port"]), 465) === 465,
+      username: textOr(
+        firstText(mailSource, ["username", "user", "smtpUser"]),
+        "",
+      ),
+      fromName: textOr(
+        firstText(mailSource, ["fromName", "senderName"]),
+        "",
+      ),
+      fromAddress: textOr(
+        firstText(mailSource, ["fromAddress", "from", "senderAddress"]),
+        "",
+      ),
+      passwordConfigured:
+        firstBoolean(mailSource, [
+          "passwordConfigured",
+          "passwordSet",
+          "smtpPasswordConfigured",
+        ]) ?? false,
+    },
+    security: mapSecurityConfig(source),
+  };
+}
+
+/** PUT /admin/config */
+export async function updateConfig(input: AdminConfigInput): Promise<void> {
+  await writeJson<unknown>("PUT", "/admin/config", input);
+}
+
+/* ---------------------------------------------------------------- 导出下载 */
+
+function buildQueryString(query?: AdminQuery): string {
+  if (!query) return "";
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null || value === "") continue;
+    params.set(key, String(value));
+  }
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
+function parseFileName(disposition: string, fallback: string): string {
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return fallback;
+    }
+  }
+  const plainMatch = /filename="?([^";]+)"?/i.exec(disposition);
+  const plainName = plainMatch?.[1]?.trim();
+  return plainName ? plainName : fallback;
+}
+
+async function downloadCsv(
+  path: string,
+  query: AdminQuery | undefined,
+  fallbackName: string,
+): Promise<void> {
+  const response = await fetch(`/api${path}${buildQueryString(query)}`, {
+    credentials: "same-origin",
+    headers: CSRF_HEADERS,
+  });
+  if (!response.ok) {
+    let message = `导出失败（${response.status}）`;
+    try {
+      const payload: unknown = await response.json();
+      const source = record(payload);
+      const errorSource = record(source.error);
+      message = text(source.message) ?? text(errorSource.message) ?? message;
+    } catch {
+      // 响应不是 JSON 时使用默认提示
+    }
+    const error = new ApiError(response.status, "EXPORT_FAILED", message);
+    notifyAuthInvalid(error);
+    throw error;
+  }
+  const blob = await response.blob();
+  const fileName = parseFileName(
+    response.headers.get("content-disposition") ?? "",
+    fallbackName,
+  );
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+/** 导出全校订单 CSV */
+export async function exportOrders(filters: OrderFilters): Promise<void> {
+  await downloadCsv(
+    "/admin/orders/export",
+    buildOrderQuery(filters),
+    "orders.csv",
+  );
+}
+
+/** 导出日志 CSV */
+export async function exportLogs(
+  type: LogType,
+  filters: LogFilters,
+): Promise<void> {
+  await downloadCsv(
+    "/admin/logs/export",
+    {
+      type,
+      from: filters.from,
+      to: filters.to,
+      query: filters.query?.trim() || undefined,
+    },
+    `logs-${type}.csv`,
+  );
+}

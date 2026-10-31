@@ -1,0 +1,377 @@
+@import "tailwindcss";
+
+/* 主题切换：通过 <html data-theme="light|dark"> 生效（auto 由 JS 解析为具体值） */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  color-scheme: light;
+  /* 品牌：亮蓝 + 暖黄 */
+  --brand: #2f6bff;
+  --brand-strong: #1d55e8;
+  --brand-soft: #e8efff;
+  --accent: #ffc133;
+  --accent-strong: #f5a623;
+  --accent-soft: #fff4d1;
+
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --surface-2: #eef2fa;
+  --surface-3: #e2e8f5;
+  --text: #131a2a;
+  --muted: #6b7488;
+  --line: #e3e9f4;
+  --danger: #e5484d;
+  --danger-soft: #fdeaea;
+  --success: #12a150;
+  --success-soft: #e5f8ed;
+  --warning: #c77700;
+  --warning-soft: #fff4dd;
+  --shadow: 0 12px 32px -18px rgba(24, 55, 120, 0.35);
+  --shadow-strong: 0 18px 44px -18px rgba(24, 55, 120, 0.42);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --brand: #5b93ff;
+  --brand-strong: #3f7dff;
+  --brand-soft: #16264a;
+  --accent: #ffcf57;
+  --accent-strong: #ffbe3c;
+  --accent-soft: #3a2f10;
+
+  --bg: #0a1020;
+  --surface: #111a2c;
+  --surface-2: #16213a;
+  --surface-3: #1e2c4a;
+  --text: #eef3ff;
+  --muted: #98a5c0;
+  --line: #22304e;
+  --danger: #ff6b6f;
+  --danger-soft: #3a1a1d;
+  --success: #3ecf8e;
+  --success-soft: #12301f;
+  --warning: #ffc133;
+  --warning-soft: #382b0f;
+  --shadow: 0 12px 32px -18px rgba(0, 0, 0, 0.7);
+  --shadow-strong: 0 18px 44px -18px rgba(0, 0, 0, 0.8);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui,
+    sans-serif;
+  --radius-4xl: 1.75rem;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* 避免 iOS 聚焦输入框自动放大 */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+img {
+  -webkit-user-drag: none;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-2xl px-5 text-[15px] font-semibold transition-[transform,background-color,opacity,box-shadow] duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45;
+    min-height: 48px;
+  }
+  .btn-primary {
+    @apply bg-brand text-white;
+    box-shadow: 0 12px 26px -14px var(--brand);
+  }
+  .btn-secondary {
+    @apply bg-surface-2 text-text;
+  }
+  .btn-outline {
+    @apply border border-line bg-surface text-text;
+  }
+  .btn-accent {
+    @apply bg-accent text-[#4a3300];
+    box-shadow: 0 12px 26px -14px var(--accent-strong);
+  }
+  .btn-danger {
+    @apply bg-danger text-white;
+  }
+  .btn-ghost {
+    @apply text-muted;
+  }
+  .btn-sm {
+    @apply rounded-xl px-3.5 text-sm;
+    min-height: 38px;
+  }
+  .btn-block {
+    @apply w-full;
+  }
+  .card {
+    @apply rounded-3xl border border-line bg-surface;
+    box-shadow: var(--shadow);
+  }
+  .card-flat {
+    @apply rounded-2xl border border-line bg-surface;
+  }
+  .input {
+    @apply w-full rounded-2xl border border-line bg-surface px-4 text-text outline-none transition;
+    min-height: 48px;
+  }
+  .input::placeholder {
+    color: var(--muted);
+    opacity: 0.75;
+  }
+  .input:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
+  .label {
+    @apply mb-2 block text-sm font-medium text-muted;
+  }
+  .chip {
+    @apply inline-flex select-none items-center justify-center rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm text-muted transition;
+    min-height: 34px;
+  }
+  .chip-active {
+    @apply border-brand bg-brand text-white;
+  }
+  .section-title {
+    @apply mb-2 px-1 text-[13px] font-semibold tracking-wide text-muted;
+  }
+  .row {
+    @apply flex items-center gap-3;
+  }
+  .divider {
+    @apply h-px w-full bg-line;
+  }
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top, 0px), 0px);
+  }
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+  }
+  .page {
+    @apply mx-auto w-full max-w-[520px] px-4;
+  }
+  .page-with-nav {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  .page-with-footer {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+  }
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .list-row {
+    @apply flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3.5 text-left transition active:bg-surface-2;
+  }
+  .glass {
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(180%) blur(14px);
+  }
+  .fixed-bottom {
+    bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .bg-app {
+    background:
+      radial-gradient(1200px 420px at 50% -160px, color-mix(in srgb, var(--brand) 16%, transparent), transparent 70%),
+      var(--bg);
+  }
+  .text-amount {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ---------- 动效 ---------- */
+@keyframes gz-coin-flip {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotateY(0deg);
+  }
+  25% {
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.12) rotateY(300deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateY(360deg);
+  }
+}
+@keyframes gz-logo-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes gz-word-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes gz-scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(1000%);
+  }
+}
+@keyframes gz-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes gz-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes gz-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes gz-pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes gz-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.logo-coin {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gz-coin-flip 1.15s cubic-bezier(0.22, 0.7, 0.3, 1) 0.3s both;
+}
+.logo-animated {
+  animation: gz-logo-in 0.5s cubic-bezier(0.22, 0.7, 0.3, 1) both;
+}
+.wordmark-in {
+  animation: gz-word-in 0.5s ease-out 0.5s both;
+}
+.animate-scan {
+  animation: gz-scan 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.animate-fade-in {
+  animation: gz-fade-in 0.22s ease-out both;
+}
+.animate-slide-up {
+  animation: gz-slide-up 0.28s cubic-bezier(0.22, 0.7, 0.3, 1) both;
+}
+.animate-spin-slow {
+  animation: gz-spin 0.9s linear infinite;
+}
+.animate-pulse-soft {
+  animation: gz-pulse-soft 1.6s ease-in-out infinite;
+}
+.skeleton {
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 37%,
+    var(--surface-2) 63%
+  );
+  background-size: 200% 100%;
+  animation: gz-shimmer 1.3s linear infinite;
+}
+
+/* 进度条过渡 */
+.progress-fill {
+  transition: width 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-coin,
+  .logo-animated,
+  .wordmark-in,
+  .animate-scan,
+  .animate-fade-in,
+  .animate-slide-up {
+    animation-duration: 0.001s !important;
+    animation-delay: 0s !important;
+  }
+}

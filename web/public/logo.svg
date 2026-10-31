@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="gzspay logo">
+  <defs>
+    <linearGradient id="gzspay-brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f8cff" />
+      <stop offset="1" stop-color="#1d55e8" />
+    </linearGradient>
+    <linearGradient id="gzspay-coin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd25e" />
+      <stop offset="1" stop-color="#f5a623" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#gzspay-brand)" />
+  <text x="30" y="47" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-size="42" font-weight="800" fill="#ffffff">g</text>
+  <circle cx="39" cy="34" r="9" fill="url(#gzspay-coin)" />
+  <circle cx="39" cy="34" r="5.4" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="1.4" />
+</svg>
