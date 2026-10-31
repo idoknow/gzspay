@@ -1,4 +1,4 @@
-/** 启动加载页：logo 动画 + 真实字节进度条（最少停留 0.6s，超过 8s 提示网络慢，失败可重试）。 */
+/** 启动加载页：logo 动画 + 真实进度条（最少停留 0.6s，超过 8s 提示网络慢，失败可重试）。 */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
@@ -9,12 +9,6 @@ import type { SessionResponse } from "../lib/types";
 export interface BootPageProps {
   /** 加载完成（含会话检查）后回调，由上层决定跳转 */
   onReady: (session: SessionResponse) => void;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${bytes} B`;
 }
 
 export function BootPage({ onReady }: BootPageProps): ReactNode {
@@ -75,11 +69,10 @@ export function BootPage({ onReady }: BootPageProps): ReactNode {
               style={{ width: `${barWidth}%` }}
             />
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-muted">
+          <div className="mt-3 text-center text-xs text-muted">
             <span>
               {error ? "加载失败" : percent >= 100 ? "即将进入…" : `正在加载 ${Math.max(percent, 1)}%`}
             </span>
-            <span className="text-amount">{formatBytes(progress.loaded)}</span>
           </div>
           {slow && !error ? (
             <p className="mt-3 text-center text-xs text-warning animate-fade-in">网络较慢，仍在加载…</p>

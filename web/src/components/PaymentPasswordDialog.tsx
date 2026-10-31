@@ -1,4 +1,4 @@
-/** 支付密码输入弹窗：内置乱序键盘 + 错误提示（输错次数由服务端返回）。 */
+/** 支付密码输入弹窗：内置数字键盘 + 错误提示（输错次数由服务端返回）。 */
 
 import type { ReactNode } from "react";
 import { Dialog } from "./Dialog";

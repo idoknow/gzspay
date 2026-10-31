@@ -1,5 +1,5 @@
 /**
- * 内置安全键盘：6 位数字，按键随机排版，只用按钮输入（不弹系统键盘），
+ * 内置安全键盘：6 位数字，固定 1-9 / 0 顺序，只用按钮输入（不弹系统键盘），
  * 屏幕只显示圆点、不回显明文。
  */
 
@@ -8,25 +8,16 @@ import { cn } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { Spinner } from "./Loading";
 
-function shuffledDigits(): number[] {
-  const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-  for (let index = digits.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(Math.random() * (index + 1));
-    const current = digits[index];
-    const swap = digits[target];
-    if (current === undefined || swap === undefined) continue;
-    digits[index] = swap;
-    digits[target] = current;
-  }
-  return digits;
-}
+/** 固定数字键顺序（1-9 后再接 0），不随机打乱 */
+const DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+const ZERO = 0;
 
 export interface BuiltInKeypadProps {
   title?: string;
   description?: string;
   /** 密码位数，默认 6 */
   length?: number;
-  /** 输入满后自动提交；抛错时展示错误并重新洗牌 */
+  /** 输入满后自动提交；抛错时展示错误并清空输入 */
   onSubmit: (value: string) => Promise<void> | void;
   onCancel?: () => void;
   cancelText?: string;
@@ -46,7 +37,6 @@ export function BuiltInKeypad({
   className,
 }: BuiltInKeypadProps): ReactNode {
   const [value, setValue] = useState("");
-  const [keys, setKeys] = useState<number[]>(() => shuffledDigits());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const submittingRef = useRef(false);
@@ -64,7 +54,6 @@ export function BuiltInKeypad({
     } catch (reason: unknown) {
       setValue("");
       setError(errorMessage(reason));
-      setKeys(shuffledDigits());
       if (typeof navigator.vibrate === "function") navigator.vibrate(60);
     } finally {
       submittingRef.current = false;
@@ -110,7 +99,6 @@ export function BuiltInKeypad({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [appendDigit, removeLast]);
 
-  const zero = keys[9] ?? 0;
   const dots = Array.from({ length }, (_, index) => index);
   const keyClass =
     "flex h-14 select-none items-center justify-center rounded-2xl bg-surface-2 text-2xl font-semibold text-text transition active:scale-[0.98] active:bg-surface-3 disabled:opacity-40";
@@ -151,7 +139,7 @@ export function BuiltInKeypad({
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2.5">
-        {keys.slice(0, 9).map((digit) => (
+        {DIGITS.map((digit) => (
           <button
             key={`digit-${digit}`}
             type="button"
@@ -163,8 +151,8 @@ export function BuiltInKeypad({
           </button>
         ))}
         <span aria-hidden="true" />
-        <button type="button" className={keyClass} disabled={busy} onClick={() => appendDigit(zero)}>
-          {zero}
+        <button type="button" className={keyClass} disabled={busy} onClick={() => appendDigit(ZERO)}>
+          {ZERO}
         </button>
         <button
           type="button"

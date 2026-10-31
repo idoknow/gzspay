@@ -38,6 +38,8 @@ export interface Me {
   studentNo: string | null;
   emailMasked: string | null;
   email: string | null;
+  /** 完整卡号：默认脱敏展示，点击后再显示 */
+  cardNo: string | null;
   cardNoMasked: string | null;
   avatarUrl: string | null;
   onboarded: boolean;

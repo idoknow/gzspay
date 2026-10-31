@@ -35,6 +35,7 @@ export function ProfilePage(): ReactNode {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [manualCardOpen, setManualCardOpen] = useState(false);
   const [manualCard, setManualCard] = useState("");
+  const [showCardNo, setShowCardNo] = useState(false);
 
   if (!me) return null;
 
@@ -240,7 +241,17 @@ export function ProfilePage(): ReactNode {
 
         <section className="card space-y-3 p-4">
           <h2 className="text-sm font-semibold text-text">校园卡</h2>
-          <p className="text-[11px] text-muted">当前校园卡：{me.cardNoMasked || "未绑定"}</p>
+          <p className="text-[11px] text-muted">
+            当前校园卡：
+            <button
+              type="button"
+              className="text-brand"
+              onClick={() => setShowCardNo((value) => !value)}
+            >
+              {me.cardNoMasked ? (showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked) : "未绑定"}
+              {me.cardNoMasked ? (showCardNo ? "（隐藏）" : "（显示）") : ""}
+            </button>
+          </p>
           <p className="text-[11px] text-muted">换绑后旧卡将自动解绑，需要验证支付密码。</p>
           <button type="button" className="btn btn-primary btn-block" onClick={() => setScannerOpen(true)}>
             扫码换绑校园卡

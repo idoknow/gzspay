@@ -1,12 +1,12 @@
 /** 我的：头部个人信息 + 我的收付款码快捷入口 + 功能列表。 */
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
-import { formatFriendlyTime, maskStudentNo } from "../lib/format";
+import { formatFriendlyTime } from "../lib/format";
 import { useAuth } from "../lib/session";
 
 interface MenuItem {
@@ -92,6 +92,7 @@ export function MePage(): ReactNode {
   const navigate = useNavigate();
   const toast = useToast();
   const { me, logout } = useAuth();
+  const [showCardNo, setShowCardNo] = useState(false);
 
   const menu: MenuItem[] = [
     { label: "交易统计", description: "收支汇总与趋势", path: "/me/stats", icon: <ChartIcon /> },
@@ -146,7 +147,19 @@ export function MePage(): ReactNode {
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-xs text-muted">学号 {maskStudentNo(me.studentNo)}</p>
+                <p className="mt-1 text-xs text-muted">学号 {me.studentNo || "未填写"}</p>
+                {me.cardNoMasked ? (
+                  <button
+                    type="button"
+                    className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted"
+                    onClick={() => setShowCardNo((value) => !value)}
+                  >
+                    <span>卡号 {showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked}</span>
+                    <span className="text-brand">{showCardNo ? "隐藏" : "显示"}</span>
+                  </button>
+                ) : (
+                  <p className="mt-0.5 text-[11px] text-muted">卡号 未绑定</p>
+                )}
                 <p className="mt-0.5 text-[11px] text-muted">加入于 {formatFriendlyTime(me.createdAt)}</p>
               </div>
             </div>

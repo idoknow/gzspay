@@ -58,9 +58,10 @@ interface Me {
   surname: string | null;
   givenName: string | null;
   fullName: string | null;
-  studentNo: string | null;
+  studentNo: string | null;      // 本人可见完整学号
   emailMasked: string | null;
   email: string | null;
+  cardNo: string | null;         // 本人可见完整卡号（默认前端脱敏展示，点击后显示）
   cardNoMasked: string | null;
   avatarUrl: string | null;
   onboarded: boolean;
@@ -88,7 +89,7 @@ interface Me {
 
 | 方法 | 路径 | 请求体 | 说明 |
 | --- | --- | --- | --- |
-| `GET` | `/api/onboarding` | — | `{ step, steps: [...], me }` |
+| `GET` | `/api/onboarding` | — | `{ step, steps: ["name","studentNo","email","card","password"], nextStep, me }`（`steps` 为步骤 key 顺序表，前端据此显示「第 N / 5 步」） |
 | `POST` | `/api/onboarding/name` | `{ surname, givenName }` | 填写真实姓名 |
 | `POST` | `/api/onboarding/student-no` | `{ studentNo }` | 校学号，唯一 |
 | `POST` | `/api/onboarding/email/start` | `{ email }` | 发送验证码，返回 `{ sent, devCode? }`（仅开发） |
