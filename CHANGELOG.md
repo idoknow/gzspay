@@ -28,10 +28,13 @@
 - 品牌资产：按设计稿重绘 logo 图标（蓝底圆角方块 + 白色 g + 暖黄硬币）、横版组合、竖版开屏图与 1200×630 分享图；PWA 图标（含 maskable 与 iOS 满版图标）、iOS 添加到主屏幕启动图 10 种尺寸；自托管 Nunito 800 字标字体子集（OFL 许可），生成脚本 `scripts/brand/generate-assets.py` 可重跑。
 - 品牌规范 `docs/brand.md`：色板、资产清单、图标几何、重新生成与使用规范；README 顶部展示横版 logo。
 - 启动加载页统一品牌：首帧兜底开屏与 React 启动页都改为「图标 + `gzs`/`pay` 两色字标 + CAMPUS PAYMENT 副标 + 硬币翻转动画」，字标字体计入真实字节加载进度；登录页、关于页与管理后台品牌位同步换新。
+- 局域网开发预览：`npm run dev` 的前端开发服务器监听所有网卡（启动日志打印 `Network:` 地址），写请求来源校验新增 `EXTRA_ALLOWED_ORIGINS` 白名单，便于手机连同一 Wi-Fi 直接调试。
+- 开发模式代理 `/media`，头像等后端静态资源不再跨端口 404。
 
 ### 变更
 
 - 品牌色对齐设计稿：品牌蓝 `#1E6BFF`、暖黄 `#FFC933`、深海军蓝 `#0B1B4D`、浅蓝底 `#F2F7FF`；手机端与管理后台调色板、manifest 主题色与 `theme-color` 同步更新，Service Worker 缓存版本升至 v2。
+- README 补充「在局域网里预览（真机调试）」说明，含 CSRF 白名单配置与 HTTP 下相机不可用的限制。
 
 ### 修复
 

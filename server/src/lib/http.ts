@@ -55,7 +55,7 @@ export function csrfGuard(req: Request, res: Response, next: NextFunction): void
   }
   // 2) 同源校验：浏览器发起的跨站写请求一定带 Origin/Referer
   const allowed = new Set(
-    [originOf(config.appBaseUrl), originOf(config.publicBaseUrl)].filter(
+    [originOf(config.appBaseUrl), originOf(config.publicBaseUrl), ...config.extraAllowedOrigins.map(originOf)].filter(
       (value): value is string => Boolean(value),
     ),
   );

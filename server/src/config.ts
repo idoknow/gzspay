@@ -42,6 +42,11 @@ const nodeEnv = str("NODE_ENV", "development");
 const isProduction = nodeEnv === "production";
 const appBaseUrl = str("APP_BASE_URL", "http://localhost:5173").replace(/\/+$/, "");
 const publicBaseUrl = str("PUBLIC_BASE_URL", appBaseUrl).replace(/\/+$/, "");
+/** 额外的写请求来源白名单，逗号分隔（例如局域网开发地址 http://192.168.1.10:5173） */
+const extraAllowedOrigins = str("EXTRA_ALLOWED_ORIGINS", "")
+  .split(",")
+  .map((item) => item.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
 
 export const config = {
   version: "0.1.0",
@@ -51,6 +56,7 @@ export const config = {
   port: int("PORT", 3000),
   appBaseUrl,
   publicBaseUrl,
+  extraAllowedOrigins,
 
   databasePath: str("DATABASE_PATH", path.join(SERVER_ROOT, "data", "gzspay.sqlite")),
   uploadDir: str("UPLOAD_DIR", path.join(SERVER_ROOT, "data", "uploads")),

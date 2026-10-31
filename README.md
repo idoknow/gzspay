@@ -31,6 +31,25 @@ npm run dev
 # 4. 打开 http://localhost:5173
 ```
 
+### 在局域网里预览（真机调试）
+
+`npm run dev` 会把 Vite 监听在所有网卡上，启动日志里会打印 `Network: http://<本机局域网 IP>:5173/`，手机连同一个 Wi-Fi 直接打开该地址即可。
+
+若用局域网地址访问，需要在 `.env` 里把域名同步过去，否则写请求会被 CSRF 来源校验拒绝：
+
+```bash
+APP_BASE_URL=http://192.168.1.10:5173
+PUBLIC_BASE_URL=http://192.168.1.10:5173
+# 想同时保留 localhost 访问时，把本地地址放进额外白名单
+EXTRA_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+注意：
+
+- Windows 首次运行需要在防火墙提示里允许 Node.js 入站，或手动放行 TCP 5173。
+- 局域网访问走的是 HTTP，浏览器只把 `localhost`/HTTPS 视为安全上下文，**扫码（相机）功能在局域网 HTTP 下不可用**；真机测扫码需要用 HTTPS 反代或内网证书。
+- 开发登录（`DEV_AUTH_ENABLED=1`）对所有能访问该地址的人生效，公网或不可信 WiFi 下不要暴露。
+
 ## 常用命令
 
 | 命令 | 说明 |
