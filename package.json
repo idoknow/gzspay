@@ -1,0 +1,23 @@
+{
+  "name": "gzspay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "gzspay 桂中校园收付款网页应用",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "npm run dev -w @gzspay/server",
+    "dev:web": "npm run dev -w @gzspay/web",
+    "build": "npm run build -w @gzspay/server && npm run build -w @gzspay/web",
+    "typecheck": "npm run typecheck -w @gzspay/server && npm run typecheck -w @gzspay/web",
+    "test": "npm run test -w @gzspay/server",
+    "start": "node server/dist/index.js"
+  }
+}
