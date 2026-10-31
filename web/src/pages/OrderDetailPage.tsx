@@ -1,0 +1,791 @@
+/** 订单详情：按当前用户角色与订单状态渲染付款人视角 / 商家视角。 */
+
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Avatar } from "../components/Avatar";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { CountdownModal } from "../components/CountdownModal";
+import { Dialog } from "../components/Dialog";
+import { ErrorBlock, PageLoading, Spinner } from "../components/Loading";
+import { MoneyText } from "../components/MoneyText";
+import { PageHeader } from "../components/PageHeader";
+import { QrImage, useBlobUrl } from "../components/QrImage";
+import { StatusBadge } from "../components/StatusBadge";
+import { useToast } from "../components/Toast";
+import {
+  cancelOrder,
+  confirmOrder,
+  getOrder,
+  getOrderQrBlob,
+  markOrderNotReceived,
+  payOrder,
+  subscribeEvents,
+} from "../lib/api";
+import { copyText } from "../lib/clipboard";
+import { downloadBlob, safeFilename } from "../lib/download";
+import { cn, formatCents, formatDateTime, formatFriendlyTime, payChannelLabel } from "../lib/format";
+import { errorMessage } from "../lib/http";
+import { useAsync } from "../lib/hooks";
+import type { OrderDetail, PayChannel } from "../lib/types";
+
+const CANCEL_REASONS = ["金额有误", "已线下结清", "对方未付款", "其他"] as const;
+
+const EVENT_LABELS: Record<string, string> = {
+  created: "创建订单",
+  paid: "付款人标记已支付",
+  payment: "付款人标记已支付",
+  confirmed: "商家确认收款",
+  confirm: "商家确认收款",
+  completed: "交易完成",
+  cancelled: "订单已取消",
+  cancel: "订单已取消",
+  not_received: "商家标记未收到款",
+  notReceived: "商家标记未收到款",
+  appeal: "付款人发起申诉",
+  requirement: "备注要求",
+};
+
+function statusText(order: OrderDetail): { title: string; description: string } {
+  switch (order.status) {
+    case "pending_payment":
+      return order.role === "payer"
+        ? { title: "等待付款", description: "请使用下方商家收款码付款，付款后点击「我已支付」" }
+        : { title: "等待付款人付款", description: "对方付款后，你确认收款即可完成交易" };
+    case "paid":
+      return order.role === "payer"
+        ? { title: "已标记支付", description: "等待商家确认收款，请保持联系畅通" }
+        : { title: "付款人已标记支付", description: "请核对收款账户余额后确认收款" };
+    case "completed":
+      return { title: "交易已完成", description: "感谢使用 gzspay" };
+    case "cancelled":
+      return { title: "订单已取消", description: order.cancelReason ? `取消原因：${order.cancelReason}` : "该订单已取消" };
+    default:
+      return { title: "订单详情", description: "" };
+  }
+}
+
+function Timeline({ order }: { order: OrderDetail }): ReactNode {
+  if (order.events.length === 0) return null;
+  return (
+    <section className="card p-4">
+      <h2 className="text-sm font-semibold text-text">订单时间线</h2>
+      <ol className="mt-3 space-y-3">
+        {order.events.map((event, index) => (
+          <li key={event.id} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <span
+                className={cn(
+                  "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
+                  index === order.events.length - 1 ? "bg-brand" : "bg-surface-3",
+                )}
+              />
+              {index < order.events.length - 1 ? <span className="mt-1 w-px flex-1 bg-line" /> : null}
+            </div>
+            <div className="min-w-0 flex-1 pb-1">
+              <p className="text-sm text-text">{EVENT_LABELS[event.type] ?? event.type}</p>
+              {event.detail ? <p className="mt-0.5 break-words text-xs text-muted">{event.detail}</p> : null}
+              <p className="mt-0.5 text-[11px] text-muted">{formatDateTime(event.createdAt)}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function OrderQrPanel({
+  title,
+  channels,
+  channel,
+  onChannelChange,
+  dataUrl,
+  loading,
+  error,
+  onSave,
+  saving,
+  hint,
+}: {
+  title: string;
+  channels: PayChannel[];
+  channel: PayChannel | null;
+  onChannelChange: (channel: PayChannel) => void;
+  dataUrl: string | null;
+  loading: boolean;
+  error: string | null;
+  onSave: () => void;
+  saving: boolean;
+  hint?: string;
+}): ReactNode {
+  return (
+    <section className="card p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-text">{title}</h2>
+        {channel ? <span className="text-xs text-muted">{payChannelLabel(channel)}</span> : null}
+      </div>
+      {channels.length === 0 ? (
+        <p className="mt-3 rounded-2xl bg-surface-2 px-3 py-3 text-xs leading-relaxed text-muted">
+          商家尚未启用任何收款方式，请与商家联系后再付款。
+        </p>
+      ) : (
+        <>
+          <div className="mt-3 flex gap-2">
+            {channels.map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={cn("chip", channel === item && "chip-active")}
+                onClick={() => onChannelChange(item)}
+              >
+                {payChannelLabel(item)}
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-col items-center">
+            {error ? (
+              <p className="py-6 text-center text-xs text-danger">{error}</p>
+            ) : loading ? (
+              <div className="skeleton h-[220px] w-[220px]" />
+            ) : (
+              <QrImage dataUrl={dataUrl} size={220} alt={`${channel ? payChannelLabel(channel) : ""}收款码`} />
+            )}
+            <p className="mt-3 text-center text-xs leading-relaxed text-muted">
+              {hint ?? "请核对收款方信息后再扫码付款，资金直接进入商家账户"}
+            </p>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm mt-3"
+              disabled={saving || !channel || !dataUrl}
+              onClick={onSave}
+            >
+              {saving ? <Spinner size={14} /> : null}
+              保存二维码
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+export function OrderDetailPage(): ReactNode {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const { data: order, loading, error, reload } = useAsync<OrderDetail>(
+    () => (id ? getOrder(id) : Promise.reject(new Error("订单不存在"))),
+    [id],
+  );
+
+  const [requirementOpen, setRequirementOpen] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState<PayChannel | null>(null);
+  const [savingQr, setSavingQr] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payChannel, setPayChannel] = useState<PayChannel | null>(null);
+  const [payNote, setPayNote] = useState("");
+  const [payBusy, setPayBusy] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState<(typeof CANCEL_REASONS)[number]>("金额有误");
+  const [cancelNote, setCancelNote] = useState("");
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [notReceivedOpen, setNotReceivedOpen] = useState(false);
+  const [notReceivedBusy, setNotReceivedBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [qrDialogChannel, setQrDialogChannel] = useState<PayChannel | null>(null);
+
+  const isMerchantView = order?.role === "merchant";
+  const channels = order?.availableChannels ?? [];
+
+  const channel = useMemo<PayChannel | null>(() => {
+    if (channels.length === 0) return null;
+    if (selectedChannel && channels.includes(selectedChannel)) return selectedChannel;
+    return channels[0] ?? null;
+  }, [channels, selectedChannel]);
+
+  const qrDialogChannelResolved = useMemo<PayChannel | null>(() => {
+    if (channels.length === 0) return null;
+    if (qrDialogChannel && channels.includes(qrDialogChannel)) return qrDialogChannel;
+    return channels[0] ?? null;
+  }, [channels, qrDialogChannel]);
+
+  const pending = order?.status === "pending_payment";
+
+  const qrFactory = order && pending && channel ? () => getOrderQrBlob(order.id, channel) : null;
+  const qr = useBlobUrl(qrFactory, [order?.id ?? "", order?.status ?? "", channel]);
+
+  const qrDialogFactory =
+    order && pending && qrDialogChannelResolved ? () => getOrderQrBlob(order.id, qrDialogChannelResolved) : null;
+  const qrDialog = useBlobUrl(qrDialogFactory, [order?.id ?? "", order?.status ?? "", qrDialogChannelResolved]);
+
+  // 首次进入待付款订单（付款人）时弹出 3 秒倒计时的备注要求
+  useEffect(() => {
+    if (!order || order.role !== "payer" || order.status !== "pending_payment") return;
+    if (!order.noteRequirement.trim()) return;
+    const key = `gzspay-requirement-seen-${order.id}`;
+    try {
+      if (window.sessionStorage.getItem(key)) return;
+    } catch {
+      // 隐私模式忽略
+    }
+    setRequirementOpen(true);
+  }, [order]);
+
+  // 订单状态变化时自动刷新
+  useEffect(() => {
+    if (!id) return;
+    return subscribeEvents({
+      onOrderUpdate: (payload) => {
+        if (payload.orderId === id) reload();
+      },
+    });
+  }, [id, reload]);
+
+  const closeRequirement = (): void => {
+    if (order) {
+      try {
+        window.sessionStorage.setItem(`gzspay-requirement-seen-${order.id}`, "1");
+      } catch {
+        // 忽略
+      }
+    }
+    setRequirementOpen(false);
+  };
+
+  const handleCopy = async (text: string, label: string): Promise<void> => {
+    const ok = await copyText(text);
+    if (ok) toast.success(`${label}已复制`);
+    else toast.error("复制失败，请长按文字手动复制");
+  };
+
+  const handleSaveQr = async (): Promise<void> => {
+    if (!order || !channel) return;
+    setSavingQr(true);
+    try {
+      const blob = await getOrderQrBlob(order.id, channel);
+      downloadBlob(blob, safeFilename(`gzspay-${order.orderNo}-${channel}.png`));
+      toast.success("二维码已保存");
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setSavingQr(false);
+    }
+  };
+
+  const openPayDialog = (): void => {
+    setPayChannel(channel);
+    setPayNote(order?.reservedNote ?? "");
+    setPayOpen(true);
+  };
+
+  const submitPay = async (): Promise<void> => {
+    if (!order) return;
+    if (!payChannel) {
+      toast.error("请选择实际支付方式");
+      return;
+    }
+    setPayBusy(true);
+    try {
+      await payOrder(order.id, { channel: payChannel, actualNote: payNote.trim() });
+      setPayOpen(false);
+      toast.success("已标记为已支付，等待商家确认");
+      reload();
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setPayBusy(false);
+    }
+  };
+
+  const submitCancel = async (): Promise<void> => {
+    if (!order) return;
+    setCancelBusy(true);
+    try {
+      await cancelOrder(order.id, { reason: cancelReason, note: cancelNote.trim() || undefined });
+      setCancelOpen(false);
+      toast.success("订单已取消");
+      reload();
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setCancelBusy(false);
+    }
+  };
+
+  const submitConfirm = async (): Promise<void> => {
+    if (!order) return;
+    setConfirmBusy(true);
+    try {
+      await confirmOrder(order.id);
+      setConfirmOpen(false);
+      toast.success("已确认收款，交易完成");
+      reload();
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
+
+  const submitNotReceived = async (): Promise<void> => {
+    if (!order) return;
+    setNotReceivedBusy(true);
+    try {
+      await markOrderNotReceived(order.id);
+      setNotReceivedOpen(false);
+      toast.success("已标记未收到款，已通知付款人");
+      reload();
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setNotReceivedBusy(false);
+    }
+  };
+
+  if (!id) {
+    return (
+      <div className="bg-app min-h-[100dvh]">
+        <PageHeader title="订单详情" back />
+        <div className="page pt-6">
+          <ErrorBlock message="订单不存在" />
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && !order) {
+    return (
+      <div className="bg-app min-h-[100dvh]">
+        <PageHeader title="订单详情" back />
+        <PageLoading />
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="bg-app min-h-[100dvh]">
+        <PageHeader title="订单详情" back />
+        <div className="page pt-6">
+          <ErrorBlock message={error ?? "订单加载失败"} onRetry={reload} />
+        </div>
+      </div>
+    );
+  }
+
+  const status = statusText(order);
+  const counterpartyName =
+    order.counterparty?.displayName ||
+    (order.role === "payer" ? order.merchantName : order.payerNameSnapshot) ||
+    (order.role === "payer" ? "商家" : "付款人");
+  const showActions = order.status === "pending_payment" || order.status === "paid";
+
+  return (
+    <div className="bg-app min-h-[100dvh]">
+      <PageHeader title="订单详情" back />
+
+      <main className={cn("page space-y-3 pt-4", showActions ? "page-with-footer" : "pb-10")}>
+        {order.status === "cancelled" ? (
+          <div className="rounded-2xl bg-danger-soft px-4 py-3 text-sm leading-relaxed text-danger">
+            <p className="font-semibold">订单已取消</p>
+            <p className="mt-0.5 text-xs">{order.cancelReason ? `取消原因：${order.cancelReason}` : "该订单已取消，无需再付款"}</p>
+          </div>
+        ) : null}
+
+        <section className="card p-5">
+          <div className="flex items-center justify-between">
+            <StatusBadge status={order.status} />
+            <span className="text-[11px] text-muted">{formatFriendlyTime(order.createdAt)}</span>
+          </div>
+          <h1 className="mt-3 text-lg font-bold text-text">{status.title}</h1>
+          <p className="mt-1 text-sm leading-relaxed text-muted">{status.description}</p>
+          <div className="mt-3 flex flex-col items-center rounded-2xl bg-surface-2/60 py-4">
+            <MoneyText cents={order.amountCents} size="hero" />
+            <button
+              type="button"
+              className="mt-2 text-[11px] text-muted"
+              onClick={() => void handleCopy(order.orderNo, "订单号")}
+            >
+              订单号 {order.orderNo} · 点击复制
+            </button>
+          </div>
+        </section>
+
+        <section className="card p-4">
+          <h2 className="section-title">{order.role === "payer" ? "商家信息" : "付款人信息"}</h2>
+          <div className="flex items-center gap-3">
+            <Avatar name={counterpartyName} avatarUrl={order.counterparty?.avatarUrl ?? null} size={46} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-[15px] font-semibold text-text">{counterpartyName}</p>
+                {order.role === "payer" ? (
+                  <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">商家</span>
+                ) : null}
+              </div>
+              <p className="mt-0.5 text-xs text-muted">
+                {order.counterparty?.studentNoMasked ? `学号 ${order.counterparty.studentNoMasked}` : "已认证用户"}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="card p-4">
+          <h2 className="section-title">订单内容</h2>
+          {order.items && order.items.length > 0 ? (
+            <div className="space-y-2">
+              {order.items.map((item, index) => (
+                <div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="min-w-0 truncate text-text">
+                    {item.name}
+                    <span className="ml-1 text-xs text-muted">×{item.quantity}</span>
+                  </span>
+                  <span className="text-amount shrink-0 text-text">¥{formatCents(item.priceCents * item.quantity)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-text">自定义付款</p>
+          )}
+          <div className="divider my-3" />
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted">合计</span>
+            <MoneyText cents={order.amountCents} size="md" />
+          </div>
+        </section>
+
+        {order.noteRequirement.trim() ? (
+          <section className="card p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-text">商家备注要求</h2>
+              <button
+                type="button"
+                className="text-xs font-medium text-brand"
+                onClick={() => setRequirementOpen(true)}
+              >
+                重新查看
+              </button>
+            </div>
+            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">
+              {order.noteRequirement}
+            </p>
+          </section>
+        ) : null}
+
+        {order.reservedNote ? (
+          <section className="card p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-text">预留备注</h2>
+              <button
+                type="button"
+                className="text-xs font-medium text-brand"
+                onClick={() => void handleCopy(order.reservedNote ?? "", "备注")}
+              >
+                复制
+              </button>
+            </div>
+            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">
+              {order.reservedNote}
+            </p>
+          </section>
+        ) : null}
+
+        {order.actualNote ? (
+          <section className="card p-4">
+            <h2 className="text-sm font-semibold text-text">实际支付备注</h2>
+            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">{order.actualNote}</p>
+          </section>
+        ) : null}
+
+        {order.role === "payer" && order.status === "pending_payment" ? (
+          <OrderQrPanel
+            title="商家收款码"
+            channels={channels}
+            channel={channel}
+            onChannelChange={setSelectedChannel}
+            dataUrl={qr.url}
+            loading={qr.loading}
+            error={qr.error}
+            onSave={() => void handleSaveQr()}
+            saving={savingQr}
+          />
+        ) : null}
+
+        {order.role === "merchant" && order.status === "pending_payment" ? (
+          <section className="card p-4">
+            <h2 className="text-sm font-semibold text-text">当面收款</h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted">
+              如果对方当面付款，可出示你的收款码；确认收到款项后可直接确认收款。
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                className="btn btn-outline btn-sm flex-1"
+                onClick={() => {
+                  setQrDialogChannel(channel);
+                  setQrDialogOpen(true);
+                }}
+              >
+                出示收款码
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <Timeline order={order} />
+
+        <p className="px-1 pt-1 text-center text-[11px] leading-relaxed text-muted">
+          请核对收款方信息。资金通过第三方收款码流转，gzspay 不代收代付。
+        </p>
+      </main>
+
+      {showActions ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line glass safe-bottom">
+          <div className="page flex gap-2 py-3">
+            {order.role === "payer" && order.status === "pending_payment" ? (
+              <button type="button" className="btn btn-primary btn-block" onClick={openPayDialog}>
+                我已支付
+              </button>
+            ) : null}
+
+            {order.role === "merchant" && order.status === "pending_payment" ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-outline flex-1"
+                  onClick={() => {
+                    setCancelReason("金额有误");
+                    setCancelNote("");
+                    setCancelOpen(true);
+                  }}
+                >
+                  取消订单
+                </button>
+                <button type="button" className="btn btn-primary flex-1" onClick={() => setConfirmOpen(true)}>
+                  对方已付款
+                </button>
+              </>
+            ) : null}
+
+            {order.role === "merchant" && order.status === "paid" ? (
+              <>
+                <button type="button" className="btn btn-outline flex-1" onClick={() => setNotReceivedOpen(true)}>
+                  未收到
+                </button>
+                <button type="button" className="btn btn-primary flex-1" onClick={() => setConfirmOpen(true)}>
+                  确认收款
+                </button>
+              </>
+            ) : null}
+
+            {order.role === "payer" && order.status === "paid" ? (
+              <p className="w-full py-2 text-center text-xs text-muted">已标记支付，等待商家确认收款</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* 备注要求 3 秒倒计时 */}
+      <CountdownModal
+        open={requirementOpen}
+        title="商家备注要求"
+        seconds={3}
+        confirmText="我已阅读"
+        onClose={closeRequirement}
+      >
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-text">{order.noteRequirement}</p>
+      </CountdownModal>
+
+      {/* 我已支付 */}
+      <Dialog
+        open={payOpen}
+        onClose={() => {
+          if (!payBusy) setPayOpen(false);
+        }}
+        title="我已支付"
+        description="请填写你实际使用的支付方式与备注，商家将据此核对收款。"
+        footer={
+          <div className="flex gap-2">
+            <button type="button" className="btn btn-outline flex-1" disabled={payBusy} onClick={() => setPayOpen(false)}>
+              取消
+            </button>
+            <button type="button" className="btn btn-primary flex-1" disabled={payBusy} onClick={() => void submitPay()}>
+              {payBusy ? <Spinner size={16} /> : null}
+              提交
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <p className="label">实际支付方式</p>
+            <div className="flex flex-wrap gap-2">
+              {channels.length === 0 ? (
+                <p className="text-xs text-danger">商家未启用收款方式，请先与商家联系</p>
+              ) : (
+                channels.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    className={cn("chip", payChannel === item && "chip-active")}
+                    onClick={() => setPayChannel(item)}
+                  >
+                    {payChannelLabel(item)}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+          <div>
+            <label className="label" htmlFor="actualNote">
+              实际备注（默认带入预留备注，可修改）
+            </label>
+            <textarea
+              id="actualNote"
+              className="input min-h-[88px] py-3"
+              value={payNote}
+              maxLength={200}
+              placeholder="可填写转账单号后四位、时间等信息"
+              onChange={(event) => setPayNote(event.target.value)}
+            />
+          </div>
+        </div>
+      </Dialog>
+
+      {/* 商家取消订单 */}
+      <Dialog
+        open={cancelOpen}
+        onClose={() => {
+          if (!cancelBusy) setCancelOpen(false);
+        }}
+        title="取消订单"
+        description="请选择取消原因，付款人将看到该原因。"
+        footer={
+          <div className="flex gap-2">
+            <button type="button" className="btn btn-outline flex-1" disabled={cancelBusy} onClick={() => setCancelOpen(false)}>
+              再想想
+            </button>
+            <button type="button" className="btn btn-danger flex-1" disabled={cancelBusy} onClick={() => void submitCancel()}>
+              {cancelBusy ? <Spinner size={16} /> : null}
+              确认取消
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {CANCEL_REASONS.map((reason) => (
+              <button
+                key={reason}
+                type="button"
+                className={cn("chip", cancelReason === reason && "chip-active")}
+                onClick={() => setCancelReason(reason)}
+              >
+                {reason}
+              </button>
+            ))}
+          </div>
+          <textarea
+            className="input min-h-[72px] py-3"
+            value={cancelNote}
+            maxLength={200}
+            placeholder="补充说明（选填）"
+            onChange={(event) => setCancelNote(event.target.value)}
+          />
+        </div>
+      </Dialog>
+
+      {/* 商家确认收款 */}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="确认已收到款项？"
+        description={`确认收款 ¥${formatCents(order.amountCents)}，订单将标记为已完成。`}
+        confirmText="确认收款"
+        loading={confirmBusy}
+        onConfirm={() => void submitConfirm()}
+        onClose={() => setConfirmOpen(false)}
+      />
+
+      {/* 商家未收到 */}
+      <ConfirmDialog
+        open={notReceivedOpen}
+        title="标记未收到款？"
+        description="订单将退回待付款，并通知付款人重新核对。"
+        confirmText="未收到"
+        danger
+        loading={notReceivedBusy}
+        onConfirm={() => void submitNotReceived()}
+        onClose={() => setNotReceivedOpen(false)}
+      />
+
+      {/* 商家出示收款码 */}
+      <Dialog
+        open={qrDialogOpen}
+        onClose={() => setQrDialogOpen(false)}
+        title="我的收款码"
+        description="请对方扫码付款，确认收到款项后点击下方按钮。"
+        footer={
+          <div className="space-y-2">
+            <button
+              type="button"
+              className="btn btn-primary btn-block"
+              onClick={() => {
+                setQrDialogOpen(false);
+                setConfirmOpen(true);
+              }}
+            >
+              对方已付款，直接确认
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-block"
+              disabled={savingQr || !qrDialogChannelResolved || !qrDialog.url}
+              onClick={async () => {
+                if (!order || !qrDialogChannelResolved) return;
+                setSavingQr(true);
+                try {
+                  const blob = await getOrderQrBlob(order.id, qrDialogChannelResolved);
+                  downloadBlob(blob, safeFilename(`gzspay-${order.orderNo}-${qrDialogChannelResolved}.png`));
+                  toast.success("二维码已保存");
+                } catch (cause) {
+                  toast.error(errorMessage(cause));
+                } finally {
+                  setSavingQr(false);
+                }
+              }}
+            >
+              保存二维码
+            </button>
+          </div>
+        }
+      >
+        {channels.length > 0 ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {channels.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={cn("chip", qrDialogChannelResolved === item && "chip-active")}
+                  onClick={() => setQrDialogChannel(item)}
+                >
+                  {payChannelLabel(item)}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col items-center">
+              {qrDialog.error ? (
+                <p className="py-6 text-center text-xs text-danger">{qrDialog.error}</p>
+              ) : qrDialog.loading ? (
+                <div className="skeleton h-[220px] w-[220px]" />
+              ) : (
+                <QrImage dataUrl={qrDialog.url} size={220} alt="收款码" />
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-danger">尚未启用收款方式，请先在商家中心上传并启用收款码。</p>
+        )}
+      </Dialog>
+    </div>
+  );
+}
