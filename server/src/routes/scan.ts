@@ -1,0 +1,33 @@
+import { Router } from "express";
+import { z } from "zod";
+import { errors } from "../lib/errors.js";
+import { asyncHandler, requireUser } from "../lib/http.js";
+import { maskCardNo } from "../lib/crypto.js";
+import { parse } from "../lib/validate.js";
+import { isMerchant, publicUserOf, resolveCardOwner } from "../services/users.js";
+
+export const scanRouter: Router = Router();
+
+/**
+ * 扫描校园卡二维码解析身份（静态码只用于认人，不能授权支付）。
+ * 付款人扫商家卡 → 拿 merchantUserId 进商家主页；
+ * 商家扫客户卡 → 拿 customerId 创建收款订单。
+ */
+scanRouter.post(
+  "/card",
+  requireUser(),
+  asyncHandler((req, res) => {
+    const body = parse(z.object({ cardContent: z.string().trim().min(1, "请扫描校园卡二维码") }), req.body);
+    const owner = resolveCardOwner(body.cardContent);
+    if (!owner) {
+      throw errors.notFound("该校园卡尚未绑定 gzspay 账号，请提醒对方先注册");
+    }
+    if (owner.status === "frozen") throw errors.locked("该账号已被冻结");
+    res.json({
+      user: publicUserOf(owner),
+      isMerchant: isMerchant(owner.id),
+      isSelf: owner.id === req.auth!.user.id,
+      cardNoMasked: owner.card_no ? maskCardNo(owner.card_no) : null,
+    });
+  }),
+);
