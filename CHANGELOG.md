@@ -32,4 +32,5 @@
 
 ### 修复
 
-- 无。
+- Windows 下 `npm run dev` 启动失败（直接 spawn `npm.cmd` 报 `EINVAL`）。
+- 引导接口返回的 `nextStep` 文案错位，显示成下一步而不是当前待完成步骤。

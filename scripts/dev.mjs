@@ -7,9 +7,10 @@ import { spawn } from "node:child_process";
 
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 
+// Windows 上直接 spawn npm.cmd 会报 EINVAL，需要开启 shell
 const children = [
-  spawn(npm, ["run", "dev", "-w", "@gzspay/server"], { stdio: "inherit" }),
-  spawn(npm, ["run", "dev", "-w", "@gzspay/web"], { stdio: "inherit" }),
+  spawn(npm, ["run", "dev", "-w", "@gzspay/server"], { stdio: "inherit", shell: process.platform === "win32" }),
+  spawn(npm, ["run", "dev", "-w", "@gzspay/web"], { stdio: "inherit", shell: process.platform === "win32" }),
 ];
 
 let exiting = false;
