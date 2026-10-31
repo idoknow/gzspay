@@ -91,11 +91,12 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div className="admin-sidebar-brand">
-          <div className="admin-brand-mark" aria-hidden="true">
-            G
-          </div>
+          <div className="admin-brand-mark" aria-hidden="true" />
           <div className="admin-brand-text">
-            <span className="admin-brand-name">gzspay</span>
+            <span className="admin-brand-name">
+              <span className="admin-brand-name-gzs">gzs</span>
+              <span className="admin-brand-name-pay">pay</span>
+            </span>
             <span className="admin-brand-sub">校园支付 · 管理后台</span>
           </div>
         </div>

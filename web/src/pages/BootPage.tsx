@@ -1,7 +1,7 @@
 /** 启动加载页：logo 动画 + 真实字节进度条（最少停留 0.6s，超过 8s 提示网络慢，失败可重试）。 */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Logo } from "../components/Logo";
+import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { runBoot, type BootProgress } from "../lib/boot";
 import { errorMessage } from "../lib/http";
 import type { SessionResponse } from "../lib/types";
@@ -63,14 +63,15 @@ export function BootPage({ onReady }: BootPageProps): ReactNode {
   return (
     <div className="bg-app flex min-h-[100dvh] flex-col items-center justify-center px-8 py-10">
       <div className="flex flex-1 flex-col items-center justify-center">
-        <Logo size={104} animated />
-        <p className="wordmark-in mt-6 text-[26px] font-bold tracking-[0.18em] text-brand">gzspay</p>
-        <p className="mt-1.5 text-sm text-muted animate-fade-in">桂中校园收付款</p>
+        <LogoMark size={112} animated />
+        <Wordmark size="display" animated className="mt-5" />
+        <Tagline animated className="mt-4" />
+        <p className="mt-3 text-sm text-muted animate-fade-in">桂中校园收付款</p>
 
         <div className="mt-10 w-full max-w-[300px]">
           <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
             <div
-              className={`progress-fill h-full rounded-full ${error ? "bg-danger" : "bg-gradient-to-r from-[#4a8dff] to-[#1d55e8]"}`}
+              className={`progress-fill h-full rounded-full ${error ? "bg-danger" : "bg-gradient-to-r from-[#4a8dff] to-[#1e6bff]"}`}
               style={{ width: `${barWidth}%` }}
             />
           </div>

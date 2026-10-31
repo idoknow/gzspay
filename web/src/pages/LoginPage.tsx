@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Logo } from "../components/Logo";
+import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { devLogin, LOGIN_URL } from "../lib/api";
@@ -63,9 +63,10 @@ export function LoginPage(): ReactNode {
   return (
     <div className="bg-app flex min-h-[100dvh] flex-col px-6 pb-[max(env(safe-area-inset-bottom),24px)] pt-[max(env(safe-area-inset-top),40px)]">
       <div className="flex flex-1 flex-col items-center justify-center">
-        <Logo size={88} animated />
-        <p className="wordmark-in mt-5 text-[26px] font-bold tracking-[0.18em] text-brand">gzspay</p>
-        <p className="mt-1.5 text-sm text-muted">桂中校园收付款</p>
+        <LogoMark size={96} animated />
+        <Wordmark size="xl" animated className="mt-5" />
+        <Tagline animated className="mt-3" />
+        <p className="mt-2 text-sm text-muted">桂中校园收付款</p>
 
         <div className="mt-10 w-full max-w-[360px] space-y-3">
           {authError ? (

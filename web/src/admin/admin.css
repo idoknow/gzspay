@@ -6,32 +6,32 @@
 
 .admin-root {
   /* 浅色主题变量 */
-  --admin-bg: #f3f6fb;
+  --admin-bg: #f2f7ff;
   --admin-bg-elevated: #ffffff;
-  --admin-bg-soft: #f7f9fd;
-  --admin-bg-hover: #eef4ff;
-  --admin-border: #e2e9f3;
-  --admin-border-strong: #cbd8e9;
-  --admin-text: #182338;
-  --admin-text-secondary: #55637b;
-  --admin-text-muted: #8794a9;
-  --admin-primary: #2f7cf6;
-  --admin-primary-strong: #1f63d6;
-  --admin-primary-soft: #e8f1ff;
-  --admin-accent: #f5a623;
-  --admin-accent-strong: #d98a07;
-  --admin-accent-soft: #fff3da;
+  --admin-bg-soft: #f7faff;
+  --admin-bg-hover: #eaf1ff;
+  --admin-border: #e1e9fa;
+  --admin-border-strong: #c9d8f2;
+  --admin-text: #0b1b4d;
+  --admin-text-secondary: #4a5a8c;
+  --admin-text-muted: #7c89a8;
+  --admin-primary: #1e6bff;
+  --admin-primary-strong: #1552d6;
+  --admin-primary-soft: #e8f0ff;
+  --admin-accent: #ffc933;
+  --admin-accent-strong: #e0a915;
+  --admin-accent-soft: #fff6d9;
   --admin-success: #17996b;
   --admin-success-soft: #e3f7ee;
   --admin-warning: #c97b06;
   --admin-warning-soft: #fff4e2;
   --admin-danger: #d64545;
   --admin-danger-soft: #fdecec;
-  --admin-sidebar-bg: #0e2748;
-  --admin-sidebar-bg-2: #14355f;
-  --admin-sidebar-text: #d9e6f7;
-  --admin-sidebar-muted: #8fa9c9;
-  --admin-sidebar-active: rgba(245, 166, 35, 0.16);
+  --admin-sidebar-bg: #0b1b4d;
+  --admin-sidebar-bg-2: #10275e;
+  --admin-sidebar-text: #dbe7fb;
+  --admin-sidebar-muted: #8fa6cd;
+  --admin-sidebar-active: rgba(255, 201, 51, 0.18);
   --admin-topbar-bg: rgba(255, 255, 255, 0.86);
   --admin-shadow-sm: 0 1px 2px rgba(20, 40, 70, 0.06);
   --admin-shadow: 0 10px 30px rgba(20, 40, 70, 0.08);
@@ -66,11 +66,11 @@
   --admin-text: #e7eefb;
   --admin-text-secondary: #a7b6cc;
   --admin-text-muted: #7a8ba4;
-  --admin-primary: #4d92ff;
-  --admin-primary-strong: #2f7cf6;
-  --admin-primary-soft: #172a4a;
-  --admin-accent: #f7b84b;
-  --admin-accent-strong: #f5a623;
+  --admin-primary: #4d8dff;
+  --admin-primary-strong: #6fa5ff;
+  --admin-primary-soft: #14264d;
+  --admin-accent: #ffcf57;
+  --admin-accent-strong: #ffbe3c;
   --admin-accent-soft: #3a2c12;
   --admin-success: #3ec48d;
   --admin-success-soft: #12301f;
@@ -78,8 +78,8 @@
   --admin-warning-soft: #33260f;
   --admin-danger: #f06a6a;
   --admin-danger-soft: #3a1a1a;
-  --admin-sidebar-bg: #081020;
-  --admin-sidebar-bg-2: #0c1a2d;
+  --admin-sidebar-bg: #060f24;
+  --admin-sidebar-bg-2: #0b1a33;
   --admin-topbar-bg: rgba(20, 31, 47, 0.88);
   --admin-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --admin-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
@@ -169,17 +169,12 @@
 }
 
 .admin-brand-mark {
-  display: grid;
-  place-items: center;
   width: 38px;
   height: 38px;
   flex: 0 0 38px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--admin-accent), var(--admin-accent-strong));
-  color: #3a2a05;
-  font-weight: 800;
-  font-size: 18px;
-  box-shadow: 0 6px 16px rgba(245, 166, 35, 0.35);
+  border-radius: 11px;
+  background: #1e6bff url("/logo.svg") center / cover no-repeat;
+  box-shadow: 0 6px 16px rgba(30, 107, 255, 0.38);
 }
 
 .admin-brand-text {
@@ -190,10 +185,18 @@
 
 .admin-brand-name {
   font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: #fff;
   white-space: nowrap;
+}
+
+.admin-brand-name-gzs {
+  color: #ffffff;
+}
+
+.admin-brand-name-pay {
+  color: #7fa9ff;
 }
 
 .admin-brand-sub {
@@ -1636,11 +1639,11 @@
 }
 
 .admin-funnel-step:nth-child(2) .admin-funnel-bar {
-  background: linear-gradient(90deg, #4a95ff, #2f7cf6);
+  background: linear-gradient(90deg, #4a95ff, #1e6bff);
 }
 
 .admin-funnel-step:nth-child(3) .admin-funnel-bar {
-  background: linear-gradient(90deg, #f5a623, #e08d0b);
+  background: linear-gradient(90deg, #ffc933, #e0a915);
 }
 
 /* 进度条 */
@@ -1921,6 +1924,25 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 22px;
+}
+
+.admin-auth-brand .admin-brand-mark {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+  border-radius: 13px;
+}
+
+.admin-auth-brand .admin-brand-name {
+  color: var(--admin-text);
+}
+
+.admin-auth-brand .admin-brand-name-pay {
+  color: var(--admin-primary);
+}
+
+.admin-auth-brand .admin-brand-sub {
+  color: var(--admin-text-muted);
 }
 
 .admin-auth-title {

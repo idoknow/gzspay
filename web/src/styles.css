@@ -3,38 +3,48 @@
 /* 主题切换：通过 <html data-theme="light|dark"> 生效（auto 由 JS 解析为具体值） */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* 品牌字体：Nunito 800（ASCII 子集自托管，见 docs/brand.md；中文继续使用系统字体） */
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("/fonts/nunito-latin.woff2") format("woff2");
+  unicode-range: U+0020-007E;
+}
+
 :root {
   color-scheme: light;
-  /* 品牌：亮蓝 + 暖黄 */
-  --brand: #2f6bff;
-  --brand-strong: #1d55e8;
-  --brand-soft: #e8efff;
-  --accent: #ffc133;
-  --accent-strong: #f5a623;
-  --accent-soft: #fff4d1;
+  /* 品牌：亮蓝 + 暖黄（Logo 取自 https://github.com/idoknow/gzspay 设计稿） */
+  --brand: #1e6bff;
+  --brand-strong: #1552d6;
+  --brand-soft: #e8f0ff;
+  --accent: #ffc933;
+  --accent-strong: #f0b21f;
+  --accent-soft: #fff6d9;
 
-  --bg: #f4f6fb;
+  --bg: #f2f7ff;
   --surface: #ffffff;
-  --surface-2: #eef2fa;
-  --surface-3: #e2e8f5;
-  --text: #131a2a;
-  --muted: #6b7488;
-  --line: #e3e9f4;
+  --surface-2: #eaf1ff;
+  --surface-3: #dde7fb;
+  --text: #0b1b4d;
+  --muted: #4a5a8c;
+  --line: #e1e9fa;
   --danger: #e5484d;
   --danger-soft: #fdeaea;
   --success: #12a150;
   --success-soft: #e5f8ed;
   --warning: #c77700;
   --warning-soft: #fff4dd;
-  --shadow: 0 12px 32px -18px rgba(24, 55, 120, 0.35);
-  --shadow-strong: 0 18px 44px -18px rgba(24, 55, 120, 0.42);
+  --shadow: 0 12px 32px -18px rgba(11, 27, 77, 0.35);
+  --shadow-strong: 0 18px 44px -18px rgba(11, 27, 77, 0.42);
 }
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --brand: #5b93ff;
-  --brand-strong: #3f7dff;
-  --brand-soft: #16264a;
+  --brand: #4d8dff;
+  --brand-strong: #6fa5ff;
+  --brand-soft: #14264d;
   --accent: #ffcf57;
   --accent-strong: #ffbe3c;
   --accent-soft: #3a2f10;
@@ -81,6 +91,13 @@ html[data-theme="dark"] {
     -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui,
     sans-serif;
   --radius-4xl: 1.75rem;
+}
+
+/* 品牌字体（用于 gzspay 字标与「CAMPUS PAYMENT」副标） */
+@theme {
+  --font-brand:
+    "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+    system-ui, sans-serif;
 }
 
 html,
@@ -226,7 +243,11 @@ img {
   }
   .bg-app {
     background:
-      radial-gradient(1200px 420px at 50% -160px, color-mix(in srgb, var(--brand) 16%, transparent), transparent 70%),
+      radial-gradient(
+        1200px 420px at 50% -160px,
+        color-mix(in srgb, var(--brand) 16%, transparent),
+        transparent 70%
+      ),
       var(--bg);
   }
   .text-amount {
@@ -332,6 +353,40 @@ img {
 .wordmark-in {
   animation: gz-word-in 0.5s ease-out 0.5s both;
 }
+
+/* ---------- 品牌标识 ---------- */
+.logo-mark-bg {
+  fill: var(--brand);
+}
+.logo-coin-face {
+  fill: var(--accent);
+}
+.logo-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-brand);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.logo-wordmark-gzs {
+  color: var(--text);
+}
+.logo-wordmark-pay {
+  color: var(--brand);
+}
+.logo-tagline {
+  display: inline-block;
+  font-family: var(--font-brand);
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .animate-scan {
   animation: gz-scan 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

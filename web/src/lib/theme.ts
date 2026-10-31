@@ -33,7 +33,7 @@ export function resolveTheme(mode: ThemeMode): "light" | "dark" {
 function applyResolved(theme: "light" | "dark"): void {
   document.documentElement.dataset.theme = theme;
   const meta = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
-  const color = theme === "dark" ? "#0a1020" : "#f4f6fb";
+  const color = theme === "dark" ? "#0a1020" : "#f2f7ff";
   for (const tag of meta) {
     tag.content = color;
   }

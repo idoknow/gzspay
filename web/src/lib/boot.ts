@@ -53,6 +53,7 @@ function collectResourceUrls(): string[] {
     if (
       rel === "stylesheet" ||
       rel === "modulepreload" ||
+      rel === "preload" ||
       rel === "manifest" ||
       rel === "icon" ||
       rel === "apple-touch-icon"
@@ -63,6 +64,7 @@ function collectResourceUrls(): string[] {
   // 启动页会展示的 logo 与图标也计入加载进度
   consider("/logo.svg");
   consider("/icons/icon-192.png");
+  consider("/fonts/nunito-latin.woff2");
 
   return [...urls];
 }

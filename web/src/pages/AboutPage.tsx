@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
-import { Logo } from "../components/Logo";
+import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { PageHeader } from "../components/PageHeader";
 import { getAbout } from "../lib/api";
 import { useAsync } from "../lib/hooks";
@@ -22,7 +22,9 @@ export function AboutPage(): ReactNode {
 
       <main className="page space-y-4 pb-10 pt-4">
         <section className="card flex flex-col items-center p-6 text-center">
-          <Logo size={64} wordmark direction="column" />
+          <LogoMark size={72} />
+          <Wordmark size="lg" className="mt-3" />
+          <Tagline className="mt-2" />
           <p className="mt-2 text-xs text-muted">桂中校园收付款</p>
           <p className="mt-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] text-muted">版本 {version || "-"}</p>
           <p className="mt-3 text-[11px] leading-relaxed text-muted">

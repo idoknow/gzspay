@@ -1,10 +1,12 @@
 # gzspay
 
+<img src="web/public/logo-lockup.svg" alt="gzspay" width="360" />
+
 桂中校园收付款网页应用（手机浏览器 + 管理后台）。
 
 资金不经过 gzspay：钱仍通过商家自己的支付宝、微信支付、QQ 钱包收款码转账；gzspay 负责认人、下单、支付密码授权与付款后的备注核对和商家确认。
 
-完整设计见 [DESIGN.md](./DESIGN.md)，接口契约见 [docs/api.md](./docs/api.md)。
+完整设计见 [DESIGN.md](./DESIGN.md)，接口契约见 [docs/api.md](./docs/api.md)，品牌与图标规范见 [docs/brand.md](./docs/brand.md)。
 
 ## 技术栈
 
@@ -37,14 +39,16 @@ npm run dev
 | `npm run build` | 构建后端与前端 |
 | `npm run typecheck` | 前后端类型检查 |
 | `npm test` | 后端单元与集成测试 |
+| `npm run smoke` | 端到端冒烟：先构建并启动后端，用 `E2E_BASE_URL` 指向该服务（建议使用全新数据库） |
 | `npm start` | 运行构建产物（需先 `npm run build`） |
 
 ## 目录
 
 ```text
 server/   后端服务（API、领域逻辑、SQLite、邮件、二维码）
-web/      前端（手机端页面 + /admin 管理后台）
-docs/     接口契约、部署说明
+web/      前端（手机端页面 + /admin 管理后台；品牌资产在 web/public）
+docs/     接口契约、部署说明、品牌规范
+scripts/  开发启动、端到端冒烟、品牌资产生成（scripts/brand）
 ```
 
 ## 环境变量

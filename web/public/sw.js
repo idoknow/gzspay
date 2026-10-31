@@ -1,13 +1,15 @@
 /* gzspay Service Worker：静态资源 cache-first、导航请求 network-first 回退缓存。
  * 只在生产环境注册（见 src/main.tsx）。版本变化时清理旧缓存。
  */
-const CACHE_VERSION = "gzspay-v1";
+const CACHE_VERSION = "gzspay-v2";
 const PRECACHE_URLS = [
   "/",
   "/manifest.webmanifest",
   "/logo.svg",
+  "/icons/icon-180.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/fonts/nunito-latin.woff2",
 ];
 
 self.addEventListener("install", (event) => {

@@ -1,4 +1,4 @@
-/** gzspay 品牌 logo：蓝底白 g + 暖黄硬币（内联 SVG，支持启动动画）。 */
+/** gzspay 品牌标识：蓝底圆角方块 + 白色 g + 暖黄硬币（内联 SVG，颜色跟随主题变量）。 */
 
 import type { ReactNode } from "react";
 import { cn } from "../lib/format";
@@ -6,7 +6,7 @@ import { cn } from "../lib/format";
 export interface LogoMarkProps {
   /** 边长（像素） */
   size?: number;
-  /** 启动页动画：logo 淡入 + 硬币翻转一圈定格 */
+  /** 启动动画：整体淡入 + 硬币翻转一圈后定格 */
   animated?: boolean;
   className?: string;
 }
@@ -16,46 +16,84 @@ export function LogoMark({ size = 64, animated = false, className }: LogoMarkPro
     <svg
       width={size}
       height={size}
-      viewBox="0 0 64 64"
+      viewBox="0 0 120 120"
       role="img"
       aria-label="gzspay"
-      className={cn(animated && "logo-animated", className)}
+      className={cn("shrink-0", animated && "logo-animated", className)}
     >
-      <defs>
-        <linearGradient id="gz-logo-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#3f8cff" />
-          <stop offset="1" stopColor="#1d55e8" />
-        </linearGradient>
-      </defs>
-      <rect width="64" height="64" rx="18" fill="url(#gz-logo-gradient)" />
-      <text
-        x="30"
-        y="47"
-        textAnchor="middle"
-        fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
-        fontSize="42"
-        fontWeight="800"
-        fill="#ffffff"
-      >
-        g
-      </text>
-      <circle
-        className={animated ? "logo-coin" : undefined}
-        cx="39"
-        cy="34"
-        r="9"
-        fill="#ffc133"
-      />
+      <rect width="120" height="120" rx="30" className="logo-mark-bg" />
+      <g fill="none" stroke="#ffffff" strokeWidth="11" strokeLinecap="round">
+        <g className={animated ? "logo-coin" : undefined}>
+          <circle cx="60" cy="50" r="19" className="logo-coin-face" />
+        </g>
+        <path d="M79 50V74a16 16 0 0 1-16 16H49" />
+      </g>
     </svg>
   );
 }
 
-export interface LogoProps extends LogoMarkProps {
+export type WordmarkSize = "sm" | "md" | "lg" | "xl" | "display";
+
+const WORDMARK_SIZE_CLASS: Record<WordmarkSize, string> = {
+  sm: "text-[19px]",
+  md: "text-[26px]",
+  lg: "text-[34px]",
+  xl: "text-[44px]",
+  display: "text-[76px]",
+};
+
+export interface WordmarkProps {
+  size?: WordmarkSize;
+  animated?: boolean;
+  className?: string;
+}
+
+/** 「gzs(海军蓝) + pay(品牌蓝)」两色字标，Nunito 800。 */
+export function Wordmark({ size = "md", animated = false, className }: WordmarkProps): ReactNode {
+  return (
+    <span
+      className={cn(
+        "logo-wordmark",
+        WORDMARK_SIZE_CLASS[size],
+        animated && "wordmark-in",
+        className,
+      )}
+    >
+      <span className="logo-wordmark-gzs">gzs</span>
+      <span className="logo-wordmark-pay">pay</span>
+    </span>
+  );
+}
+
+export interface TaglineProps {
+  animated?: boolean;
+  className?: string;
+}
+
+/** 「CAMPUS PAYMENT」字距副标。 */
+export function Tagline({ animated = false, className }: TaglineProps): ReactNode {
+  return (
+    <span className={cn("logo-tagline", animated && "wordmark-in", className)}>CAMPUS PAYMENT</span>
+  );
+}
+
+export interface LogoProps {
+  /** 边长（像素） */
+  size?: number;
+  /** 启动动画：logo 淡入 + 硬币翻转一圈定格 */
+  animated?: boolean;
   /** 是否显示 gzspay 字标 */
   wordmark?: boolean;
   /** 竖向排列（启动页） / 横向排列 */
   direction?: "row" | "column";
+  className?: string;
   wordmarkClassName?: string;
+}
+
+function wordmarkSizeOf(size: number): WordmarkSize {
+  if (size >= 56) return "lg";
+  if (size >= 40) return "md";
+  return "sm";
 }
 
 export function Logo({
@@ -70,21 +108,17 @@ export function Logo({
     <div
       className={cn(
         "inline-flex items-center",
-        direction === "column" ? "flex-col gap-3" : "flex-row gap-3",
+        direction === "column" ? "flex-col gap-3" : "flex-row gap-2.5",
         className,
       )}
     >
       <LogoMark size={size} animated={animated} />
       {wordmark ? (
-        <span
-          className={cn(
-            "text-2xl font-extrabold tracking-tight text-text",
-            animated && "wordmark-in",
-            wordmarkClassName,
-          )}
-        >
-          gzspay
-        </span>
+        <Wordmark
+          size={wordmarkSizeOf(size)}
+          animated={animated}
+          className={wordmarkClassName}
+        />
       ) : null}
     </div>
   );

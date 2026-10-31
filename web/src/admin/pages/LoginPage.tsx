@@ -28,8 +28,12 @@ export function LoginPage({
 
       <div className="admin-auth-card">
         <div className="admin-auth-brand">
-          <span className="admin-brand-mark">G</span>
-          <span>gzspay 管理后台</span>
+          <span className="admin-brand-mark" aria-hidden="true" />
+          <span className="admin-brand-name">
+            <span className="admin-brand-name-gzs">gzs</span>
+            <span className="admin-brand-name-pay">pay</span>
+          </span>
+          <span className="admin-brand-sub">管理后台</span>
         </div>
         <h1 className="admin-auth-title">校园支付 · 管理后台</h1>
         <p className="admin-auth-sub">

@@ -270,7 +270,14 @@ function BootScreen() {
   return (
     <div className="admin-auth-page">
       <div className="admin-auth-card">
-        <div className="admin-auth-brand">gzspay 管理后台</div>
+        <div className="admin-auth-brand">
+          <span className="admin-brand-mark" aria-hidden="true" />
+          <span className="admin-brand-name">
+            <span className="admin-brand-name-gzs">gzs</span>
+            <span className="admin-brand-name-pay">pay</span>
+          </span>
+          <span className="admin-brand-sub">管理后台</span>
+        </div>
         <div className="admin-loading-note">
           <span className="admin-spinner" aria-hidden="true" />
           正在校验登录状态…
