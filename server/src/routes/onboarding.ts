@@ -12,7 +12,7 @@ import {
   bindCampusCard,
   completeOnboarding,
   isValidEmailValue,
-  nextOnboardStepLabel,
+  onboardStepLabel,
   setPaymentPassword,
   setRealName,
   setStudentNo,
@@ -42,7 +42,7 @@ function onboardingPayload(user: UserRow) {
   return {
     step: user.onboarded === 1 ? "done" : user.onboard_step,
     steps: STEP_LABELS,
-    nextStep: nextOnboardStepLabel(user.onboard_step),
+    nextStep: onboardStepLabel(user.onboarded === 1 ? "done" : user.onboard_step),
     me: toMe(user),
   };
 }

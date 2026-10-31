@@ -440,7 +440,8 @@ export const ONBOARD_STEP_LABELS: Record<OnboardStep, string> = {
   done: "已完成注册",
 };
 
-export function nextOnboardStepLabel(step: OnboardStep): string {
-  return ONBOARD_STEP_LABELS[nextOnboardStep(step)];
+/** 当前待完成步骤的提示文案（用于引导页标题） */
+export function onboardStepLabel(step: OnboardStep): string {
+  return ONBOARD_STEP_LABELS[step];
 }
 
