@@ -1,0 +1,297 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { Router } from "express";
+import { z } from "zod";
+import { REPO_ROOT, config } from "../config.js";
+import { execute, isoAfter, nowIso, queryOne } from "../db/index.js";
+import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "../content/legal.js";
+import { writeAudit } from "../lib/audit.js";
+import { buildCardQrContent, maskCardNo, randomToken, sha256 } from "../lib/crypto.js";
+import { issueEmailCode, consumeEmailCode, latestCodeEmail } from "../lib/email.js";
+import { errors } from "../lib/errors.js";
+import { asyncHandler, requireUser } from "../lib/http.js";
+import { sendMailInBackground, templates } from "../lib/mail.js";
+import { requestIp } from "../lib/types.js";
+import { parse } from "../lib/validate.js";
+import {
+  bindCampusCard,
+  findUserByEmail,
+  isValidEmailValue,
+  setPaymentPassword,
+  setRealName,
+  setStudentNo,
+  setVerifiedEmail,
+  toMe,
+  verifyPaymentPassword,
+} from "../services/users.js";
+
+export const meRouter: Router = Router();
+
+meRouter.use(requireUser());
+
+meRouter.get("/", (req, res) => {
+  res.json(toMe(req.auth!.user));
+});
+
+const profileSchema = z.object({
+  surname: z.string().trim().min(1).max(20).optional(),
+  givenName: z.string().trim().min(1).max(20).optional(),
+  studentNo: z.string().trim().min(1).optional(),
+  paymentPassword: z.string().trim().min(1, "请输入支付密码"),
+});
+
+meRouter.patch(
+  "/profile",
+  asyncHandler((req, res) => {
+    const user = req.auth!.user;
+    const body = parse(profileSchema, req.body);
+    if (!body.surname && !body.givenName && !body.studentNo) {
+      throw errors.validation("没有需要修改的内容");
+    }
+    verifyPaymentPassword(user, body.paymentPassword, requestIp(req));
+    let updated = user;
+    if (body.surname || body.givenName) {
+      updated = setRealName(
+        updated,
+        body.surname ?? updated.surname ?? "",
+        body.givenName ?? updated.given_name ?? "",
+        requestIp(req),
+      );
+    }
+    if (body.studentNo) {
+      updated = setStudentNo(updated, body.studentNo, requestIp(req));
+    }
+    res.json(toMe(updated));
+  }),
+);
+
+const emailStartSchema = z.object({
+  email: z.string().trim().min(1, "请填写邮箱"),
+  paymentPassword: z.string().trim().min(1, "请输入支付密码"),
+});
+
+meRouter.post(
+  "/email/start",
+  asyncHandler(async (req, res) => {
+    const user = req.auth!.user;
+    const body = parse(emailStartSchema, req.body);
+    verifyPaymentPassword(user, body.paymentPassword, requestIp(req));
+    if (!isValidEmailValue(body.email)) throw errors.validation("邮箱格式不正确");
+    const taken = findUserByEmail(body.email);
+    if (taken && taken.id !== user.id) throw errors.conflict("该邮箱已被其他账号使用");
+    const issued = await issueEmailCode({
+      user,
+      purpose: "email_change",
+      email: body.email,
+      scene: "更换邮箱",
+    });
+    res.json(issued);
+  }),
+);
+
+const emailVerifySchema = z.object({
+  email: z.string().trim().min(1),
+  code: z.string().trim().min(4),
+  paymentPassword: z.string().trim().min(1),
+});
+
+meRouter.post(
+  "/email/verify",
+  asyncHandler((req, res) => {
+    const user = req.auth!.user;
+    const body = parse(emailVerifySchema, req.body);
+    verifyPaymentPassword(user, body.paymentPassword, requestIp(req));
+    const pending = latestCodeEmail(user.id, "email_change");
+    if (!pending || pending.toLowerCase() !== body.email.toLowerCase()) {
+      throw errors.validation("验证码与邮箱不匹配，请重新获取验证码");
+    }
+    consumeEmailCode({
+      userId: user.id,
+      purpose: "email_change",
+      code: body.code,
+      ip: requestIp(req),
+    });
+    const updated = setVerifiedEmail(user, body.email, requestIp(req));
+    res.json(toMe(updated));
+  }),
+);
+
+const cardSchema = z.object({
+  cardContent: z.string().trim().min(1, "请扫描校园卡二维码"),
+  paymentPassword: z.string().trim().min(1, "请输入支付密码"),
+});
+
+meRouter.post(
+  "/card",
+  asyncHandler((req, res) => {
+    const user = req.auth!.user;
+    const body = parse(cardSchema, req.body);
+    verifyPaymentPassword(user, body.paymentPassword, requestIp(req));
+    const updated = bindCampusCard(user, body.cardContent, requestIp(req));
+    res.json(toMe(updated));
+  }),
+);
+
+const settingsSchema = z.object({
+  newOrder: z.boolean().optional(),
+  paid: z.boolean().optional(),
+  settled: z.boolean().optional(),
+});
+
+meRouter.patch(
+  "/settings",
+  asyncHandler((req, res) => {
+    const user = req.auth!.user;
+    const body = parse(settingsSchema, req.body);
+    const current = queryOne<{ new_order: number; paid: number; settled: number }>(
+      "SELECT * FROM notification_settings WHERE user_id = ?",
+      user.id,
+    );
+    if (!current) throw errors.notFound("通知设置不存在");
+    execute(
+      "UPDATE notification_settings SET new_order = ?, paid = ?, settled = ? WHERE user_id = ?",
+      body.newOrder === undefined ? current.new_order : body.newOrder ? 1 : 0,
+      body.paid === undefined ? current.paid : body.paid ? 1 : 0,
+      body.settled === undefined ? current.settled : body.settled ? 1 : 0,
+      user.id,
+    );
+    res.json(toMe(req.auth!.user));
+  }),
+);
+
+meRouter.get("/card-qr", (req, res) => {
+  const user = req.auth!.user;
+  if (!user.card_no) throw errors.notFound("尚未绑定校园卡");
+  res.json({ content: buildCardQrContent(user.card_no), cardNoMasked: maskCardNo(user.card_no) });
+});
+
+// ---------------- 支付密码 ----------------
+
+meRouter.post(
+  "/payment-password/verify",
+  asyncHandler((req, res) => {
+    const body = parse(z.object({ password: z.string().trim().min(1) }), req.body);
+    verifyPaymentPassword(req.auth!.user, body.password, requestIp(req));
+    res.json({ ok: true });
+  }),
+);
+
+meRouter.post(
+  "/payment-password/reset/start",
+  asyncHandler(async (req, res) => {
+    const user = req.auth!.user;
+    if (!user.email) throw errors.validation("请先绑定邮箱，再修改支付密码");
+    const issued = await issueEmailCode({
+      user,
+      purpose: "password_reset",
+      email: user.email,
+      scene: "修改支付密码",
+    });
+    res.json({ ...issued, emailMasked: toMe(user).emailMasked });
+  }),
+);
+
+meRouter.post(
+  "/payment-password/reset/verify",
+  asyncHandler((req, res) => {
+    const user = req.auth!.user;
+    const body = parse(z.object({ code: z.string().trim().min(4) }), req.body);
+    consumeEmailCode({
+      userId: user.id,
+      purpose: "password_reset",
+      code: body.code,
+      ip: requestIp(req),
+    });
+    const token = randomToken(32);
+    const expiresAt = isoAfter(config.security.passwordResetTokenTtlMinutes * 60);
+    execute(
+      "UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
+      nowIso(),
+      user.id,
+    );
+    execute(
+      "INSERT INTO password_reset_tokens (id, user_id, expires_at, used_at, created_at) VALUES (?, ?, ?, NULL, ?)",
+      sha256(token),
+      user.id,
+      expiresAt,
+      nowIso(),
+    );
+    res.json({ resetToken: token, expiresAt });
+  }),
+);
+
+const resetConfirmSchema = z.object({
+  resetToken: z.string().trim().min(10),
+  password: z.string().trim().min(1),
+  confirm: z.string().trim().min(1),
+});
+
+meRouter.post(
+  "/payment-password/reset/confirm",
+  asyncHandler((req, res) => {
+    const user = req.auth!.user;
+    const body = parse(resetConfirmSchema, req.body);
+    if (body.password !== body.confirm) throw errors.validation("两次输入的支付密码不一致");
+    const row = queryOne<{ id: string; user_id: string; expires_at: string; used_at: string | null }>(
+      "SELECT * FROM password_reset_tokens WHERE id = ?",
+      sha256(body.resetToken),
+    );
+    if (!row || row.user_id !== user.id) throw errors.validation("重置凭证无效，请重新获取验证码");
+    if (row.used_at) throw errors.validation("重置凭证已使用，请重新获取验证码");
+    if (row.expires_at <= nowIso()) throw errors.validation("重置凭证已过期，请重新获取验证码");
+    setPaymentPassword(user, body.password, requestIp(req));
+    execute("UPDATE password_reset_tokens SET used_at = ? WHERE id = ?", nowIso(), row.id);
+    if (user.email) {
+      sendMailInBackground(templates.passwordChanged(user.email));
+    }
+    writeAudit({
+      actorId: user.id,
+      actorRole: "user",
+      action: "payment_password.reset",
+      targetType: "user",
+      targetId: user.id,
+      ip: requestIp(req),
+    });
+    res.json({ ok: true });
+  }),
+);
+
+// ---------------- 关于 ----------------
+
+export interface ChangelogEntry {
+  version: string;
+  date: string;
+  items: string[];
+}
+
+/** 从仓库根目录 CHANGELOG.md 解析版本历史（按版本倒序） */
+export function readChangelog(): ChangelogEntry[] {
+  try {
+    const text = readFileSync(path.join(REPO_ROOT, "CHANGELOG.md"), "utf-8");
+    const entries: ChangelogEntry[] = [];
+    let current: ChangelogEntry | null = null;
+    for (const line of text.split(/\r?\n/)) {
+      const heading = /^##\s+\[?([^\]]+?)\]?(?:\s*-\s*(\d{4}-\d{2}-\d{2}))?\s*$/.exec(line);
+      if (heading) {
+        if (current) entries.push(current);
+        current = { version: (heading[1] ?? "").trim(), date: heading[2] ?? "", items: [] };
+        continue;
+      }
+      const item = /^\s*[-*]\s+(.+)$/.exec(line);
+      if (item && current) current.items.push((item[1] ?? "").trim());
+    }
+    if (current) entries.push(current);
+    return entries;
+  } catch {
+    return [];
+  }
+}
+
+meRouter.get("/about", (_req, res) => {
+  res.json({
+    version: config.version,
+    changelog: readChangelog(),
+    privacy: PRIVACY_POLICY,
+    terms: TERMS_OF_SERVICE,
+  });
+});
