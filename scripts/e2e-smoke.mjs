@@ -1,0 +1,262 @@
+#!/usr/bin/env node
+/**
+ * 端到端主链路冒烟脚本（需要先启动后端）。
+ *
+ * 用法：
+ *   E2E_BASE_URL=http://127.0.0.1:3100 node scripts/e2e-smoke.mjs
+ *
+ * 覆盖：健康检查 → 开发登录 → 五步引导 → 商家注册（multipart 收款码）→ 商品 →
+ * 扫码解析 → 下单（幂等）→ 我已支付 → 确认收款 → 统计 → 动态码收款请求/确认 → SSE → CSRF 拒绝。
+ */
+import QRCode from "qrcode";
+
+const BASE = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000";
+const PASSWORD = "123456";
+
+let passed = 0;
+let failed = 0;
+
+function ok(name, detail = "") {
+  passed += 1;
+  console.log(`  ✓ ${name}${detail ? ` — ${detail}` : ""}`);
+}
+
+function fail(name, detail) {
+  failed += 1;
+  console.log(`  ✗ ${name} — ${detail}`);
+  throw new Error(`${name}: ${detail}`);
+}
+
+function check(name, condition, detail = "") {
+  if (condition) ok(name, detail);
+  else fail(name, detail || "断言失败");
+}
+
+function makeClient(label) {
+  let cookie = "";
+  async function request(path, { method = "GET", body, form, csrf = true } = {}) {
+    const headers = {};
+    if (cookie) headers.cookie = cookie;
+    if (csrf && method !== "GET" && method !== "HEAD") headers["x-requested-with"] = "gzspay";
+    let payload;
+    if (form) {
+      payload = form;
+    } else if (body !== undefined) {
+      headers["content-type"] = "application/json";
+      payload = JSON.stringify(body);
+    }
+    const response = await fetch(`${BASE}${path}`, { method, headers, body: payload, redirect: "manual" });
+    const setCookies = response.headers.getSetCookie?.() ?? [];
+    if (setCookies.length > 0) {
+      cookie = setCookies.map((value) => value.split(";")[0]).join("; ");
+    }
+    const contentType = response.headers.get("content-type") ?? "";
+    let data = null;
+    if (contentType.includes("application/json")) data = await response.json();
+    else if (contentType.includes("text/")) data = await response.text();
+    return { status: response.status, data, contentType, headers: response.headers };
+  }
+  function expect(path, status, options) {
+    return request(path, options).then((response) => {
+      if (response.status !== status) {
+        fail(`${label} ${options?.method ?? "GET"} ${path}`, `期望 ${status}，实际 ${response.status}：${JSON.stringify(response.data)?.slice(0, 300)}`);
+      }
+      return response;
+    });
+  }
+  return { label, request, expect, cookie: () => cookie };
+}
+
+async function onboard(client, { surname, givenName, studentNo, email, cardNo }) {
+  await client.expect("/api/onboarding/name", 200, { method: "POST", body: { surname, givenName } });
+  await client.expect("/api/onboarding/student-no", 200, { method: "POST", body: { studentNo } });
+  const started = await client.expect("/api/onboarding/email/start", 200, { method: "POST", body: { email } });
+  check(`${client.label} 邮箱验证码已发出`, Boolean(started.data.devCode), `devCode=${started.data.devCode}`);
+  await client.expect("/api/onboarding/email/verify", 200, {
+    method: "POST",
+    body: { email, code: started.data.devCode },
+  });
+  await client.expect("/api/onboarding/card", 200, { method: "POST", body: { cardContent: `gzspay:card:${cardNo}` } });
+  await client.expect("/api/onboarding/payment-password", 200, {
+    method: "POST",
+    body: { password: PASSWORD, confirm: PASSWORD },
+  });
+  const me = await client.expect("/api/me", 200);
+  check(`${client.label} 引导完成`, me.data.onboarded === true);
+  return me.data;
+}
+
+async function main() {
+  console.log(`\n== gzspay 端到端冒烟 @ ${BASE} ==`);
+
+  const anonymous = makeClient("匿名");
+  const health = await anonymous.expect("/api/health", 200);
+  check("健康检查", health.data.status === "ok" && health.data.database === "up", `version=${health.data.version}`);
+
+  const csrf = await anonymous.request("/api/auth/dev-login", { method: "POST", body: { seed: 9 }, csrf: false });
+  check("缺少 X-Requested-With 时被拒绝", csrf.status === 403 && csrf.data?.error?.code === "CSRF_REJECTED", `status=${csrf.status}`);
+
+  await anonymous.expect("/api/admin/auth/session", 401);
+
+  // 商家账号
+  const merchant = makeClient("商家");
+  const merchantLogin = await merchant.expect("/api/auth/dev-login", 200, { method: "POST", body: { sub: "e2e-merchant", name: "20001", username: "王商家" } });
+  check("商家开发登录", merchantLogin.data.me?.id !== undefined);
+  const merchantMe = await onboard(merchant, {
+    surname: "王",
+    givenName: "商家",
+    studentNo: "20238001",
+    email: "merchant-e2e@example.com",
+    cardNo: "CARD-E2E-8001",
+  });
+
+  // 商家注册：上传支付宝收款码（服务端解码校验渠道）
+  const qrPng = await QRCode.toBuffer("https://qr.alipay.com/e2e-merchant-smoke", { width: 320 });
+  const form = new FormData();
+  form.set("name", "王商家的小卖部");
+  form.set("noteRequirement", "请填写姓名和学号后四位");
+  form.set("channels", JSON.stringify(["alipay"]));
+  form.set("qr_alipay", new Blob([qrPng], { type: "image/png" }), "alipay.png");
+  const registered = await merchant.expect("/api/merchant/register", 201, { method: "POST", form });
+  check("商家注册成功", registered.data.merchant?.channels?.[0]?.hasQr === true, `name=${registered.data.merchant?.name}`);
+
+  const product = await merchant.expect("/api/merchant/products", 201, {
+    method: "POST",
+    body: { name: "矿泉水", priceCents: 200, description: "550ml" },
+  });
+  check("新增商品", product.data.product?.priceCents === 200);
+
+  const publicMerchant = await merchant.expect(`/api/merchant/public/${merchantMe.id}`, 200);
+  check("商家公开主页含在售商品", publicMerchant.data.products?.length >= 1, `products=${publicMerchant.data.products?.length}`);
+
+  // 付款人账号
+  const payer = makeClient("付款人");
+  await payer.expect("/api/auth/dev-login", 200, { method: "POST", body: { sub: "e2e-payer", name: "20002", username: "李同学" } });
+  const payerMe = await onboard(payer, {
+    surname: "李",
+    givenName: "同学",
+    studentNo: "20238002",
+    email: "payer-e2e@example.com",
+    cardNo: "CARD-E2E-8002",
+  });
+
+  const scanned = await payer.expect("/api/scan/card", 200, { method: "POST", body: { cardContent: "gzspay:card:CARD-E2E-8001" } });
+  check("扫码识别商家", scanned.data.isMerchant === true && scanned.data.user?.id === merchantMe.id);
+
+  const scanNotBound = await payer.request("/api/scan/card", { method: "POST", body: { cardContent: "gzspay:card:NOT-BOUND-CARD" } });
+  check("未绑定校园卡提示先注册", scanNotBound.status === 404 && scanNotBound.data?.error?.code === "NOT_FOUND");
+
+  // 下单（带幂等键），重复提交应返回同一订单
+  const orderBody = {
+    merchantUserId: merchantMe.id,
+    items: [{ productId: product.data.product.id, quantity: 2 }],
+    reservedNote: "李同学 8002",
+    paymentPassword: PASSWORD,
+    idempotencyKey: "e2e-order-1",
+  };
+  const created = await payer.expect("/api/orders", 201, { method: "POST", body: orderBody });
+  const order = created.data.order;
+  check("下单成功", order?.status === "pending_payment" && order.amountCents === 400, `amount=${order?.amountCents}`);
+  const duplicated = await payer.request("/api/orders", { method: "POST", body: orderBody });
+  check("重复提交返回同一订单", duplicated.status === 200 && duplicated.data?.order?.id === order.id, `status=${duplicated.status}`);
+
+  const receiveList = await merchant.expect("/api/orders?scope=receive&status=pending", 200);
+  check("商家待收款列表出现订单", receiveList.data.items?.some((item) => item.id === order.id));
+  const payList = await payer.expect("/api/orders?scope=pay&status=all", 200);
+  check("付款人待付款列表出现订单", payList.data.items?.some((item) => item.id === order.id));
+
+  const detail = await payer.expect(`/api/orders/${order.id}`, 200);
+  check("订单详情含收款方式与预设备注", detail.data.availableChannels?.includes("alipay") && detail.data.reservedNote === "李同学 8002", `channels=${detail.data.availableChannels}`);
+
+  const qr = await payer.request(`/api/orders/${order.id}/qr?channel=alipay`);
+  check("订单收款码为 PNG", qr.status === 200 && qr.contentType.includes("image/png"), `type=${qr.contentType}`);
+
+  const wrongPassword = await merchant.request(`/api/orders/merchant-create`, {
+    method: "POST",
+    body: { cardContent: "gzspay:card:CARD-E2E-8002", amountCents: 100, paymentPassword: "000000", idempotencyKey: "e2e-wrong-pw" },
+  });
+  check(
+    "支付密码错误被拒绝",
+    wrongPassword.status === 400 && wrongPassword.data?.error?.code === "PAYMENT_PASSWORD_WRONG",
+    `status=${wrongPassword.status} code=${wrongPassword.data?.error?.code} body=${JSON.stringify(wrongPassword.data).slice(0, 200)}`,
+  );
+
+  const paid = await payer.expect(`/api/orders/${order.id}/pay`, 200, { method: "POST", body: { channel: "alipay", actualNote: "李同学 8002 已付" } });
+  check("我已支付 → 已支付", paid.data.status === "paid");
+  const completed = await merchant.expect(`/api/orders/${order.id}/confirm`, 200, { method: "POST", body: {} });
+  check("商家确认收款 → 已完成", completed.data.status === "completed");
+
+  const stats = await merchant.expect("/api/stats/summary", 200);
+  check("商家收入统计", stats.data.incomeCents === 400, `income=${stats.data.incomeCents}`);
+  const csv = await merchant.request("/api/stats/export");
+  check("统计 CSV 导出", csv.status === 200 && csv.contentType.includes("text/csv"));
+
+  // 动态码收款：客户出示动态码 → 商家只读解析 → 商家发起收款请求 → 客户在自己手机上确认
+  const dynamic = await payer.expect("/api/dynamic-code", 201, { method: "POST", body: {} });
+  check("客户签发动态码", dynamic.data.qrContent === `gzspay:dynamic:${dynamic.data.token}`);
+  const resolved = await merchant.expect(`/api/dynamic-code/${dynamic.data.token}/resolve`, 200);
+  check("商家只读解析不消费", resolved.data.user?.id === payerMe.id && resolved.data.isMerchant === false);
+
+  const selfScan = await merchant.request(`/api/dynamic-code/request`, {
+    method: "POST",
+    body: { token: (await merchant.expect("/api/dynamic-code", 201, { method: "POST", body: {} })).data.token, amountCents: 100 },
+  });
+  check("不能扫自己的动态码收款", selfScan.status === 409);
+
+  const request = await merchant.expect("/api/dynamic-code/request", 201, {
+    method: "POST",
+    body: { token: dynamic.data.token, amountCents: 300, reservedNote: "李同学 8002" },
+  });
+  check("商家发起收款请求", request.data.status === "pending" && request.data.amountCents === 300);
+  const pendingRequests = await payer.expect("/api/dynamic-code/requests", 200);
+  check("客户收到待确认请求", pendingRequests.data.items?.some((item) => item.id === request.data.id));
+  const accepted = await payer.expect(`/api/dynamic-code/requests/${request.data.id}/accept`, 200, {
+    method: "POST",
+    body: { paymentPassword: PASSWORD },
+  });
+  check("客户确认后创建订单", accepted.data.order?.status === "pending_payment" && accepted.data.orderId === accepted.data.order?.id);
+
+  // 商家扫客户卡代下单（单手机场景）：客户在商家手机上输入支付密码
+  const merchantCreated = await merchant.expect("/api/orders/merchant-create", 201, {
+    method: "POST",
+    body: {
+      cardContent: "gzspay:card:CARD-E2E-8002",
+      amountCents: 150,
+      reservedNote: "饮料",
+      paymentPassword: PASSWORD,
+      idempotencyKey: "e2e-merchant-create-1",
+    },
+  });
+  check("商家扫客户卡代下单", merchantCreated.data.order?.role === "merchant" && merchantCreated.data.order.amountCents === 150);
+
+  // SSE：登录用户可建立事件流（先收到 ready 事件）；匿名被拒
+  const anonymousSse = await fetch(`${BASE}/api/events/stream`);
+  check("SSE 需要登录会话（匿名被拒）", anonymousSse.status === 401, `status=${anonymousSse.status}`);
+  const controller = new AbortController();
+  const sse = await fetch(`${BASE}/api/events/stream`, {
+    headers: { cookie: payer.cookie() },
+    signal: controller.signal,
+  });
+  check("SSE 事件流已建立", sse.status === 200 && (sse.headers.get("content-type") ?? "").includes("text/event-stream"));
+  const reader = sse.body.getReader();
+  const first = await reader.read();
+  const firstChunk = new TextDecoder().decode(first.value ?? new Uint8Array());
+  check("SSE 收到 ready 事件", firstChunk.includes("event: ready"), JSON.stringify(firstChunk.slice(0, 60)));
+  await reader.cancel().catch(() => {});
+  controller.abort();
+
+  // 商家视角时间线
+  const timeline = await merchant.expect(`/api/orders/${order.id}`, 200);
+  check("订单时间线完整", timeline.data.events?.length >= 3, `events=${timeline.data.events?.length}`);
+
+  const about = await anonymous.expect("/api/about", 200);
+  check("关于页含版本与隐私协议", typeof about.data.version === "string" && about.data.privacy?.length > 100);
+
+  console.log(`\n结果：${passed} 项通过，${failed} 项失败`);
+  if (failed > 0) process.exit(1);
+}
+
+main().catch((error) => {
+  console.error(`\n冒烟失败：${error.message}`);
+  process.exit(1);
+});
