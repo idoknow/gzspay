@@ -185,6 +185,8 @@ export interface Me {
   studentNo: string | null;
   email: string | null;
   emailMasked: string | null;
+  /** 本人可见的完整卡号（仅 /api/me 类接口返回；对外展示用 cardNoMasked） */
+  cardNo: string | null;
   cardNoMasked: string | null;
   avatarUrl: string | null;
   onboarded: boolean;

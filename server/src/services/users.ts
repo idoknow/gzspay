@@ -102,6 +102,7 @@ export function toMe(user: UserRow): Me {
     studentNo: user.student_no,
     email: user.email,
     emailMasked: maskEmail(user.email),
+    cardNo: user.card_no,
     cardNoMasked: maskCardNo(user.card_no),
     avatarUrl: user.avatar_url,
     onboarded: user.onboarded === 1,

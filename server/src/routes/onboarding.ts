@@ -23,7 +23,6 @@ import {
 export const onboardingRouter: Router = Router();
 
 const STEP_ORDER: OnboardStep[] = ["name", "studentNo", "email", "card", "password", "done"];
-const STEP_LABELS = ["姓名", "校学号", "邮箱", "校园卡", "支付密码"];
 
 function stepIndex(step: OnboardStep): number {
   return STEP_ORDER.indexOf(step);
@@ -41,7 +40,8 @@ function shouldSkip(user: UserRow, step: OnboardStep): boolean {
 function onboardingPayload(user: UserRow) {
   return {
     step: user.onboarded === 1 ? "done" : user.onboard_step,
-    steps: STEP_LABELS,
+    // 步骤 key 列表（顺序固定），前端据此计算第几步与进度
+    steps: STEP_ORDER.filter((step) => step !== "done"),
     nextStep: onboardStepLabel(user.onboarded === 1 ? "done" : user.onboard_step),
     me: toMe(user),
   };

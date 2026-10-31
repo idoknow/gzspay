@@ -8,6 +8,8 @@ describe("config.extraAllowedOrigins", () => {
   });
 
   it("未配置时为空数组", async () => {
+    // 仓库根可能有 .env（开发用），显式置空让 dotenv 不覆盖
+    process.env.EXTRA_ALLOWED_ORIGINS = "";
     vi.resetModules();
     const { config } = await import("../src/config.js");
     expect(config.extraAllowedOrigins).toEqual([]);

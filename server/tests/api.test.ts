@@ -96,8 +96,21 @@ describe("新用户引导", () => {
     expect(me.body.onboardStep).toBe("done");
     expect(me.body.paymentPasswordSet).toBe(true);
     expect(me.body.studentNo).toBe("20230001");
+    expect(me.body.cardNo).toBe("CARD-GUIDE-0001");
     expect(me.body.cardNoMasked).toContain("0001");
     expect(me.body.email).toBe("20230001@example.com");
+  });
+
+  it("引导接口返回步骤 key 列表并随进度推进", async () => {
+    const { session } = await login("steps", "步骤用户");
+    const api = agentWith(session);
+    const first = await api.get("/api/onboarding").expect(200);
+    expect(first.body.steps).toEqual(["name", "studentNo", "email", "card", "password"]);
+    expect(first.body.step).toBe("name");
+
+    const afterName = await api.post("/api/onboarding/name").send({ surname: "王", givenName: "五" }).expect(200);
+    expect(afterName.body.step).toBe("studentNo");
+    expect(afterName.body.steps).toEqual(["name", "studentNo", "email", "card", "password"]);
   });
 
   it("学号不可重复绑定", async () => {
