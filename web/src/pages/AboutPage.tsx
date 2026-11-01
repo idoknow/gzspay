@@ -41,6 +41,20 @@ function ExternalIcon(): ReactNode {
   );
 }
 
+function BookIcon(): ReactNode {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-text">
+      <path
+        d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5H6.5A2.5 2.5 0 0 0 4 21V5.5Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path d="M8 7.5h8M8 11h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function ChevronIcon({ open }: { open: boolean }): ReactNode {
   return (
     <svg
@@ -205,6 +219,24 @@ export function AboutPage(): ReactNode {
             </span>
             <span className="flex items-center gap-1.5 text-[11px] text-muted">
               idoknow
+              <ExternalIcon />
+            </span>
+          </a>
+        </section>
+
+        <section className="card divide-y divide-line p-0">
+          <a
+            href="/guide"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors active:bg-surface-2"
+          >
+            <span className="flex items-center gap-2.5 text-sm text-text">
+              <BookIcon />
+              使用文档
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-muted">
+              无需登录查看
               <ExternalIcon />
             </span>
           </a>

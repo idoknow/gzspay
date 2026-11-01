@@ -17,6 +17,7 @@ import { BootPage } from "./pages/BootPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { DevicesPage } from "./pages/DevicesPage";
 import { DynamicCodePage } from "./pages/DynamicCodePage";
+import { GuidePage } from "./pages/GuidePage";
 import { LoginPage } from "./pages/LoginPage";
 import { MePage } from "./pages/MePage";
 import { MerchantPage } from "./pages/MerchantPage";
@@ -46,6 +47,12 @@ function useSetupStatus(): SetupStatus | null {
 function isAdminPath(): boolean {
   const path = window.location.pathname;
   return path === "/admin" || path.startsWith("/admin/");
+}
+
+/** 使用文档是公开页面，系统还没初始化时也允许查看 */
+function isPublicDocPath(): boolean {
+  const path = window.location.pathname;
+  return path === "/guide" || path === "/guide/";
 }
 
 /** 已登录 + 已完成引导的业务页外壳：底部不在这里渲染（各页面自带 BottomNav），额外挂全局 SSE 弹窗 */
@@ -114,6 +121,7 @@ function AdminRoute(): ReactNode {
 const router = createBrowserRouter([
   { path: "/", element: <HomeRoute /> },
   { path: "/login", element: <LoginPage /> },
+  { path: "/guide", element: <GuidePage /> },
   {
     path: "/onboarding",
     element: (
@@ -192,7 +200,7 @@ export function App(): ReactNode {
   }
 
   // 未初始化且不在管理后台：主站只显示引导页（不挂底部导航、不渲染业务路由）
-  if (setup !== null && !setup.initialized && !isAdminPath()) {
+  if (setup !== null && !setup.initialized && !isAdminPath() && !isPublicDocPath()) {
     return <SystemNotReadyPage status={setup} />;
   }
 

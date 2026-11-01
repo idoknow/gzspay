@@ -27,6 +27,8 @@
 - 新增压测脚本：`node scripts/bench-seed.mjs` 复制一份数据库并为指定学号写入测试会话，`node scripts/bench.mjs` 对 `/api/health`、`/api/about`、`/api/me`、订单列表与统计接口做并发压测，输出 req/s、p50/p95 与平均响应体大小，便于改动前后对比性能。
 - 新增安全防护：进程内滑动窗口限流覆盖登录发起、OAuth 回调、下单、转账、扫卡、邮箱验证码与动态码（超限 `429 RATE_LIMITED` 并带 `Retry-After`，阈值用 `RATE_LIMIT_*` 调整，设为 0 关闭）；生产环境启动自检（`SESSION_SECRET` 必须是 ≥32 字符的随机串、`APP_BASE_URL`/`PUBLIC_BASE_URL` 必须是 https，否则拒绝启动；`TRUST_PROXY` 可配置防伪造 `X-Forwarded-For`）；生产响应头增加 HSTS 与 CSP、COOP/CORP，`/api/*` 统一 `no-store`；头像与商家收款码上传改为按文件头校验 PNG/JPEG；新增 `docs/security.md` 记录防护措施与上线检查清单。
 
+- 新增公开的使用文档页面 `/guide`（无需登录即可查看）：从「关于」页的「使用文档」入口在新标签页打开，内容覆盖登录引导、交易列表、收付款码、付款 / 收款 / 转账、订单状态、交易统计、商家中心与商品、资料与安全、设置通知、公告、管理后台与常见问题，顶部提供章节目录。
+
 ### 变更
 
 - 安全加固配套改动：主题引导脚本从 `web/index.html` 的内联 `<script>` 抽到 `web/public/theme-boot.js`（配合 CSP `script-src 'self'`）；登录失败错误页对提示文案做 HTML 转义；新增安全相关测试（安全响应头与 `no-store`、登录限流 429、图片文件头校验、生产配置自检）。
