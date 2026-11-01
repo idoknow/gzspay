@@ -61,6 +61,7 @@ EXTRA_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 | `npm run check:changelog` | 校验 `CHANGELOG.md` 「未发布」小节是否随改动同步更新 |
 | `npm run verify` | 提交前自检：类型检查 + 测试 + 更新日志校验 |
 | `npm run hooks:install` | 安装本地 git 钩子，提交前自动校验更新日志 |
+| `npm run admin:grant -- --list` | 查看管理员与最近账号；`-- --sub <校园墙 sub> --role super` 授予管理后台权限 |
 | `npm run smoke` | 端到端冒烟：先构建并启动后端，用 `E2E_BASE_URL` 指向该服务（建议使用全新数据库） |
 | `npm start` | 运行构建产物（需先 `npm run build`） |
 

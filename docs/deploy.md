@@ -100,13 +100,20 @@ server {
 
 ## 6. 首个管理员
 
-管理员通过「校园墙 OAuth 登录 + 邮箱验证码二次验证」进入后台，其校园墙用户 ID（`sub`）必须在 `admins` 表中。首个管理员可先注册普通账号，再在服务器上执行：
+管理员通过「校园墙 OAuth 登录 + 邮箱验证码二次验证」进入后台，其校园墙用户 ID（`sub`）必须在 `admins` 表中。首个管理员可先用自己的校园墙账号登录一次（会自动建号），再在服务器上执行：
 
 ```bash
-node -e "import('node:sqlite').then(({DatabaseSync})=>{const db=new DatabaseSync(process.argv[1]);const u=db.prepare('SELECT id FROM users WHERE campux_sub=?').get(process.argv[2]);if(!u)throw new Error('用户不存在');db.prepare(\"INSERT OR REPLACE INTO admins (user_id, role, created_by, created_at) VALUES (?, 'super', NULL, ?)\").run(u.id,new Date().toISOString());console.log('已添加超级管理员',u.id)})" "$DATABASE_PATH" "$CAMPUX_SUB"
+npm run admin:grant -- --list                                  # 查看现有管理员与最近登录过的账号
+npm run admin:grant -- --sub <校园墙 sub> --role super         # 授予超级管理员
+npm run admin:grant -- --email <邮箱> --role ops               # 也可以按邮箱 / QQ 号 / 用户 id 授权
+npm run admin:grant -- --sub <sub> --revoke                    # 撤销
 ```
 
+角色：`super`（全部权限，可改系统配置）、`ops`（运营，不能改系统配置）、`auditor`（只读审计）。脚本默认读取 `.env` 里的 `DATABASE_PATH`（相对路径按 `server/` 解析），也可用 `--db <路径>` 指定。
+
 之后即可在后台「管理员管理」中添加其他管理员。
+
+进入方式：访问 `https://<域名>/admin` → 点「使用校园墙登录」→ 校园墙授权后回到后台；账号已验证邮箱时还需要输入邮箱验证码（未配置 SMTP 时验证码写入 `mail_outbox` 表，可用于内网调试）。
 
 ## 7. 备份与维护
 

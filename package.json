@@ -21,6 +21,7 @@
     "check:changelog": "node scripts/check-changelog.mjs",
     "verify": "npm run typecheck && npm test && npm run check:changelog",
     "hooks:install": "node scripts/install-hooks.mjs",
+    "admin:grant": "node scripts/grant-admin.mjs",
     "smoke": "node scripts/e2e-smoke.mjs",
     "start": "node server/dist/index.js"
   }
