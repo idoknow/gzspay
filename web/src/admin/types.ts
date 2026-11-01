@@ -160,6 +160,66 @@ export interface AdminUserLoginsPayload {
   recent: AdminUserLogin[];
 }
 
+/* ---------------------------------------------------------------- 商家 */
+
+/** 商家的某个收款方式 */
+export interface AdminMerchantChannel {
+  channel: "alipay" | "wechat" | "qq";
+  label: string;
+  enabled: boolean;
+  hasQr: boolean;
+  updatedAt: string | null;
+}
+
+/** 商家管理列表行 */
+export interface AdminMerchant {
+  userId: string;
+  merchantName: string;
+  displayName: string;
+  avatarUrl: string | null;
+  studentNoMasked: string | null;
+  noteRequirement: string;
+  channels: AdminMerchantChannel[];
+  enabledChannelCount: number;
+  productCount: number;
+  activeProductCount: number;
+  orderCount: number;
+  completedAmountCents: number;
+  lastOrderAt: string | null;
+  suspended: boolean;
+  frozen: boolean;
+  createdAt: string;
+}
+
+/** GET /admin/merchants/summary */
+export interface MerchantSummary {
+  total: number;
+  ready: number;
+  suspended: number;
+  newThisMonth: number;
+}
+
+/** 商家列表筛选状态 */
+export type MerchantStateFilter = "all" | "ready" | "suspended";
+
+/** 商家详情里的商品 */
+export interface AdminMerchantProduct {
+  id: string;
+  name: string;
+  priceCents: number;
+  description: string;
+  active: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+/** GET /admin/merchants/:userId */
+export interface MerchantDetailPayload {
+  merchant: AdminMerchant;
+  products: AdminMerchantProduct[];
+  recentOrders: AdminOrder[];
+}
+
 /* ---------------------------------------------------------------- 管理员 */
 
 /** 管理员管理列表行 */

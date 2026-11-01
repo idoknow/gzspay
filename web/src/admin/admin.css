@@ -3777,3 +3777,52 @@
     align-self: flex-start;
   }
 }
+/* ------------------------------------------------------------ 商家管理 */
+
+.admin-channel-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg-soft);
+}
+
+.admin-channel-list {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-channel-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-bg-soft);
+}
+
+.admin-channel-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-channel-row-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.admin-channel-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}

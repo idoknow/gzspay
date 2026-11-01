@@ -597,6 +597,116 @@ describe("管理后台", () => {
     expect(row?.lastLoginAt.length).toBeGreaterThan(0);
   });
 
+  it("商家管理列表与详情可查看收款方式与商品", async () => {
+    const merchant = await login("admin-merchant", "后台商家");
+    const merchantUserId = merchant.id;
+    await completeOnboarding(merchant.session, {
+      cardNo: "CARD-ADMIN-MERCHANT-01",
+      studentNo: "20230101",
+    });
+    const qr = await generateQrPngBuffer("https://qr.alipay.com/gzspay-admin-merchant");
+    await agentWith(merchant.session)
+      .post("/api/merchant/register")
+      .field("name", "后台测试小卖部")
+      .field("channels", JSON.stringify(["alipay"]))
+      .attach("qr_alipay", qr, "alipay.png")
+      .expect(201);
+    await agentWith(merchant.session)
+      .post("/api/merchant/products")
+      .send({ name: "矿泉水", priceCents: 200 })
+      .expect(201);
+
+    const summary = await adminRequest()
+      .get("/api/admin/merchants/summary")
+      .expect(200);
+    expect(typeof summary.body.total).toBe("number");
+    expect(summary.body.total).toBeGreaterThanOrEqual(1);
+    expect(typeof summary.body.ready).toBe("number");
+    expect(typeof summary.body.suspended).toBe("number");
+
+    const list = await adminRequest()
+      .get("/api/admin/merchants")
+      .query({ query: "后台测试小卖部" })
+      .expect(200);
+    const row = list.body.items.find(
+      (item: { userId: string }) => item.userId === merchantUserId,
+    );
+    expect(row?.merchantName).toBe("后台测试小卖部");
+    expect(row?.channels).toHaveLength(3);
+    expect(
+      row?.channels.find((item: { channel: string }) => item.channel === "alipay")
+        ?.hasQr,
+    ).toBe(true);
+    expect(row?.productCount).toBeGreaterThanOrEqual(1);
+
+    const detail = await adminRequest()
+      .get(`/api/admin/merchants/${merchantUserId}`)
+      .expect(200);
+    expect(detail.body.merchant.merchantName).toBe("后台测试小卖部");
+    expect(detail.body.products.length).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(detail.body.recentOrders)).toBe(true);
+  });
+
+  it("管理员停用收款方式后商家暂停收款，恢复后可继续下单", async () => {
+    const merchant = await login("admin-merchant-pause", "后台暂停商家");
+    const merchantUserId = merchant.id;
+    await completeOnboarding(merchant.session, {
+      cardNo: "CARD-ADMIN-MERCHANT-02",
+      studentNo: "20230102",
+    });
+    const qr = await generateQrPngBuffer("https://qr.alipay.com/gzspay-admin-pause");
+    await agentWith(merchant.session)
+      .post("/api/merchant/register")
+      .field("name", "暂停测试小卖部")
+      .field("channels", JSON.stringify(["alipay"]))
+      .attach("qr_alipay", qr, "alipay.png")
+      .expect(201);
+
+    const payer = await login("admin-merchant-payer", "后台付款人");
+    await completeOnboarding(payer.session, {
+      cardNo: "CARD-ADMIN-PAYER-01",
+      studentNo: "20230103",
+    });
+    const orderPayload = (key: string) => ({
+      merchantUserId,
+      amountCents: 300,
+      reservedNote: "李四 0002",
+      paymentPassword: "123456",
+      idempotencyKey: key,
+    });
+
+    await agentWith(payer.session)
+      .post("/api/orders")
+      .send(orderPayload("admin-merchant-order-1"))
+      .expect(201);
+
+    const disabled = await adminRequest()
+      .post(`/api/admin/merchants/${merchantUserId}/channels`)
+      .send({ channel: "alipay", enabled: false })
+      .expect(200);
+    expect(disabled.body.merchant.suspended).toBe(true);
+    expect(disabled.body.merchant.enabledChannelCount).toBe(0);
+
+    const blocked = await agentWith(payer.session)
+      .post("/api/orders")
+      .send(orderPayload("admin-merchant-order-2"))
+      .expect(409);
+    expect(blocked.body.error.message).toContain("暂停收款");
+
+    const resumed = await adminRequest()
+      .post(`/api/admin/merchants/${merchantUserId}/receiving`)
+      .send({ enabled: true })
+      .expect(200);
+    expect(resumed.body.merchant.suspended).toBe(false);
+    expect(resumed.body.merchant.enabledChannelCount).toBe(1);
+
+    const created = await agentWith(payer.session)
+      .post("/api/orders")
+      .send(orderPayload("admin-merchant-order-3"))
+      .expect(201);
+    expect(created.body.order.status).toBe("pending_payment");
+  });
+
   it("总览与月度数据", async () => {
     const overview = await adminRequest().get("/api/admin/overview").expect(200);
     expect(overview.body.userCount).toBeGreaterThanOrEqual(3);

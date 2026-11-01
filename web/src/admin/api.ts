@@ -32,6 +32,9 @@ import type {
   AdminIdentity,
   AdminLog,
   AdminMember,
+  AdminMerchant,
+  AdminMerchantChannel,
+  AdminMerchantProduct,
   AdminOrder,
   AdminOrderDetail,
   AdminQuery,
@@ -53,6 +56,9 @@ import type {
   LogFilters,
   LogType,
   MailStatus,
+  MerchantDetailPayload,
+  MerchantStateFilter,
+  MerchantSummary,
   MonthlyBucket,
   MonthlyData,
   OrderEvent,
@@ -729,6 +735,154 @@ export async function getUserLogins(limit = 8): Promise<AdminUserLoginsPayload> 
     total: numberOr(firstNumber(source, ["total", "count"]), recent.length),
     recent,
   };
+}
+
+/* --------------------------------------------------------------- 商家管理 */
+
+const MERCHANT_CHANNEL_LABELS: Record<string, string> = {
+  alipay: "支付宝",
+  wechat: "微信支付",
+  qq: "QQ 钱包",
+};
+
+function mapMerchantChannel(raw: unknown): AdminMerchantChannel {
+  const source = record(raw);
+  const channelText = firstText(source, ["channel"]);
+  const channel =
+    channelText === "alipay" || channelText === "wechat" || channelText === "qq"
+      ? channelText
+      : "alipay";
+  return {
+    channel,
+    label: textOr(
+      firstText(source, ["label"]),
+      MERCHANT_CHANNEL_LABELS[channel] ?? "收款方式",
+    ),
+    enabled: firstBoolean(source, ["enabled", "active"]) ?? false,
+    hasQr: firstBoolean(source, ["hasQr", "hasQR", "qrReady"]) ?? false,
+    updatedAt: isoOrNull(firstText(source, ["updatedAt"])),
+  };
+}
+
+function mapMerchant(raw: unknown): AdminMerchant {
+  const source = record(raw);
+  const channels = firstArray(source, ["channels"]).map(mapMerchantChannel);
+  return {
+    userId: textOr(firstText(source, ["userId", "id"]), ""),
+    merchantName: textOr(
+      firstText(source, ["merchantName", "name", "shopName"]),
+      "未命名商家",
+    ),
+    displayName: textOr(
+      firstText(source, ["displayName", "ownerName", "fullName"]),
+      "未知用户",
+    ),
+    avatarUrl: firstText(source, ["avatarUrl", "avatar"]),
+    studentNoMasked: firstText(source, ["studentNoMasked", "studentNo"]),
+    noteRequirement: textOr(firstText(source, ["noteRequirement"]), ""),
+    channels,
+    enabledChannelCount: numberOr(
+      firstNumber(source, ["enabledChannelCount"]),
+      channels.filter((item) => item.enabled && item.hasQr).length,
+    ),
+    productCount: numberOr(firstNumber(source, ["productCount", "products"]), 0),
+    activeProductCount: numberOr(firstNumber(source, ["activeProductCount"]), 0),
+    orderCount: numberOr(firstNumber(source, ["orderCount", "orders"]), 0),
+    completedAmountCents: numberOr(
+      firstNumber(source, ["completedAmountCents", "totalAmountCents"]),
+      0,
+    ),
+    lastOrderAt: isoOrNull(firstText(source, ["lastOrderAt", "lastOrder"])),
+    suspended: firstBoolean(source, ["suspended"]) ?? channels.every((item) => !item.enabled),
+    frozen: firstBoolean(source, ["frozen"]) ?? false,
+    createdAt: textOr(firstText(source, ["createdAt"]), ""),
+  };
+}
+
+function mapMerchantProduct(raw: unknown): AdminMerchantProduct {
+  const source = record(raw);
+  return {
+    id: textOr(firstText(source, ["id", "productId"]), ""),
+    name: textOr(firstText(source, ["name", "title"]), "未命名商品"),
+    priceCents: numberOr(firstNumber(source, ["priceCents", "price"]), 0),
+    description: textOr(firstText(source, ["description"]), ""),
+    active: firstBoolean(source, ["active", "enabled"]) ?? false,
+    sortOrder: numberOr(firstNumber(source, ["sortOrder", "sort"]), 0),
+    createdAt: textOr(firstText(source, ["createdAt"]), ""),
+  };
+}
+
+function mapMerchantDetail(payload: unknown): MerchantDetailPayload {
+  const source = record(payload);
+  const merchantSource = isRecord(source.merchant) ? source.merchant : payload;
+  return {
+    merchant: mapMerchant(merchantSource),
+    products: firstArray(source, ["products", "items"]).map(mapMerchantProduct),
+    recentOrders: firstArray(source, ["recentOrders", "orders"]).map(mapOrder),
+  };
+}
+
+/** GET /admin/merchants?query&state&page&pageSize */
+export async function getMerchants(
+  query: string,
+  state: MerchantStateFilter,
+  page: number,
+  pageSize: number,
+): Promise<Page<AdminMerchant>> {
+  const payload = await getJson<unknown>("/admin/merchants", {
+    query: query.trim() || undefined,
+    state: state === "all" ? undefined : state,
+    page,
+    pageSize,
+  });
+  return mapPage(payload, mapMerchant);
+}
+
+/** GET /admin/merchants/summary */
+export async function getMerchantSummary(): Promise<MerchantSummary> {
+  const payload = await getJson<unknown>("/admin/merchants/summary");
+  const source = record(payload);
+  return {
+    total: numberOr(firstNumber(source, ["total"]), 0),
+    ready: numberOr(firstNumber(source, ["ready"]), 0),
+    suspended: numberOr(firstNumber(source, ["suspended"]), 0),
+    newThisMonth: numberOr(firstNumber(source, ["newThisMonth"]), 0),
+  };
+}
+
+/** GET /admin/merchants/:userId */
+export async function getMerchantDetail(userId: string): Promise<MerchantDetailPayload> {
+  const payload = await getJson<unknown>(
+    `/admin/merchants/${encodeURIComponent(userId)}`,
+  );
+  return mapMerchantDetail(payload);
+}
+
+/** POST /admin/merchants/:userId/channels —— 启用/停用某个收款方式 */
+export async function setMerchantChannel(
+  userId: string,
+  channel: string,
+  enabled: boolean,
+): Promise<MerchantDetailPayload> {
+  const payload = await writeJson<unknown>(
+    "POST",
+    `/admin/merchants/${encodeURIComponent(userId)}/channels`,
+    { channel, enabled },
+  );
+  return mapMerchantDetail(payload);
+}
+
+/** POST /admin/merchants/:userId/receiving —— 暂停/恢复商家收款 */
+export async function setMerchantReceiving(
+  userId: string,
+  enabled: boolean,
+): Promise<MerchantDetailPayload> {
+  const payload = await writeJson<unknown>(
+    "POST",
+    `/admin/merchants/${encodeURIComponent(userId)}/receiving`,
+    { enabled },
+  );
+  return mapMerchantDetail(payload);
 }
 
 /* --------------------------------------------------------------- 管理员管理 */

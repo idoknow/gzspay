@@ -354,6 +354,11 @@ interface Announcement {
 | `POST` | `/api/admin/users/:id/freeze` / `unfreeze` | 冻结/解冻（super/ops） |
 | `POST` | `/api/admin/users/:id/reset-card` | 重置绑卡（super/ops） |
 | `POST` | `/api/admin/users/:id/force-logout` | 强制下线（super/ops） |
+| `GET` | `/api/admin/merchants?query&state&page&pageSize` | 商家列表：`{ items: AdminMerchant[], total, page, pageSize }`；`query` 模糊匹配商家名/负责人姓名/学号，`state=ready|suspended` 按「是否有可用收款方式」筛选（`AdminMerchant` 含 `userId/merchantName/displayName/avatarUrl/studentNoMasked/noteRequirement/channels/enabledChannelCount/productCount/activeProductCount/orderCount/completedAmountCents/lastOrderAt/suspended/frozen/createdAt`，`channels` 固定返回支付宝/微信/QQ 三项，含 `enabled`、`hasQr`、`updatedAt`） |
+| `GET` | `/api/admin/merchants/summary` | `{ total, ready, suspended, newThisMonth }` |
+| `GET` | `/api/admin/merchants/:userId` | `{ merchant: AdminMerchant, products: AdminMerchantProduct[], recentOrders: AdminOrder[] }`，商家不存在返回 `404 NOT_FOUND` |
+| `POST` | `/api/admin/merchants/:userId/channels` | `{ channel: "alipay"|"wechat"|"qq", enabled }` 启用/停用某个收款方式（super/ops）；启用前必须已上传收款码，返回更新后的商家详情 |
+| `POST` | `/api/admin/merchants/:userId/receiving` | `{ enabled }` 暂停/恢复商家收款（super/ops）：暂停即停用全部收款方式，付款人下单返回 `409 CONFLICT`「商家当前暂停收款」；恢复只启用已上传收款码的渠道，没有可用收款码时返回 `400 VALIDATION_FAILED`，返回更新后的商家详情 |
 | `GET` | `/api/admin/admins` | `{ items: AdminMember[] }` |
 | `POST` | `/api/admin/admins` | `{ userId, role }` 添加（仅 super） |
 | `DELETE` | `/api/admin/admins/:userId` | 移除（仅 super；不能移除自己，至少保留一名 super） |

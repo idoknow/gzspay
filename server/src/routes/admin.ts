@@ -20,6 +20,9 @@ import {
   adminLogs,
   adminLogsCsv,
   adminMembers,
+  adminMerchantDetail,
+  adminMerchants,
+  adminMerchantSummary,
   adminMonthly,
   adminOnlineUsers,
   adminOrderDetail,
@@ -37,6 +40,8 @@ import {
   removeAdmin,
   resetUserCard,
   saveAdminConfig,
+  setMerchantChannelEnabled,
+  setMerchantReceiving,
   setUserFrozen,
   type AdminLogType,
 } from "../services/admin.js";
@@ -184,6 +189,82 @@ adminRouter.post(
   requireAdmin(["super", "ops"]),
   asyncHandler((req, res) => {
     res.json(forceUserLogout(req.admin!.user.id, String(req.params.id), requestIp(req)));
+  }),
+);
+
+/* -------------------------------------------------------------- 商家 */
+
+adminRouter.get(
+  "/merchants",
+  requireAdmin(),
+  asyncHandler((req, res) => {
+    const query = req.query as Record<string, unknown>;
+    const { page, pageSize } = pagination(toInt(query.page, 1), toInt(query.pageSize, 20));
+    const stateRaw = typeof query.state === "string" ? query.state : "all";
+    const state =
+      stateRaw === "ready" || stateRaw === "suspended" ? stateRaw : "all";
+    res.json(
+      adminMerchants(
+        { query: typeof query.query === "string" ? query.query : "", state },
+        page,
+        pageSize,
+      ),
+    );
+  }),
+);
+
+adminRouter.get(
+  "/merchants/summary",
+  requireAdmin(),
+  asyncHandler((_req, res) => {
+    res.json(adminMerchantSummary());
+  }),
+);
+
+adminRouter.get(
+  "/merchants/:userId",
+  requireAdmin(),
+  asyncHandler((req, res) => {
+    res.json(adminMerchantDetail(String(req.params.userId)));
+  }),
+);
+
+adminRouter.post(
+  "/merchants/:userId/channels",
+  requireAdmin(["super", "ops"]),
+  asyncHandler((req, res) => {
+    const body = parse(
+      z.object({
+        channel: z.enum(["alipay", "wechat", "qq"]),
+        enabled: z.boolean(),
+      }),
+      req.body,
+    );
+    res.json(
+      setMerchantChannelEnabled(
+        req.admin!.user.id,
+        String(req.params.userId),
+        body.channel,
+        body.enabled,
+        requestIp(req),
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/merchants/:userId/receiving",
+  requireAdmin(["super", "ops"]),
+  asyncHandler((req, res) => {
+    const body = parse(z.object({ enabled: z.boolean() }), req.body);
+    res.json(
+      setMerchantReceiving(
+        req.admin!.user.id,
+        String(req.params.userId),
+        body.enabled,
+        requestIp(req),
+      ),
+    );
   }),
 );
 

@@ -27,6 +27,7 @@ import { SetupWizard } from "./pages/SetupWizard";
 import { OverviewPage } from "./pages/OverviewPage";
 import { MonthlyPage } from "./pages/MonthlyPage";
 import { UsersPage } from "./pages/UsersPage";
+import { MerchantsPage } from "./pages/MerchantsPage";
 import { AdminsPage } from "./pages/AdminsPage";
 import { OrdersPage } from "./pages/OrdersPage";
 import { StatsPage } from "./pages/StatsPage";
@@ -189,6 +190,7 @@ function AuthenticatedApp({
           <Route path="overview" element={<OverviewPage />} />
           <Route path="monthly" element={<MonthlyPage />} />
           <Route path="users" element={<UsersPage />} />
+          <Route path="merchants" element={<MerchantsPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="announcements" element={<AnnouncementsPage />} />
           <Route path="stats" element={<StatsPage />} />
