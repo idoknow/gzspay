@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { ChannelIcon } from "../components/ChannelIcon";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CountdownModal } from "../components/CountdownModal";
 import { Dialog } from "../components/Dialog";
@@ -120,7 +121,12 @@ function OrderQrPanel({
     <section className="card p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-text">{title}</h2>
-        {channel ? <span className="text-xs text-muted">{payChannelLabel(channel)}</span> : null}
+        {channel ? (
+          <span className="inline-flex items-center gap-1 text-xs text-muted">
+            <ChannelIcon channel={channel} size={14} />
+            {payChannelLabel(channel)}
+          </span>
+        ) : null}
       </div>
       {channels.length === 0 ? (
         <p className="mt-3 rounded-2xl bg-surface-2 px-3 py-3 text-xs leading-relaxed text-muted">
@@ -136,6 +142,7 @@ function OrderQrPanel({
                 className={cn("chip", channel === item && "chip-active")}
                 onClick={() => onChannelChange(item)}
               >
+                <ChannelIcon channel={item} size={15} />
                 {payChannelLabel(item)}
               </button>
             ))}
@@ -625,6 +632,7 @@ export function OrderDetailPage(): ReactNode {
                     className={cn("chip", payChannel === item && "chip-active")}
                     onClick={() => setPayChannel(item)}
                   >
+                    <ChannelIcon channel={item} size={15} />
                     {payChannelLabel(item)}
                   </button>
                 ))
@@ -764,6 +772,7 @@ export function OrderDetailPage(): ReactNode {
                   className={cn("chip", qrDialogChannelResolved === item && "chip-active")}
                   onClick={() => setQrDialogChannel(item)}
                 >
+                  <ChannelIcon channel={item} size={15} />
                   {payChannelLabel(item)}
                 </button>
               ))}

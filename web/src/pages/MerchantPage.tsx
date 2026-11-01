@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { ChannelIcon } from "../components/ChannelIcon";
 import { Dialog } from "../components/Dialog";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
@@ -23,12 +24,7 @@ interface QrEditState {
   previewUrl: string | null;
 }
 
-/** 渠道标识：短名 + 配色，让三行收款方式更容易区分。 */
-const CHANNEL_BADGE: Record<PayChannel, { short: string; className: string }> = {
-  alipay: { short: "支", className: "bg-[#1677ff]/12 text-[#1677ff]" },
-  wechat: { short: "微", className: "bg-[#07c160]/14 text-[#07974a]" },
-  qq: { short: "Q", className: "bg-[#12b7f5]/14 text-[#0d8fc0]" },
-};
+/** 渠道标识使用官方图标（支付宝 / 微信支付 / QQ 钱包），让三行收款方式更容易区分。 */
 
 export function MerchantPage(): ReactNode {
   const toast = useToast();
@@ -269,20 +265,16 @@ export function MerchantPage(): ReactNode {
           </div>
           <div className="mt-2.5 space-y-2">
             {merchant.channels.map((item) => {
-              const badge = CHANNEL_BADGE[item.channel];
               return (
                 <div
                   key={item.channel}
                   className="flex items-center gap-2.5 rounded-2xl bg-surface-2 px-3 py-2.5 watch:px-2.5 watch:py-2"
                 >
-                  <span
-                    className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold watch:h-8 watch:w-8 watch:text-[13px]",
-                      badge.className,
-                    )}
-                  >
-                    {badge.short}
-                  </span>
+                  <ChannelIcon
+                    channel={item.channel}
+                    size={36}
+                    className="h-9 w-9 shrink-0 rounded-xl watch:h-8 watch:w-8"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                       <p className="text-[13px] font-medium text-text">{item.label}</p>

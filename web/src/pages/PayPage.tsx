@@ -6,6 +6,7 @@ import { AmountInput } from "../components/AmountInput";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { BuiltInKeypad } from "../components/BuiltInKeypad";
+import { ChannelIcon } from "../components/ChannelIcon";
 import { CountdownModal } from "../components/CountdownModal";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, PageLoading, Spinner } from "../components/Loading";
@@ -86,7 +87,11 @@ function ChannelBadges({ channels }: { channels: PayChannel[] }): ReactNode {
   return (
     <div className="flex flex-wrap gap-1.5">
       {channels.map((channel) => (
-        <span key={channel} className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-medium text-brand">
+        <span
+          key={channel}
+          className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-text ring-1 ring-line/70"
+        >
+          <ChannelIcon channel={channel} size={13} />
           {payChannelLabel(channel)}
         </span>
       ))}
