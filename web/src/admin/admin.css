@@ -3072,3 +3072,362 @@ ul.admin-help-list > li::before {
   }
 }
 
+/* ------------------------------------------------ 手机 / 平板适配（抽屉导航） */
+
+/* 桌面端隐藏移动端专属元素 */
+.admin-topbar-menu,
+.admin-sidebar-close {
+  display: none;
+}
+
+.admin-topbar-heading {
+  min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .admin-shell {
+    display: block;
+  }
+
+  /* 侧栏改为抽屉：默认滑出屏幕，点顶栏菜单按钮滑入 */
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 120;
+    width: 272px;
+    flex-basis: auto;
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(-103%);
+    transition: transform 0.26s cubic-bezier(0.22, 0.7, 0.3, 1);
+    box-shadow: 24px 0 60px -32px rgba(0, 0, 0, 0.7);
+    will-change: transform;
+  }
+
+  .admin-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  /* 抽屉里恢复完整文字导航（覆盖 1080px 的图标栏规则） */
+  .admin-brand-text,
+  .admin-nav-label,
+  .admin-nav-group-title,
+  .admin-sidebar-footer {
+    display: revert;
+  }
+
+  .admin-sidebar-brand {
+    justify-content: flex-start;
+    padding: 18px 16px 14px;
+  }
+
+  .admin-nav {
+    padding: 4px 12px 18px;
+  }
+
+  .admin-nav-item {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .admin-nav-item.is-active::before {
+    left: -12px;
+  }
+
+  .admin-sidebar-close {
+    display: grid;
+    place-items: center;
+    margin-left: auto;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    padding: 0;
+    border: none;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--admin-sidebar-text);
+    cursor: pointer;
+  }
+
+  .admin-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    padding: 0;
+    border: none;
+    background: rgba(9, 11, 16, 0.48);
+    backdrop-filter: blur(2px);
+    animation: admin-fade-in 0.16s ease;
+  }
+
+  /* 顶栏：汉堡菜单 + 紧凑标题 */
+  .admin-topbar {
+    height: 56px;
+    gap: 10px;
+    padding: 0 14px;
+  }
+
+  .admin-topbar-menu {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    padding: 0;
+    border: 1px solid var(--admin-border);
+    border-radius: 11px;
+    background: var(--admin-bg-elevated);
+    color: var(--admin-text);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+
+  .admin-topbar-menu:active {
+    transform: scale(0.95);
+  }
+
+  .admin-topbar-crumb {
+    display: none;
+  }
+
+  .admin-topbar-title {
+    font-size: 15px;
+  }
+
+  .admin-content {
+    padding: 16px 14px 40px;
+    gap: 16px;
+  }
+
+  .admin-page-title {
+    font-size: 20px;
+  }
+
+  .admin-page-header {
+    gap: 10px;
+  }
+
+  .admin-page-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .admin-grid-2,
+  .admin-grid-3,
+  .admin-grid-main-aside {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .admin-stat-grid {
+    gap: 12px;
+  }
+
+  .admin-stack {
+    gap: 14px;
+  }
+
+  /* 表格：收紧内距，横向滚动更顺滑 */
+  .admin-table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-table {
+    font-size: 13px;
+  }
+
+  .admin-table th {
+    padding: 9px 12px;
+    font-size: 11px;
+  }
+
+  .admin-table td {
+    padding: 11px 12px;
+  }
+
+  .admin-toolbar {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .admin-pagination {
+    padding: 12px 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-topbar {
+    padding: 0 12px;
+  }
+
+  .admin-topbar-actions {
+    gap: 8px;
+  }
+
+  .admin-content {
+    padding: 14px 12px 34px;
+    gap: 14px;
+  }
+
+  .admin-card-header {
+    padding: 14px 14px 2px;
+  }
+
+  .admin-card-title {
+    font-size: 14.5px;
+  }
+
+  .admin-card-body {
+    padding: 12px 14px 16px;
+  }
+
+  .admin-page-desc {
+    font-size: 12.5px;
+  }
+
+  .admin-stat-card {
+    padding: 16px 16px 18px;
+  }
+
+  .admin-stat-value {
+    margin-top: 6px;
+    font-size: 24px;
+  }
+
+  .admin-stat-icon {
+    right: 14px;
+    top: 14px;
+    width: 30px;
+    height: 30px;
+  }
+
+  /* 工具栏控件在窄屏占满整行，按钮不被挤压 */
+  .admin-toolbar .admin-field,
+  .admin-toolbar-grow {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .admin-toolbar-actions {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .admin-toolbar-actions .admin-btn {
+    flex: 1 1 auto;
+  }
+
+  .admin-pagination-pages {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* 弹窗改为底部抽屉式全宽面板 */
+  .admin-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .admin-modal,
+  .admin-modal.is-wide {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 18px 18px 0 0;
+    border-bottom: none;
+    animation: admin-sheet-up 0.22s cubic-bezier(0.22, 0.7, 0.3, 1);
+  }
+
+  .admin-modal-header {
+    padding: 16px 16px 10px;
+  }
+
+  .admin-modal-body {
+    padding: 4px 16px 14px;
+  }
+
+  .admin-modal-footer {
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    flex-wrap: wrap;
+  }
+
+  .admin-modal-footer .admin-btn {
+    flex: 1 1 auto;
+  }
+
+  .admin-drawer {
+    width: 100%;
+  }
+
+  .admin-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .admin-kv-grid {
+    gap: 10px;
+  }
+
+  .admin-chart-legend {
+    gap: 8px 12px;
+    font-size: 11.5px;
+  }
+
+  .admin-donut-wrap {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-setup-page {
+    padding: 14px 10px 24px;
+  }
+
+  .admin-setup-card {
+    padding: 20px 14px 20px;
+    border-radius: 18px;
+  }
+
+  .admin-setup-steps {
+    gap: 6px 10px;
+  }
+
+  .admin-setup-step {
+    font-size: 11.5px;
+  }
+
+  .admin-topbar-user {
+    border-left: none;
+    padding-left: 0;
+  }
+
+  .admin-user-name {
+    font-size: 12px;
+  }
+
+  .admin-brand-mark {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+}
+
+@keyframes admin-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

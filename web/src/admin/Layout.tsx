@@ -2,6 +2,7 @@
  * 管理后台整体布局：左侧固定侧边栏 + 顶部栏 + 内容区。
  * 导航按角色过滤：管理员管理仅超级管理员可见；其余入口所有角色可见（只读角色仅可浏览）。
  */
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAdmin } from "./context";
 import { useFeedback } from "./components/dialogs";
@@ -67,6 +68,28 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
   const { admin, isAuditor, isSuper, logout } = useAdmin();
   const feedback = useFeedback();
   const location = useLocation();
+  /** 手机/平板上的抽屉式导航开关（桌面端始终展示侧栏） */
+  const [navOpen, setNavOpen] = useState(false);
+
+  // 切换页面后自动收起抽屉
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
+
+  // 抽屉打开时按 Esc 关闭，并锁住背景滚动
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNavOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [navOpen]);
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => item.roles === undefined || item.roles.includes(admin.role),
@@ -89,7 +112,7 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
 
   return (
     <div className="admin-shell">
-      <aside className="admin-sidebar">
+      <aside className={cx("admin-sidebar", navOpen && "is-open")}>
         <div className="admin-sidebar-brand">
           <div className="admin-brand-mark" aria-hidden="true" />
           <div className="admin-brand-text">
@@ -99,6 +122,21 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
             </span>
             <span className="admin-brand-sub">校园支付 · 管理后台</span>
           </div>
+          <button
+            type="button"
+            className="admin-sidebar-close"
+            aria-label="关闭导航"
+            onClick={() => setNavOpen(false)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M6 6l12 12M18 6 6 18"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
         </div>
 
         <nav className="admin-nav" aria-label="后台导航">
@@ -152,9 +190,34 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
         </div>
       </aside>
 
+      {navOpen ? (
+        <button
+          type="button"
+          className="admin-sidebar-backdrop"
+          aria-label="关闭导航"
+          onClick={() => setNavOpen(false)}
+        />
+      ) : null}
+
       <div className="admin-main">
         <header className="admin-topbar">
-          <div>
+          <button
+            type="button"
+            className="admin-topbar-menu"
+            aria-label={navOpen ? "收起导航" : "展开导航"}
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen((open) => !open)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 7h16M4 12h16M4 17h16"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+          <div className="admin-topbar-heading">
             <div className="admin-topbar-title">{current?.label ?? "管理后台"}</div>
             <div className="admin-topbar-crumb">管理后台 / {current?.group ?? ""}</div>
           </div>
