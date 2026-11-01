@@ -87,9 +87,6 @@ export function DynamicCodePage(): ReactNode {
             <Logo size={34} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-text">动态收付款码</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted">
-                每 {code?.refreshAfterSeconds ?? 30} 秒自动刷新，二维码 60 秒后失效
-              </p>
             </div>
             <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-success" />
