@@ -79,6 +79,7 @@ import type {
   StatusCount,
   StorageStatus,
   SystemAlert,
+  SystemAlerting,
   SystemStatus,
   TodoItem,
   TrendBucket,
@@ -1536,6 +1537,19 @@ export async function getSystemStatus(): Promise<SystemStatus> {
       ),
     };
   });
+  const alertingSource = record(source.alerting ?? source.alert ?? source.notifications);
+  const alerting: SystemAlerting = {
+    webhookConfigured:
+      firstBoolean(alertingSource, ["webhookConfigured", "webhook", "hasWebhook"]) ?? false,
+    emailEnabled:
+      firstBoolean(alertingSource, ["emailEnabled", "email", "mailEnabled"]) ?? false,
+    recipients: numberOr(firstNumber(alertingSource, ["recipients", "recipientCount"]), 0),
+    lastAlertAt: isoOrNull(firstText(alertingSource, ["lastAlertAt", "lastAlert"])),
+    dispatchedLastHour: numberOr(
+      firstNumber(alertingSource, ["dispatchedLastHour", "sentLastHour"]),
+      0,
+    ),
+  };
   return {
     services: mapServices(source.services ?? source.checks),
     mail,
@@ -1546,6 +1560,7 @@ export async function getSystemStatus(): Promise<SystemStatus> {
       failed: numberOr(firstNumber(queueSource, ["failed", "errors"]), 0),
       processed: firstNumber(queueSource, ["processed", "done", "completed"]),
     },
+    alerting,
     alerts,
     updatedAt: isoOrNull(
       firstText(source, ["updatedAt", "time", "checkedAt", "generatedAt"]),

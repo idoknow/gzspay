@@ -596,6 +596,21 @@ describe("管理后台", () => {
     expect(response.body.admin.role).toBe("super");
   });
 
+  it("系统状态返回严重错误告警通道情况", async () => {
+    const response = await adminRequest().get("/api/admin/system/status").expect(200);
+    const alerting = response.body.alerting;
+    expect(typeof alerting.webhookConfigured).toBe("boolean");
+    expect(typeof alerting.emailEnabled).toBe("boolean");
+    expect(typeof alerting.recipients).toBe("number");
+    expect(alerting.lastAlertAt === null || typeof alerting.lastAlertAt === "string").toBe(true);
+    expect(typeof alerting.dispatchedLastHour).toBe("number");
+    // 测试环境既没有 SMTP 也没有 Webhook，应提示尚未配置告警通道
+    expect(Array.isArray(response.body.alerts)).toBe(true);
+    expect(
+      response.body.alerts.some((item: { id: string }) => item.id === "alerting"),
+    ).toBe(true);
+  });
+
   it("在线用户列表包含活跃会话并支持强制下线", async () => {
     const target = await login("online-target", "在线目标");
 

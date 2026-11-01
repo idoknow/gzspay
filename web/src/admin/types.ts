@@ -428,6 +428,18 @@ export interface SystemAlert {
   message: string;
 }
 
+/** 严重系统错误的主动告警通道状态 */
+export interface SystemAlerting {
+  webhookConfigured: boolean;
+  emailEnabled: boolean;
+  /** 有邮箱的管理员数量 */
+  recipients: number;
+  /** 最近一次主动告警时间 */
+  lastAlertAt: string | null;
+  /** 最近一小时发出的告警次数 */
+  dispatchedLastHour: number;
+}
+
 /** GET /admin/system/status */
 export interface SystemStatus {
   services: ServiceStatus[];
@@ -435,6 +447,7 @@ export interface SystemStatus {
   campux: CampuxStatus;
   storage: StorageStatus;
   queue: QueueStatus;
+  alerting: SystemAlerting;
   alerts: SystemAlert[];
   updatedAt: string | null;
 }

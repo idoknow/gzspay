@@ -39,8 +39,13 @@ npm test                # 可选：运行接口测试
 | `TRUST_PROXY` | 反向代理层数。Nginx 反代时设为 `1`（默认值）；直接公网监听时设为 `false`，否则 `X-Forwarded-For` 可被伪造绕过限流 |
 | `ALLOW_INSECURE_BASE_URL` | 仅内网无证书部署时设为 `1`，允许 `APP_BASE_URL` / `PUBLIC_BASE_URL` 使用 http；生产默认要求 https |
 | `RATE_LIMIT_*` | 各接口每分钟限流阈值（登录 / 回调 / 下单 / 转账 / 扫卡 / 邮箱验证码 / 动态码），设为 `0` 关闭对应限流 |
+| `ALERT_WEBHOOK_URL` | 可选：严重系统错误的 Webhook 推送地址（企业微信 / 钉钉 / 飞书群机器人），接收 JSON POST |
+| `ALERT_EMAIL_ENABLED` | 是否通过邮件通知已绑定邮箱的管理员（默认 `1`，需要 SMTP 已配置） |
+| `ALERT_THROTTLE_MINUTES` / `ALERT_MAX_PER_HOUR` | 同一类错误的告警合并窗口（默认 10 分钟）与每小时最多告警次数（默认 30） |
 
 > 启动时会做安全自检：生产环境下若 `SESSION_SECRET` 仍是示例值、短于 32 字符，或站点地址不是 https（且未设置 `ALLOW_INSECURE_BASE_URL=1`），服务会打印原因后直接退出。完整安全说明见 [security.md](./security.md)。
+>
+> 严重系统错误（接口 5xx、进程未捕获异常、启动迁移失败、定时清理失败、邮件发送失败）会写入 `system_errors` 并主动告警：邮件发给有邮箱的管理员，同时推送到 `ALERT_WEBHOOK_URL`（若配置）。告警通道是否就绪可在后台「系统状态 → 严重错误告警」查看。
 
 校园墙后台只需登记一个回调地址：
 

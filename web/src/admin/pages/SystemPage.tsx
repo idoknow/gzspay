@@ -298,6 +298,64 @@ export function SystemPage() {
               ) : null}
             </Card>
           </div>
+
+          <Card
+            title="严重错误告警"
+            subtitle="接口 5xx、进程未捕获异常、定时任务失败与邮件发送失败会主动推送给管理员"
+            extra={
+              <Badge
+                tone={
+                  data.alerting.webhookConfigured || data.alerting.emailEnabled
+                    ? "success"
+                    : "warning"
+                }
+                dot
+              >
+                {data.alerting.webhookConfigured || data.alerting.emailEnabled
+                  ? "告警已启用"
+                  : "尚未配置告警"}
+              </Badge>
+            }
+          >
+            <div className="admin-stack">
+              <div className="admin-flex" style={{ gap: 8, flexWrap: "wrap" }}>
+                <Badge tone={data.alerting.webhookConfigured ? "success" : "neutral"}>
+                  Webhook {data.alerting.webhookConfigured ? "已配置" : "未配置"}
+                </Badge>
+                <Badge tone={data.alerting.emailEnabled ? "success" : "neutral"}>
+                  邮件通知 {data.alerting.emailEnabled ? "已开启" : "未开启"}
+                </Badge>
+                <span className="admin-text-sm admin-muted">
+                  收件管理员 {formatNumber(data.alerting.recipients)} 位
+                </span>
+              </div>
+              <div className="admin-kv-grid">
+                <div className="admin-kv">
+                  <span className="admin-kv-label">最近一次主动告警</span>
+                  <span className="admin-kv-value">
+                    {data.alerting.lastAlertAt
+                      ? formatDateTime(data.alerting.lastAlertAt)
+                      : "尚未触发"}
+                  </span>
+                </div>
+                <div className="admin-kv">
+                  <span className="admin-kv-label">最近一小时告警</span>
+                  <span className="admin-kv-value">
+                    {formatNumber(data.alerting.dispatchedLastHour)} 次
+                  </span>
+                </div>
+              </div>
+              <p className="admin-readonly-hint">
+                告警通过邮件通知已绑定邮箱的管理员，也可配置 ALERT_WEBHOOK_URL 推送到企业微信 /
+                钉钉 / 飞书群机器人。同一类错误短时间内只告警一次，期间重复出现会合并计数，避免故障时刷屏。
+              </p>
+              {!data.alerting.webhookConfigured && !data.alerting.emailEnabled ? (
+                <div className="admin-inline-alert is-warning">
+                  当前没有任何告警通道：请在服务端设置 ALERT_WEBHOOK_URL，或配置 SMTP 并给管理员账号绑定邮箱。
+                </div>
+              ) : null}
+            </div>
+          </Card>
         </div>
       ) : (
         <EmptyState title="暂无系统状态" description="尚未采集到系统指标。" />

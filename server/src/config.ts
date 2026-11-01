@@ -110,6 +110,17 @@ export const config = {
     from: str("MAIL_FROM", "gzspay <no-reply@gzspay.local>"),
   },
 
+  /** 严重系统错误主动告警：邮件通知管理员 + 可选的 Webhook（企业微信 / 钉钉 / 飞书群机器人） */
+  alerts: {
+    webhookUrl: optionalStr("ALERT_WEBHOOK_URL"),
+    webhookTimeoutMs: int("ALERT_WEBHOOK_TIMEOUT_MS", 5000),
+    emailEnabled: bool("ALERT_EMAIL_ENABLED", true),
+    /** 同一类错误在该窗口内只告警一次（其余计数合并到下一次） */
+    throttleMinutes: int("ALERT_THROTTLE_MINUTES", 10),
+    /** 每小时最多主动告警次数，避免故障时刷屏 */
+    maxPerHour: int("ALERT_MAX_PER_HOUR", 30),
+  },
+
   security: {
     paymentLockMinutes: int("PAYMENT_LOCK_MINUTES", 30),
     paymentMaxAttempts: int("PAYMENT_MAX_ATTEMPTS", 5),

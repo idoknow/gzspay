@@ -2,6 +2,7 @@ import { statfsSync, statSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { config, isCampuxConfigured } from "../config.js";
 import { db, execute, nowIso, queryAll, queryOne, setConfigValue } from "../db/index.js";
+import { alertStatus } from "../lib/alerts.js";
 import { writeAudit, writeMailOutbox, writeSystemError, toCsv } from "../lib/audit.js";
 import {
   displayFullName,
@@ -1380,9 +1381,25 @@ export function adminSystemStatus() {
     alerts.push({ id: "database", level: "danger", message: "数据库连接异常" });
   }
 
+  const alerting = alertStatus();
+  if (!alerting.webhookConfigured && !alerting.emailEnabled) {
+    alerts.push({
+      id: "alerting",
+      level: "warning",
+      message: "严重系统错误主动告警尚未配置：请设置 ALERT_WEBHOOK_URL，或配置 SMTP 并为管理员填写邮箱",
+    });
+  } else if (!alerting.webhookConfigured && alerting.recipients === 0) {
+    alerts.push({
+      id: "alerting-recipients",
+      level: "warning",
+      message: "系统错误告警没有收件人：请给管理员账号绑定邮箱，或配置 ALERT_WEBHOOK_URL",
+    });
+  }
+
   return {
     services,
     mail,
+    alerting,
     campux: {
       ok: isCampuxConfigured(),
       latencyMs: null,

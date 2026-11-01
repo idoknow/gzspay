@@ -1,5 +1,6 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { config, isSmtpConfigured } from "../config.js";
+import { reportSystemError } from "./alerts.js";
 import { writeMailOutbox, writeSystemError } from "./audit.js";
 
 let transporter: Transporter | null = null;
@@ -74,11 +75,20 @@ export async function sendMail(message: MailMessage): Promise<{ delivered: boole
       status: "failed",
       error: reason,
     });
-    writeSystemError({
-      scope: "mail",
-      message: `邮件发送失败：${reason}`,
-      context: `kind=${kind}`,
-    });
+    // 告警邮件自身失败只记录，不再触发新一轮告警，避免递归
+    if (kind === "system_alert") {
+      writeSystemError({
+        scope: "mail",
+        message: `告警邮件发送失败：${reason}`,
+        context: `kind=${kind}`,
+      });
+    } else {
+      reportSystemError({
+        scope: "mail",
+        message: `邮件发送失败：${reason}`,
+        context: `kind=${kind}`,
+      });
+    }
     return { delivered: false };
   }
 }

@@ -2,7 +2,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { ZodError } from "zod";
 import { config } from "../config.js";
 import { queryOne } from "../db/index.js";
-import { writeSystemError } from "./audit.js";
+import { reportSystemError } from "./alerts.js";
 import { AppError, errors } from "./errors.js";
 import { readSession } from "./session.js";
 import { isCampuxReady, isSystemReady } from "./runtime-config.js";
@@ -266,7 +266,8 @@ export function errorHandler(
     return;
   }
   const message = error instanceof Error ? error.message : String(error);
-  writeSystemError({
+  // 5xx 属于严重错误：入库 + 主动告警（邮件 / Webhook，带节流）
+  reportSystemError({
     scope: "http",
     message,
     stack: error instanceof Error ? (error.stack ?? null) : null,

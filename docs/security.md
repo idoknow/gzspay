@@ -73,7 +73,19 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 - QQ 号、学号、邮箱、卡号、支付密码、收款码内容、会话令牌不写日志；审计日志只记操作类型与目标。
 - 登录失败写 `login_logs`（记录 IP / UA / 失败原因），不记录令牌与密码。
 
-## 8. 上线检查清单
+## 8. 严重错误告警
+
+- 触发范围：接口 5xx、进程 `uncaughtException` / `unhandledRejection`、启动迁移失败、定时清理失败、邮件发送失败。
+- 所有错误先写入 `system_errors`（后台「日志 → 系统错误」可查、可导出），再判断是否需要主动推送。
+- 推送通道：
+  - 邮件：发给 `admins` 表里状态正常且已绑定邮箱的管理员（需要配置 SMTP）；
+  - Webhook：`ALERT_WEBHOOK_URL`，JSON POST，可对接企业微信 / 钉钉 / 飞书群机器人。
+- 防刷屏：同一类错误按「来源 + 归一化文案」合并，`ALERT_THROTTLE_MINUTES`（默认 10 分钟）内只告警一次，期间重复次数累计到下一次；每小时最多 `ALERT_MAX_PER_HOUR`（默认 30）次。
+- 告警邮件自身发送失败只写系统错误、不再触发告警，避免递归；Webhook 失败同样只记录。
+- 告警内容包含来源、上下文（方法 + 路径）、错误文案、堆栈与管理后台地址，属于内部信息，只发给管理员与管理员配置的 Webhook，不返回给客户端。
+- 告警通道是否就绪可在后台「系统状态 → 严重错误告警」查看；未配置任何通道时该页会给出提示。
+
+## 9. 上线检查清单
 
 1. `SESSION_SECRET` 用 `openssl rand -hex 32` 生成，至少 32 字符。
 2. `APP_BASE_URL`、`PUBLIC_BASE_URL` 都是 `https://`；没有证书的内网部署才设置 `ALLOW_INSECURE_BASE_URL=1`。
@@ -82,3 +94,4 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 5. 校园墙 OAuth 后台登记的 redirectUri 与 `CAMPUX_REDIRECT_URI` 完全一致。
 6. 验证 `curl -I https://<域名>/api/health` 能看到 HSTS、CSP 与 `Cache-Control: no-store`。
 7. 跑一遍 `npm run verify` 与 `node scripts/e2e-smoke.mjs`（冒烟脚本要求全新数据库）。
+8. 配置告警通道并自测：设置 `ALERT_WEBHOOK_URL`，或配置 SMTP 并给管理员绑定邮箱；在后台「系统状态」确认告警显示为「已启用」。

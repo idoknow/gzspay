@@ -6,7 +6,7 @@ import { flushRequestMetrics } from "./lib/metrics.js";
 import { backfillQqAvatars } from "./lib/avatar.js";
 import { applyRuntimeConfig, isSystemReady, readAdminConfig } from "./lib/runtime-config.js";
 import { assertSecureConfig } from "./lib/security.js";
-import { writeSystemError } from "./lib/audit.js";
+import { reportSystemError } from "./lib/alerts.js";
 
 const METRICS_RETENTION_DAYS = 7;
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
@@ -21,7 +21,7 @@ function startCleanupTimer(): NodeJS.Timeout {
       execute("DELETE FROM request_metrics WHERE created_at < ?", cutoff);
       optimizeDatabase();
     } catch (error) {
-      writeSystemError({
+      reportSystemError({
         scope: "cleanup",
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
@@ -70,7 +70,7 @@ function main(): void {
       console.log(`[gzspay] 已把 ${refreshed} 个账号的历史缓存头像换回 QQ 头像地址`);
     }
   } catch (error) {
-    writeSystemError({
+    reportSystemError({
       scope: "avatar",
       message: `头像地址迁移失败：${error instanceof Error ? error.message : String(error)}`,
       stack: error instanceof Error ? error.stack : undefined,
@@ -84,7 +84,7 @@ function main(): void {
       `[gzspay] 初始化状态: ${isSystemReady() ? "已完成" : "未完成（打开 /admin 完成初始化向导）"}`,
     );
   } catch (error) {
-    writeSystemError({
+    reportSystemError({
       scope: "startup",
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
@@ -105,11 +105,21 @@ function main(): void {
   process.on("SIGINT", () => shutdown(server, timer, "SIGINT"));
   process.on("SIGTERM", () => shutdown(server, timer, "SIGTERM"));
   process.on("unhandledRejection", (reason) => {
-    writeSystemError({
+    reportSystemError({
       scope: "unhandledRejection",
       message: reason instanceof Error ? reason.message : String(reason),
       stack: reason instanceof Error ? reason.stack : undefined,
     });
+  });
+  process.on("uncaughtException", (error) => {
+    reportSystemError({
+      scope: "uncaughtException",
+      message: error.message,
+      stack: error.stack ?? undefined,
+    });
+    // 未捕获异常后进程状态不可信：记录并告警后退出，由守护进程（pm2 / systemd）拉起
+    flushRequestMetrics();
+    process.exit(1);
   });
 }
 
