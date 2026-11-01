@@ -58,6 +58,9 @@ EXTRA_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 | `npm run build` | 构建后端与前端 |
 | `npm run typecheck` | 前后端类型检查 |
 | `npm test` | 后端单元与集成测试 |
+| `npm run check:changelog` | 校验 `CHANGELOG.md` 「未发布」小节是否随改动同步更新 |
+| `npm run verify` | 提交前自检：类型检查 + 测试 + 更新日志校验 |
+| `npm run hooks:install` | 安装本地 git 钩子，提交前自动校验更新日志 |
 | `npm run smoke` | 端到端冒烟：先构建并启动后端，用 `E2E_BASE_URL` 指向该服务（建议使用全新数据库） |
 | `npm start` | 运行构建产物（需先 `npm run build`） |
 

@@ -18,6 +18,9 @@
     "build": "npm run build -w @gzspay/server && npm run build -w @gzspay/web",
     "typecheck": "npm run typecheck -w @gzspay/server && npm run typecheck -w @gzspay/web",
     "test": "npm run test -w @gzspay/server",
+    "check:changelog": "node scripts/check-changelog.mjs",
+    "verify": "npm run typecheck && npm test && npm run check:changelog",
+    "hooks:install": "node scripts/install-hooks.mjs",
     "smoke": "node scripts/e2e-smoke.mjs",
     "start": "node server/dist/index.js"
   }

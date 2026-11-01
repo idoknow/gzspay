@@ -377,6 +377,17 @@ describe("管理后台", () => {
     expect(about.body.privacyUpdatedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(about.body.termsUpdatedAt).toBe(about.body.privacyUpdatedAt);
     expect(about.body.legalEffectiveAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // 更新日志必须能从 CHANGELOG.md 解析出来，否则「关于」页就是空的
+    expect(Array.isArray(about.body.changelog)).toBe(true);
+    expect(about.body.changelog.length).toBeGreaterThan(0);
+    const latest = about.body.changelog[0];
+    expect(typeof latest.version).toBe("string");
+    expect(Array.isArray(latest.items)).toBe(true);
+    expect(latest.items.length).toBeGreaterThan(0);
+    for (const item of latest.items) {
+      expect(typeof item).toBe("string");
+      expect(item.trim().length).toBeGreaterThan(0);
+    }
   });
 
   it("普通用户访问管理接口被拒绝", async () => {

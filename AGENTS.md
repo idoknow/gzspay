@@ -39,16 +39,19 @@
   - `docs: 补充接口契约`
   - `test: 增加订单状态机测试`
   - `chore: 升级依赖`
-- 提交前必须通过：`npm run typecheck`、`npm test`（涉及前端时再加 `npm run build`）。
-- 每次功能提交同步更新 `CHANGELOG.md` 的「未发布」小节。
+- 提交前必须通过：`npm run typecheck`、`npm test`（涉及前端时再加 `npm run build`），或直接 `npm run verify`（类型检查 + 测试 + 更新日志校验）。
+- **每次改动都要同步更新 `CHANGELOG.md` 的「未发布」小节**，按「新增 / 变更 / 修复」写清做了什么；同一功能的多笔提交可合并描述，但不要漏。忘记更新会被 `npm run check:changelog` 和提交前钩子拦下。
+- 建议首次克隆后执行 `npm run hooks:install`，安装「提交前自动校验更新日志」的 git 钩子；紧急情况用 `GZSPAY_SKIP_CHANGELOG_CHECK=1 git commit ...` 跳过单次校验。
 
 ## 验证清单
 
 ```bash
-npm run typecheck   # 前后端类型检查
-npm test            # 后端单测 + 集成测试
-npm run build       # 生产构建
-node scripts/smoke.mjs   # 冒烟：启动服务并跑关键接口
+npm run verify          # 类型检查 + 单元/集成测试 + 更新日志校验（提交前跑这个）
+npm run typecheck       # 前后端类型检查
+npm test                # 后端单测 + 集成测试
+npm run check:changelog # 校验 CHANGELOG.md「未发布」小节
+npm run build           # 生产构建
+node scripts/smoke.mjs  # 冒烟：启动服务并跑关键接口
 ```
 
 ## 安全边界
