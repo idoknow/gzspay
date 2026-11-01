@@ -365,14 +365,6 @@ export function ProfilePage(): ReactNode {
     ? "换绑后旧卡将自动解绑，需要验证支付密码。"
     : "还没有绑定校园卡，扫描校园卡上的二维码即可绑定。";
 
-  const completeness = [
-    Boolean(me.displayName),
-    Boolean(me.studentNo),
-    Boolean(me.emailMasked),
-    Boolean(me.cardNoMasked),
-  ];
-  const filled = completeness.filter(Boolean).length;
-  const percent = Math.round((filled / completeness.length) * 100);
   const chip =
     "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ring-[color:var(--hero-ring)] bg-[color:var(--hero-chip)] text-[color:var(--hero-fg)] watch:text-[10px]";
 
@@ -404,23 +396,12 @@ export function ProfilePage(): ReactNode {
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-1.5 watch:mt-1.5">
                 <span className={chip}>{me.frozen ? "已冻结" : "账号正常"}</span>
-                <span className={chip}>
-                  资料完整 {filled}/{completeness.length}
-                </span>
               </div>
             </div>
           </div>
-          <div className="relative mt-4 watch:mt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-[color:var(--hero-chip)] watch:h-1">
-              <div
-                className="h-full rounded-full transition-[width] duration-500"
-                style={{ width: `${percent}%`, background: "var(--hero-fg)", opacity: 0.72 }}
-              />
-            </div>
-            <p className="mt-1.5 text-[10.5px] text-[color:var(--hero-fg-faint)] watch:mt-1 watch:text-[9.5px]">
-              姓名、学号、邮箱、校园卡都可以点击下面任意一项修改
-            </p>
-          </div>
+          <p className="relative mt-4 text-[10.5px] text-[color:var(--hero-fg-faint)] watch:mt-3 watch:text-[9.5px]">
+            姓名、学号、邮箱、校园卡都可以点击下面任意一项修改
+          </p>
         </section>
 
         <h2 className="section-title">基本资料</h2>
