@@ -3,7 +3,6 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
-import { AppFooter } from "../components/AppFooter";
 import { BottomNav } from "../components/BottomNav";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
@@ -231,7 +230,6 @@ export function MePage(): ReactNode {
         <p className="text-center text-[11px] leading-relaxed text-muted">
           资金通过第三方收款码流转，gzspay 不代收代付
         </p>
-        <AppFooter className="pb-2" />
       </main>
 
       <BottomNav />

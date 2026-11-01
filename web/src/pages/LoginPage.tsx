@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { AppFooter } from "../components/AppFooter";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
@@ -110,7 +109,6 @@ export function LoginPage(): ReactNode {
           付款前请核对收款方信息
         </p>
         <p className="text-[11px] text-muted watch:text-[9px]">登录即代表你已阅读并同意服务条款与隐私协议</p>
-        <AppFooter className="pt-1 watch:pt-0" />
       </div>
     </div>
   );

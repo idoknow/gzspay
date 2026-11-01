@@ -56,6 +56,9 @@
   --hero-chip: rgba(255, 255, 255, 0.55);
   --hero-ring: rgba(64, 50, 10, 0.12);
   --hero-glow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 18px 36px -26px rgba(168, 124, 8, 0.55);
+  /* 选中态实心胶囊：背景与文字强制反色，避免与页面底色撞色 */
+  --chip-active-bg: #171a20;
+  --chip-active-fg: #ffffff;
 }
 
 html[data-theme="dark"] {
@@ -95,6 +98,8 @@ html[data-theme="dark"] {
   --hero-chip: rgba(255, 255, 255, 0.14);
   --hero-ring: rgba(255, 233, 176, 0.16);
   --hero-glow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 36px -26px rgba(0, 0, 0, 0.85);
+  --chip-active-bg: #f2f3f5;
+  --chip-active-fg: #101114;
 }
 
 @theme inline {
@@ -265,8 +270,8 @@ img {
   }
   .chip-active {
     @apply border-transparent;
-    background: var(--text);
-    color: var(--surface);
+    background: var(--chip-active-bg);
+    color: var(--chip-active-fg);
     box-shadow: 0 10px 22px -14px rgba(0, 0, 0, 0.55);
   }
   /* 分段控件（滑动胶囊）：容器 .segmented，滑块 .segmented-thumb，选项 .segmented-item */

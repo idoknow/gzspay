@@ -1,7 +1,6 @@
 /** 关于：版本号、更新日志、隐私协议与服务条款。 */
 
 import { useState, type ReactNode } from "react";
-import { AppFooter } from "../components/AppFooter";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
@@ -173,7 +172,6 @@ export function AboutPage(): ReactNode {
         <p className="text-center text-[11px] leading-relaxed text-muted">
           gzspay 是开源项目，代码托管在 GitHub 的 idoknow 组织
         </p>
-        <AppFooter />
       </main>
 
       <Dialog

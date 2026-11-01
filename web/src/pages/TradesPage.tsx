@@ -163,7 +163,11 @@ export function TradesPage(): ReactNode {
               aria-haspopup="menu"
               aria-expanded={filterOpen}
               onClick={() => setFilterOpen((open) => !open)}
-              className="chip chip-active inline-flex items-center gap-1.5"
+              className={cn(
+                "inline-flex min-h-[34px] items-center gap-1.5 rounded-full border bg-surface px-3.5 py-1.5 text-sm font-medium text-text transition watch:min-h-[30px] watch:px-2.5 watch:py-1 watch:text-[12px]",
+                filterOpen ? "border-[color:var(--text)]" : "border-line",
+                "shadow-[var(--shadow-xs)]",
+              )}
             >
               {STATUS_LABELS[status]}
               <ChevronIcon open={filterOpen} />
@@ -192,12 +196,21 @@ export function TradesPage(): ReactNode {
                         onClick={() => changeStatus(option.value)}
                         className={cn(
                           "flex w-full items-start justify-between gap-2 rounded-xl px-3 py-2 text-left transition",
-                          active ? "bg-surface-2 text-text" : "text-text hover:bg-surface-2",
+                          active
+                            ? "bg-[color:var(--chip-active-bg)] text-[color:var(--chip-active-fg)]"
+                            : "text-text hover:bg-surface-2",
                         )}
                       >
                         <span>
                           <span className="block text-sm font-semibold">{option.label}</span>
-                          <span className="block text-[11px] text-muted">{option.hint}</span>
+                          <span
+                            className={cn(
+                              "block text-[11px]",
+                              active ? "opacity-75" : "text-muted",
+                            )}
+                          >
+                            {option.hint}
+                          </span>
                         </span>
                         {active ? <CheckIcon /> : null}
                       </button>
