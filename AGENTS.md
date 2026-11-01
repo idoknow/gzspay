@@ -40,7 +40,8 @@
   - `test: 增加订单状态机测试`
   - `chore: 升级依赖`
 - 提交前必须通过：`npm run typecheck`、`npm test`（涉及前端时再加 `npm run build`），或直接 `npm run verify`（类型检查 + 测试 + 更新日志校验）。
-- **每次改动都要同步更新 `CHANGELOG.md` 的「未发布」小节**，按「新增 / 变更 / 修复」写清做了什么；同一功能的多笔提交可合并描述，但不要漏。忘记更新会被 `npm run check:changelog` 和提交前钩子拦下。
+- **每次改动都要同步更新 `CHANGELOG.md` 的「未发布」小节**，按「新增 / 变更 / 修复」写清做了什么；同一功能的多笔提交可合并描述，但不要漏。忘记更新会被 `npm run check:changelog` 和提交前钩子拦下（钩子检查的是「本次提交是否真的新增了条目」）。
+- 发版时把「未发布」标题改成 `## [版本号] - 日期`，并在最上方新建空的「未发布」小节（可为空，关于页会自动隐藏空版本），同时同步 `package.json`（根 / server / web）与 `DESIGN.md` 的版本号。
 - 建议首次克隆后执行 `npm run hooks:install`，安装「提交前自动校验更新日志」的 git 钩子；紧急情况用 `GZSPAY_SKIP_CHANGELOG_CHECK=1 git commit ...` 跳过单次校验。
 
 ## 验证清单

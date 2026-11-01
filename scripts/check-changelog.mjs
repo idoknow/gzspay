@@ -78,7 +78,9 @@ function checkStructure() {
   const groups = parseUnreleased(text);
   const total = [...groups.values()].reduce((sum, items) => sum + items.length, 0);
   if (total === 0) {
-    fail(`「未发布」小节没有任何条目：请按「新增 / 变更 / 修复」写下本次改动再提交。`);
+    // 刚发布版本后「未发布」会是空的，属于正常状态；防遗漏交给 --staged 模式的要点校验。
+    console.log(`\u2713 ${CHANGELOG_NAME}「未发布」当前为空（刚发布过版本时正常），下次改动请按「新增 / 变更 / 修复」补条目。`);
+    return groups;
   }
 
   for (const section of SECTIONS) {
@@ -90,6 +92,30 @@ function checkStructure() {
   const summary = SECTIONS.map((section) => `${section} ${(groups.get(section) ?? []).length} 条`).join(" / ");
   console.log(`\u2713 ${CHANGELOG_NAME}「未发布」已填写：${summary}（合计 ${total} 条）`);
   return groups;
+}
+
+/** --staged：CHANGELOG.md 的暂存改动里至少新增一条要点，避免只挪标题不算记录。 */
+function assertStagedEntry() {
+  let diff = "";
+  try {
+    diff = execFileSync("git", ["diff", "--cached", "-U0", "--", CHANGELOG_NAME], {
+      cwd: REPO_ROOT,
+      encoding: "utf-8",
+    });
+  } catch {
+    return;
+  }
+
+  const addedBullets = diff
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .map((line) => line.slice(1))
+    .filter((line) => /^\s*[-*]\s+\S/.test(line));
+  if (addedBullets.length === 0) {
+    fail(
+      `本次提交没有在 ${CHANGELOG_NAME} 新增任何条目：请在「未发布」小节按「新增 / 变更 / 修复」补一条。`,
+    );
+  }
 }
 
 /** --staged：有代码改动却没有暂存 CHANGELOG.md 时直接失败。 */
@@ -125,6 +151,7 @@ function checkStaged(groups) {
     );
   }
 
+  assertStagedEntry();
   console.log(`\u2713 本次提交包含代码改动（${codeFiles.length} 个文件），并已同步 ${CHANGELOG_NAME}。`);
 }
 

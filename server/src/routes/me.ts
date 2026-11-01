@@ -313,7 +313,8 @@ export function readChangelog(): ChangelogEntry[] {
     if (current) entries.push(current);
     // 去掉没有条目的分组，避免「### 修复」下暂时还没写内容时出现空块
     for (const entry of entries) entry.groups = entry.groups.filter((item) => item.items.length > 0);
-    return entries;
+    // 刚发布版本后「未发布」可能只剩说明文字，没有条目时直接隐藏，不让关于页出现空版本块
+    return entries.filter((entry) => entry.groups.length > 0);
   } catch {
     return [];
   }
