@@ -12,6 +12,7 @@ import { OrderCard } from "../components/OrderCard";
 import { listOrders, subscribeEvents } from "../lib/api";
 import { errorMessage } from "../lib/http";
 import { cn } from "../lib/format";
+import { useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 import type { Order } from "../lib/types";
 
@@ -47,9 +48,16 @@ function ChevronIcon({ open }: { open: boolean }): ReactNode {
   );
 }
 
-function CheckIcon(): ReactNode {
+function CheckIcon({ className }: { className?: string }): ReactNode {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="mt-0.5 shrink-0">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={cn("mt-0.5 shrink-0", className)}
+    >
       <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -57,6 +65,7 @@ function CheckIcon(): ReactNode {
 
 export function TradesPage(): ReactNode {
   const navigate = useNavigate();
+  const watch = useWatchLayout();
   const { me } = useAuth();
   const [scope, setScope] = useState<Scope>("pay");
   const [status, setStatus] = useState<StatusFilter>("pending");
@@ -124,15 +133,15 @@ export function TradesPage(): ReactNode {
   return (
     <div className="bg-app min-h-[100dvh]">
       <header className="sticky top-0 z-30 border-b border-line glass safe-top">
-        <div className="page flex items-center justify-between py-3">
-          <Logo size={30} wordmark />
+        <div className="page flex items-center justify-between py-3 watch:py-2">
+          <Logo size={watch ? 26 : 30} wordmark />
           <button type="button" aria-label="我的" className="rounded-full" onClick={() => navigate("/me")}>
-            <Avatar name={me?.displayName ?? "我"} avatarUrl={me?.avatarUrl ?? null} size={34} />
+            <Avatar name={me?.displayName ?? "我"} avatarUrl={me?.avatarUrl ?? null} size={watch ? 28 : 34} />
           </button>
         </div>
       </header>
 
-      <main className="page page-with-nav pt-4">
+      <main className="page page-with-nav pt-4 watch:pt-3">
         <div className="segmented" role="tablist" aria-label="订单方向">
           <span
             aria-hidden="true"
@@ -156,7 +165,7 @@ export function TradesPage(): ReactNode {
           ))}
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-4 flex items-center gap-2 watch:mt-2.5">
           <div className="relative">
             <button
               type="button"
@@ -183,7 +192,7 @@ export function TradesPage(): ReactNode {
                 <div
                   role="menu"
                   aria-label="订单状态筛选"
-                  className="absolute top-full left-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-line bg-surface p-1 shadow-[var(--shadow-float)]"
+                  className="absolute top-full left-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-line bg-surface p-1 shadow-[var(--shadow-float)] watch:mt-1.5 watch:w-44 watch:p-0.5"
                 >
                   {STATUS_OPTIONS.map((option) => {
                     const active = option.value === status;
@@ -195,24 +204,28 @@ export function TradesPage(): ReactNode {
                         aria-checked={active}
                         onClick={() => changeStatus(option.value)}
                         className={cn(
-                          "flex w-full items-start justify-between gap-2 rounded-xl px-3 py-2 text-left transition",
-                          active
-                            ? "bg-[color:var(--chip-active-bg)] text-[color:var(--chip-active-fg)]"
-                            : "text-text hover:bg-surface-2",
+                          "relative flex w-full items-start justify-between gap-2 overflow-hidden rounded-xl px-3 py-2 text-left text-text transition watch:px-2.5 watch:py-1.5",
+                          active ? "bg-surface-2" : "hover:bg-surface-2",
                         )}
                       >
+                        {active ? (
+                          <span
+                            aria-hidden="true"
+                            className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-brand"
+                          />
+                        ) : null}
                         <span>
-                          <span className="block text-sm font-semibold">{option.label}</span>
+                          <span className="block text-sm font-semibold watch:text-[13px]">{option.label}</span>
                           <span
                             className={cn(
-                              "block text-[11px]",
-                              active ? "opacity-75" : "text-muted",
+                              "block text-[11px] watch:text-[10px]",
+                              active ? "text-text opacity-70" : "text-muted",
                             )}
                           >
                             {option.hint}
                           </span>
                         </span>
-                        {active ? <CheckIcon /> : null}
+                        {active ? <CheckIcon className="text-brand" /> : null}
                       </button>
                     );
                   })}
@@ -222,7 +235,7 @@ export function TradesPage(): ReactNode {
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 watch:mt-3">
           <AnnouncementBanner />
         </div>
 
@@ -246,7 +259,7 @@ export function TradesPage(): ReactNode {
             }
           />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 watch:space-y-2">
             {orders.map((order, index) => (
               <div
                 key={order.id}
