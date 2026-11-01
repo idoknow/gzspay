@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChannelIcon } from "../components/ChannelIcon";
 import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
@@ -161,6 +162,7 @@ export function MerchantRegisterPage(): ReactNode {
                   className={cn("chip", active && "chip-active")}
                   onClick={() => toggleChannel(channel)}
                 >
+                  <ChannelIcon channel={channel} size={16} />
                   {PAY_CHANNEL_LABELS[channel]}
                 </button>
               );
@@ -178,7 +180,10 @@ export function MerchantRegisterPage(): ReactNode {
               return (
                 <div key={channel} className="rounded-2xl border border-line bg-surface-2 p-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-text">{PAY_CHANNEL_LABELS[channel]}收款码</p>
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-text">
+                      <ChannelIcon channel={channel} size={18} />
+                      {PAY_CHANNEL_LABELS[channel]}收款码
+                    </p>
                     <span className={cn("text-[11px]", entry ? "text-success" : "text-muted")}>
                       {entry ? "已选择" : "待上传"}
                     </span>
