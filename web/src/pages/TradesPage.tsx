@@ -204,16 +204,10 @@ export function TradesPage(): ReactNode {
                         aria-checked={active}
                         onClick={() => changeStatus(option.value)}
                         className={cn(
-                          "relative flex w-full items-start justify-between gap-2 overflow-hidden rounded-xl px-3 py-2 text-left text-text transition watch:px-2.5 watch:py-1.5",
+                          "flex w-full items-start justify-between gap-2 rounded-xl px-3 py-2 text-left text-text transition watch:px-2.5 watch:py-1.5",
                           active ? "bg-surface-2" : "hover:bg-surface-2",
                         )}
                       >
-                        {active ? (
-                          <span
-                            aria-hidden="true"
-                            className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-brand"
-                          />
-                        ) : null}
                         <span>
                           <span className="block text-sm font-semibold watch:text-[13px]">{option.label}</span>
                           <span
