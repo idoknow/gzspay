@@ -36,7 +36,6 @@ import type {
   SessionResponse,
   StatsSummary,
   StatsTimeseries,
-  StatsTop,
 } from "./types";
 
 /** 渠道枚举（固定顺序：支付宝、微信、QQ） */
@@ -573,10 +572,6 @@ export function getStatsTimeseries(
   query: StatsQuery & { granularity: "day" | "month" },
 ): Promise<StatsTimeseries> {
   return api.get<StatsTimeseries>("/stats/timeseries", statsParams(query, query.granularity));
-}
-
-export function getStatsTop(query: StatsQuery): Promise<StatsTop> {
-  return api.get<StatsTop>("/stats/top", statsParams(query));
 }
 
 export function exportStatsCsv(query: StatsQuery): Promise<Blob> {

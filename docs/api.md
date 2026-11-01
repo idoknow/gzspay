@@ -272,7 +272,6 @@ interface SSEOrderUpdate {
 | --- | --- | --- |
 | `GET` | `/api/stats/summary?from&to&includePending` | `{ expenseCents, incomeCents, netCents, orderCount }` |
 | `GET` | `/api/stats/timeseries?from&to&granularity=day|month&includePending` | `{ buckets: [{ key, expenseCents, incomeCents }] }` |
-| `GET` | `/api/stats/top?from&to&includePending` | `{ expenseTop: [{ user, totalCents, count }], incomeTop: [...] }` |
 | `GET` | `/api/stats/export?from&to&includePending` | CSV 文件（`text/csv; charset=utf-8`，带 BOM） |
 
 ## 9. 公告

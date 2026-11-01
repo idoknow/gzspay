@@ -7,7 +7,6 @@ import {
   statsCsv,
   statsSummary,
   statsTimeseries,
-  statsTop,
 } from "../services/stats.js";
 
 export const statsRouter: Router = Router();
@@ -54,14 +53,6 @@ statsRouter.get(
       includePending,
       buckets: statsTimeseries(req.auth!.user, { from, to }, granularity, includePending),
     });
-  }),
-);
-
-statsRouter.get(
-  "/top",
-  asyncHandler((req, res) => {
-    const { from, to, includePending } = rangeQuery(req.query as Record<string, unknown>);
-    res.json({ ...statsTop(req.auth!.user, { from, to }, includePending), from, to });
   }),
 );
 

@@ -127,60 +127,6 @@ export function statsTimeseries(
   return [...buckets.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
 
-export interface TopEntry {
-  user: { id: string; displayName: string };
-  totalCents: number;
-  count: number;
-}
-
-function topBy(
-  user: UserRow,
-  range: DateRange,
-  includePending: boolean,
-  direction: "expense" | "income",
-): TopEntry[] {
-  const statuses = statusesFor(includePending);
-  const placeholders = statuses.map(() => "?").join(",");
-  const column = direction === "expense" ? "merchant_id" : "payer_id";
-  const filter = direction === "expense" ? "payer_id" : "merchant_id";
-  const rows = queryAll<{ partner_id: string; total: number; count: number }>(
-    `SELECT ${column} AS partner_id, SUM(amount_cents) AS total, COUNT(*) AS count FROM orders
-     WHERE ${filter} = ? AND created_at >= ? AND created_at <= ? AND status IN (${placeholders})
-     GROUP BY ${column} ORDER BY total DESC LIMIT 5`,
-    user.id,
-    range.from,
-    range.to,
-    ...(statuses as never[]),
-  );
-  return rows.map((row) => {
-    const partner = queryOne<{ surname: string | null; given_name: string | null; campux_username: string | null; id: string }>(
-      "SELECT id, surname, given_name, campux_username FROM users WHERE id = ?",
-      row.partner_id,
-    );
-    const displayName = partner
-      ? [partner.surname, partner.given_name].filter(Boolean).join("") ||
-        partner.campux_username ||
-        "同学"
-      : "已注销用户";
-    return {
-      user: { id: row.partner_id, displayName },
-      totalCents: row.total,
-      count: row.count,
-    };
-  });
-}
-
-export function statsTop(
-  user: UserRow,
-  range: DateRange,
-  includePending: boolean,
-): { expenseTop: TopEntry[]; incomeTop: TopEntry[] } {
-  return {
-    expenseTop: topBy(user, range, includePending, "expense"),
-    incomeTop: topBy(user, range, includePending, "income"),
-  };
-}
-
 export function statsCsv(user: UserRow, range: DateRange, includePending: boolean): string {
   const statuses = statusesFor(includePending);
   const placeholders = statuses.map(() => "?").join(",");

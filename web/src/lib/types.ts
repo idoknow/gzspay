@@ -317,17 +317,6 @@ export interface StatsTimeseries {
   buckets: StatsBucket[];
 }
 
-export interface StatsTopEntry {
-  user: PublicUser;
-  totalCents: number;
-  count: number;
-}
-
-export interface StatsTop {
-  expenseTop: StatsTopEntry[];
-  incomeTop: StatsTopEntry[];
-}
-
 /** 公告 */
 export interface Announcement {
   id: string;

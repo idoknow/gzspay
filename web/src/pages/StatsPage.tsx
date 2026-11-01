@@ -1,7 +1,6 @@
-/** 交易统计：周/月/年/自定义区间，汇总 + 柱状对比 + 累计趋势 + 榜单 + CSV 导出。 */
+/** 交易统计：周/月/年/自定义区间，汇总 + 柱状对比 + 累计趋势 + CSV 导出。 */
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Avatar } from "../components/Avatar";
 import { ChartBar } from "../components/ChartBar";
 import { ChartLine } from "../components/ChartLine";
 import { EmptyState } from "../components/EmptyState";
@@ -14,14 +13,13 @@ import {
   exportStatsCsv,
   getStatsSummary,
   getStatsTimeseries,
-  getStatsTop,
   type StatsQuery,
 } from "../lib/api";
 import { downloadBlob, safeFilename } from "../lib/download";
 import { cn, formatCents, startOfMonth, startOfWeek, startOfYear, toDateKey } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
-import type { StatsBucket, StatsSummary, StatsTimeseries, StatsTop, StatsTopEntry } from "../lib/types";
+import type { StatsBucket, StatsSummary, StatsTimeseries } from "../lib/types";
 
 type Preset = "week" | "month" | "year" | "custom";
 
@@ -81,39 +79,6 @@ function buildRange(preset: Preset, customFrom: string, customTo: string): Range
 interface StatsData {
   summary: StatsSummary;
   timeseries: StatsTimeseries;
-  top: StatsTop;
-}
-
-function TopList({ title, entries, empty }: { title: string; entries: StatsTopEntry[]; empty: string }): ReactNode {
-  return (
-    <section className="card p-4">
-      <h2 className="text-sm font-semibold text-text">{title}</h2>
-      {entries.length === 0 ? (
-        <p className="mt-2 text-xs text-muted">{empty}</p>
-      ) : (
-        <ol className="mt-2 space-y-2.5">
-          {entries.map((entry, index) => (
-            <li key={entry.user.id} className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
-                  index === 0 ? "bg-accent text-white" : index === 1 ? "bg-brand-soft text-brand" : "bg-surface-2 text-muted",
-                )}
-              >
-                {index + 1}
-              </span>
-              <Avatar name={entry.user.displayName} avatarUrl={entry.user.avatarUrl} size={34} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-text">{entry.user.displayName}</p>
-                <p className="text-[11px] text-muted">{entry.count} 笔</p>
-              </div>
-              <MoneyText cents={entry.totalCents} size="sm" className="shrink-0" />
-            </li>
-          ))}
-        </ol>
-      )}
-    </section>
-  );
 }
 
 export function StatsPage(): ReactNode {
@@ -135,8 +100,7 @@ export function StatsPage(): ReactNode {
       Promise.all([
         getStatsSummary(query),
         getStatsTimeseries({ ...query, granularity: range.granularity }),
-        getStatsTop(query),
-      ]).then(([summary, timeseries, top]) => ({ summary, timeseries, top })),
+      ]).then(([summary, timeseries]) => ({ summary, timeseries })),
     [query.from, query.to, query.includePending, range.granularity],
   );
 
@@ -261,17 +225,6 @@ export function StatsPage(): ReactNode {
             {buckets.length === 0 ? (
               <EmptyState title="该区间暂无交易" description="换个时间范围试试，或先完成一笔交易。" />
             ) : null}
-
-            <TopList
-              title="支出最多商家"
-              entries={data.top.expenseTop}
-              empty="该区间没有支出记录"
-            />
-            <TopList
-              title="收入最多付款人"
-              entries={data.top.incomeTop}
-              empty="该区间没有收入记录"
-            />
 
             <button type="button" className="btn btn-outline btn-block" disabled={exporting} onClick={() => void handleExport()}>
               {exporting ? <Spinner size={16} /> : null}
