@@ -244,6 +244,15 @@ describe("商家与订单", () => {
     expect(completed.body.status).toBe("completed");
   });
 
+  it("「已结算」筛选包含已完成订单且不再出现在待处理里", async () => {
+    const settled = await agentWith(payerSession).get("/api/orders?scope=pay&status=settled").expect(200);
+    expect(settled.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
+    const pending = await agentWith(payerSession).get("/api/orders?scope=pay&status=pending").expect(200);
+    expect(pending.body.items.map((item: { id: string }) => item.id)).not.toContain(orderId);
+    const receiveSettled = await agentWith(merchantSession).get("/api/orders?scope=receive&status=settled").expect(200);
+    expect(receiveSettled.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
+  });
+
   it("已结束的订单不能再放弃支付", async () => {
     const response = await agentWith(payerSession)
       .post(`/api/orders/${orderId}/cancel`)

@@ -538,7 +538,7 @@ export function writeIdempotentResponse(
 
 // ---------------- 列表与查询 ----------------
 
-export type OrderStatusFilter = "pending" | "paid" | "closed" | "all";
+export type OrderStatusFilter = "pending" | "paid" | "closed" | "settled" | "all";
 
 export interface ListOrdersQuery {
   scope: "pay" | "receive";
@@ -551,6 +551,8 @@ const STATUS_FILTER_VALUES: Record<Exclude<OrderStatusFilter, "all">, OrderStatu
   pending: ["pending_payment"],
   paid: ["paid"],
   closed: ["completed", "cancelled"],
+  // 「已结算」= 已经发生过收付的动作：已支付待确认、已完成、已取消
+  settled: ["paid", "completed", "cancelled"],
 };
 
 export function listOrders(

@@ -1,4 +1,4 @@
-/** 交易页：待付款 / 待收款 + 状态筛选 + 订单列表 + 公告 + 空态。 */
+/** 交易页：待付款 / 待收款 + 状态筛选（待处理 / 已结算，点按钮弹出菜单）+ 订单列表 + 公告 + 空态。 */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -16,16 +16,44 @@ import { useAuth } from "../lib/session";
 import type { Order } from "../lib/types";
 
 type Scope = "pay" | "receive";
-type StatusFilter = "pending" | "paid" | "closed";
+type StatusFilter = "pending" | "settled";
 
 const PAGE_SIZE = 20;
 
 const SCOPE_LABELS: Record<Scope, string> = { pay: "待付款", receive: "待收款" };
-const STATUS_LABELS: Record<StatusFilter, string> = { pending: "待处理", paid: "已支付", closed: "已结束" };
+/** 「待付款 / 待收款」下面只分两项，点按钮才展开菜单选择 */
+const STATUS_OPTIONS: { value: StatusFilter; label: string; hint: string }[] = [
+  { value: "pending", label: "待处理", hint: "买家还没付款" },
+  { value: "settled", label: "已结算", hint: "已支付、已完成或已取消" },
+];
+const STATUS_LABELS: Record<StatusFilter, string> = { pending: "待处理", settled: "已结算" };
 const EMPTY_TEXT: Record<Scope, Record<StatusFilter, string>> = {
-  pay: { pending: "暂无待付款订单", paid: "暂无已支付订单", closed: "暂无已结束订单" },
-  receive: { pending: "暂无待收款订单", paid: "暂无已支付订单", closed: "暂无已结束订单" },
+  pay: { pending: "暂无待处理订单", settled: "暂无已结算订单" },
+  receive: { pending: "暂无待处理订单", settled: "暂无已结算订单" },
 };
+
+function ChevronIcon({ open }: { open: boolean }): ReactNode {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={cn("transition-transform", open && "rotate-180")}
+    >
+      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CheckIcon(): ReactNode {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="mt-0.5 shrink-0">
+      <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export function TradesPage(): ReactNode {
   const navigate = useNavigate();
@@ -38,6 +66,7 @@ export function TradesPage(): ReactNode {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -73,6 +102,7 @@ export function TradesPage(): ReactNode {
   }, []);
 
   const changeScope = (next: Scope): void => {
+    setFilterOpen(false);
     if (next === scope) return;
     setOrders([]);
     setTotal(0);
@@ -81,6 +111,7 @@ export function TradesPage(): ReactNode {
   };
 
   const changeStatus = (next: StatusFilter): void => {
+    setFilterOpen(false);
     if (next === status) return;
     setOrders([]);
     setTotal(0);
@@ -118,17 +149,59 @@ export function TradesPage(): ReactNode {
           ))}
         </div>
 
-        <div className="mt-4 flex gap-2">
-          {(Object.keys(STATUS_LABELS) as StatusFilter[]).map((item) => (
+        <div className="mt-4 flex items-center gap-2">
+          <div className="relative">
             <button
-              key={item}
               type="button"
-              onClick={() => changeStatus(item)}
-              className={cn("chip", status === item && "chip-active")}
+              aria-haspopup="menu"
+              aria-expanded={filterOpen}
+              onClick={() => setFilterOpen((open) => !open)}
+              className="chip chip-active inline-flex items-center gap-1.5"
             >
-              {STATUS_LABELS[item]}
+              {STATUS_LABELS[status]}
+              <ChevronIcon open={filterOpen} />
             </button>
-          ))}
+            {filterOpen ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="关闭筛选菜单"
+                  className="fixed inset-0 z-30 cursor-default"
+                  onClick={() => setFilterOpen(false)}
+                />
+                <div
+                  role="menu"
+                  aria-label="订单状态筛选"
+                  className="absolute top-full left-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-line bg-surface p-1 shadow-lg"
+                >
+                  {STATUS_OPTIONS.map((option) => {
+                    const active = option.value === status;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={active}
+                        onClick={() => changeStatus(option.value)}
+                        className={cn(
+                          "flex w-full items-start justify-between gap-2 rounded-xl px-3 py-2 text-left transition",
+                          active ? "bg-brand-soft text-brand" : "text-text hover:bg-surface-2",
+                        )}
+                      >
+                        <span>
+                          <span className="block text-sm font-semibold">{option.label}</span>
+                          <span className={cn("block text-[11px]", active ? "text-brand" : "text-muted")}>
+                            {option.hint}
+                          </span>
+                        </span>
+                        {active ? <CheckIcon /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-4">

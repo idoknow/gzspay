@@ -138,7 +138,7 @@ ordersRouter.get(
     const query = req.query as Record<string, unknown>;
     const scope = query.scope === "receive" ? "receive" : "pay";
     const statusValue = typeof query.status === "string" ? query.status : "all";
-    const allowed: OrderStatusFilter[] = ["pending", "paid", "closed", "all"];
+    const allowed: OrderStatusFilter[] = ["pending", "paid", "closed", "settled", "all"];
     const status = allowed.includes(statusValue as OrderStatusFilter)
       ? (statusValue as OrderStatusFilter)
       : "all";

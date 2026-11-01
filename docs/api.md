@@ -146,7 +146,7 @@ interface Me {
 | --- | --- | --- |
 | `POST` | `/api/orders` | 付款人下单：`{ merchantUserId, items?: [{productId, quantity}], amountCents?, reservedNote, paymentPassword, idempotencyKey, source?, dynamicCodeToken? }`；成功 `201 { order: Order }` |
 | `POST` | `/api/orders/merchant-create` | 商家扫客户卡代下单：`{ cardContent, items?, amountCents?, reservedNote, paymentPassword, idempotencyKey }`（`paymentPassword` 是客户在商家手机上输入的密码）；成功 `201 { order: Order }` |
-| `GET` | `/api/orders` | 列表：`scope=pay|receive`、`status=pending|paid|closed|all`、`page`、`pageSize` → `{ items: OrderSummary[], total, page, pageSize }` |
+| `GET` | `/api/orders` | 列表：`scope=pay|receive`、`status=pending|paid|closed|settled|all`（`settled`＝已支付/已完成/已取消）、`page`、`pageSize` → `{ items: OrderSummary[], total, page, pageSize }` |
 | `GET` | `/api/orders/:id` | 订单详情（付款人/商家/管理员可见，含时间线、对方公开信息、可用支付方式）→ `Order` |
 | `GET` | `/api/orders/:id/qr?channel=alipay` | 商家收款码 PNG（仅订单双方；必须该渠道已启用） |
 | `POST` | `/api/orders/:id/pay` | 付款人点「我已支付」：`{ channel, actualNote }`，待付款 → 已支付 → 返回 `Order` |

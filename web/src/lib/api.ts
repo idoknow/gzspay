@@ -371,7 +371,7 @@ export async function merchantCreateOrder(payload: MerchantCreateOrderPayload): 
 
 export function listOrders(query: {
   scope: "pay" | "receive";
-  status: "pending" | "paid" | "closed" | "all";
+  status: "pending" | "paid" | "closed" | "settled" | "all";
   page?: number;
   pageSize?: number;
 }): Promise<OrderListResponse> {
