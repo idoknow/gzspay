@@ -1,7 +1,7 @@
 import { config } from "../config.js";
 import { execute, isoAfter, nowIso, queryOne, transaction } from "../db/index.js";
 import { writeAudit, writeRiskLog } from "../lib/audit.js";
-import { syncQqAvatar } from "../lib/avatar.js";
+import { qqAvatarUrl } from "../lib/avatar.js";
 import {
   displayFullName,
   isValidEmail,
@@ -154,20 +154,18 @@ export function loginOrRegister(identity: CampuxIdentity, ip: string): LoginResu
       });
       throw errors.locked("账号已被冻结，请联系管理员");
     }
+    const nextQq = identity.qq ?? existing.qq;
     execute(
-      "UPDATE users SET qq = ?, campux_username = ?, last_login_at = ?, updated_at = ? WHERE id = ?",
-      identity.qq ?? existing.qq,
+      "UPDATE users SET qq = ?, campux_username = ?, avatar_url = ?, last_login_at = ?, updated_at = ? WHERE id = ?",
+      nextQq,
       identity.username ?? existing.campux_username,
+      qqAvatarUrl(nextQq) ?? existing.avatar_url,
       nowIso(),
       nowIso(),
       existing.id,
     );
     ensureNotificationSettings(existing.id);
     const updated = findUserById(existing.id) as UserRow;
-    // 每次登录尝试刷新头像（失败保留旧头像）
-    if (!updated.avatar_url) {
-      void syncQqAvatar(updated);
-    }
     writeAudit({
       actorId: updated.id,
       actorRole: "user",
@@ -185,14 +183,16 @@ export function loginOrRegister(identity: CampuxIdentity, ip: string): LoginResu
 
   const userId = crypto.randomUUID();
   const now = nowIso();
+  const avatarUrl = qqAvatarUrl(identity.qq);
   transaction(() => {
     execute(
-      `INSERT INTO users (id, campux_sub, qq, campux_username, onboard_step, onboarded, status, created_at, updated_at, last_login_at)
-       VALUES (?, ?, ?, ?, 'name', 0, 'active', ?, ?, ?)`,
+      `INSERT INTO users (id, campux_sub, qq, campux_username, avatar_url, onboard_step, onboarded, status, created_at, updated_at, last_login_at)
+       VALUES (?, ?, ?, ?, ?, 'name', 0, 'active', ?, ?, ?)`,
       userId,
       identity.sub,
       identity.qq,
       identity.username,
+      avatarUrl,
       now,
       now,
       now,
@@ -211,7 +211,6 @@ export function loginOrRegister(identity: CampuxIdentity, ip: string): LoginResu
     targetId: created.id,
     ip,
   });
-  void syncQqAvatar(created);
   return { user: created, isNew: true, onboardingComplete: false };
 }
 

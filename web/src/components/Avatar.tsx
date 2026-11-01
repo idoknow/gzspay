@@ -1,6 +1,6 @@
 /** 用户头像：有头像地址用图片，否则用姓名首字 + 渐变底色。方形圆角（非正圆）。 */
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { cn, initialsOf } from "../lib/format";
 
 const TONES = [
@@ -30,7 +30,10 @@ export interface AvatarProps {
 }
 
 export function Avatar({ name, avatarUrl, size = 44, className, rounded = false }: AvatarProps): ReactNode {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const fontSize = Math.max(12, Math.round(size * 0.4));
+  // QQ 头像等外链可能加载失败（QQ 号无效、网络受限），失败后退回姓名首字
+  const showImage = Boolean(avatarUrl) && failedUrl !== avatarUrl;
   return (
     <span
       className={cn(
@@ -41,13 +44,21 @@ export function Avatar({ name, avatarUrl, size = 44, className, rounded = false 
         width: size,
         height: size,
         borderRadius: rounded ? "9999px" : `${Math.round(size * 0.3)}px`,
-        background: avatarUrl ? undefined : toneFor(name),
+        background: showImage ? undefined : toneFor(name),
         fontSize,
       }}
       aria-hidden="true"
     >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+      {showImage ? (
+        <img
+          src={avatarUrl ?? undefined}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className="h-full w-full object-cover"
+          onError={() => setFailedUrl(avatarUrl ?? null)}
+        />
       ) : (
         initialsOf(name)
       )}

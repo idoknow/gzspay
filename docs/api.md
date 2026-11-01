@@ -47,7 +47,7 @@
 interface PublicUser {
   id: string;
   displayName: string;      // 商家名称或用户姓名
-  avatarUrl: string | null; // 已缓存到头像地址；null 表示用姓名首字
+  avatarUrl: string | null; // QQ 头像地址（有 QQ 号时）；null 表示用姓名首字
   studentNoMasked: string;  // 例 2023****01
   isMerchant: boolean;
 }

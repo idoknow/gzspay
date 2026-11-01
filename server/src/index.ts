@@ -3,6 +3,7 @@ import { app } from "./app.js";
 import { config } from "./config.js";
 import { cleanupExpired, closeDatabase, execute, migrate, optimizeDatabase } from "./db/index.js";
 import { flushRequestMetrics } from "./lib/metrics.js";
+import { backfillQqAvatars } from "./lib/avatar.js";
 import { applyRuntimeConfig, isSystemReady, readAdminConfig } from "./lib/runtime-config.js";
 import { assertSecureConfig } from "./lib/security.js";
 import { writeSystemError } from "./lib/audit.js";
@@ -62,6 +63,19 @@ function main(): void {
   }
 
   migrate();
+  try {
+    const refreshed = backfillQqAvatars();
+    if (refreshed > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[gzspay] 已把 ${refreshed} 个账号的历史缓存头像换回 QQ 头像地址`);
+    }
+  } catch (error) {
+    writeSystemError({
+      scope: "avatar",
+      message: `头像地址迁移失败：${error instanceof Error ? error.message : String(error)}`,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+  }
   try {
     readAdminConfig();
     applyRuntimeConfig();

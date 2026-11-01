@@ -61,7 +61,7 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 
 - 所有请求体、查询参数用 Zod 校验，字符串有长度上限；SQL 一律参数化（`queryOne/queryAll/execute`）。
 - 上传的收款码截图：先按文件头确认为 PNG / JPEG（`server/src/lib/image.ts`），再交给解码器；只保存解码出的文本，不保存原图。单文件上限 5MB、单请求最多 3 个文件。
-- 拉取的 QQ 头像：同样按文件头校验，只接受 PNG / JPEG，单张上限 2MB，落盘文件名随机。
+- 用户头像直接引用 QQ 官方头像地址（`https://q1.qlogo.cn/g?b=qq&nk={qq}&s=100`，可用 `QQ_AVATAR_URL_TEMPLATE` 替换），服务端不再下载或保存头像文件；前端加载失败时退回姓名首字。QQ 号不写入日志、不在页面文本中展示（仅出现在头像 URL 里）。
 - 静态文件用 `express.static` 且 `index: false`，避免目录列表。
 
 ## 7. 日志与错误

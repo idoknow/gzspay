@@ -37,7 +37,7 @@ gzspay 是在手机浏览器中使用的校园收付款网页应用（可添加�
 4. 后端用授权码、`code_verifier` 和 Client Secret 向 `/oauth/token` 换取令牌，再用 `/oauth/userinfo` 读取用户信息：`sub`（校园墙用户 ID）、`name`（QQ 号）、`username`（显示名）、校园墙信息。
 5. 以 `sub` 作为唯一标识匹配 gzspay 账号（不用显示名），并核对返回的是桂中校园墙：老用户直接进入首页，新用户进入下面的引导。
 6. 拿到用户信息后可调用 `/oauth/revoke` 作废校园墙令牌，gzspay 不保存它；之后登录态由 gzspay 自己的服务端会话（HttpOnly Cookie）维护，默认保持 7 天；但每笔支付都必须输入支付密码。
-7. 头像：校园墙不返回头像，由服务器按 QQ 号拉取 QQ 头像并缓存到 gzspay 自己的地址，失败时显示姓名首字的默认头像。QQ 号只用于这一步，不展示、不写日志。
+7. 头像：校园墙不返回头像，按 QQ 号直接使用 QQ 官方头像地址（`https://q1.qlogo.cn/g?b=qq&nk={qq}&s=100`，可通过 `QQ_AVATAR_URL_TEMPLATE` 修改），不下载、不落盘——用户换 QQ 头像后页面立即跟着变；加载失败时前端显示姓名首字的默认头像。QQ 号只用于这一步，不展示、不写日志。
 
 ### 3.2 新用户信息完善（每步一页，可返回）
 
@@ -329,7 +329,7 @@ gzspay/
 
 ### 10.5 认证与会话
 
-1. **用户登录**：Campux OAuth2 授权码 + PKCE(S256) → 服务端换取令牌 → `/oauth/userinfo` → 校验 `sub` 与校园墙（`tenant_id`）→ 拉取 QQ 头像缓存 → 建会话 → 立即 revoke 校园墙令牌。
+1. **用户登录**：Campux OAuth2 授权码 + PKCE(S256) → 服务端换取令牌 → `/oauth/userinfo` → 校验 `sub` 与校园墙（`tenant_id`）→ 按 QQ 号记录 QQ 头像地址 → 建会话 → 立即 revoke 校园墙令牌。
 2. **会话**：`gzs_session` Cookie（HttpOnly、SameSite=Lax、生产 Secure），服务端存哈希，7 天滚动续期；支付等高敏感操作永不只依赖会话。
 3. **管理后台**：直接复用主站会话（同一个 `gzs_session`、7 天滚动续期）；是否可进后台只看 `admins` 表，权限按角色收敛，没有独立 OAuth / 二次验证 / 独立 Cookie。
 4. **首次初始化**：未初始化时除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外统一返回 `503`；打开 `/admin` 走四步向导（校园墙、发件、站点信息、完成），第一个登录的账号自动成为超级管理员并标记初始化完成。手工授权过管理员的旧库视为已初始化。
@@ -374,7 +374,7 @@ gzspay/
 - **响应头**：生产环境下发 HSTS 与 CSP（`script-src 'self'`，页面内不再有内联脚本，主题引导脚本位于 `web/public/theme-boot.js`），并统一加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、COOP/CORP、`Permissions-Policy`；`/api/*` 一律 `Cache-Control: no-store`。
 - **启动自检**：生产环境 `SESSION_SECRET` 必须是 ≥32 字符的随机串、`APP_BASE_URL` / `PUBLIC_BASE_URL` 必须是 https，否则服务直接退出；内网无证书时用 `ALLOW_INSECURE_BASE_URL=1` 显式放行。`TRUST_PROXY` 可配（默认生产信任 1 层代理），避免伪造 `X-Forwarded-For` 绕过限流。
 - **限流**：新增进程内滑动窗口限流（`server/src/lib/rate-limit.ts`），覆盖登录发起、OAuth 回调、下单、转账、扫卡、邮箱验证码、动态码；超限返回 `429 RATE_LIMITED` 与 `Retry-After`，阈值可用 `RATE_LIMIT_*` 环境变量调整。
-- **文件校验**：QQ 头像与商家收款码上传先按文件头确认 PNG/JPEG（`server/src/lib/image.ts`），再交给解码器；收款码只保存解码文本。
+- **文件校验**：商家收款码上传先按文件头确认 PNG/JPEG（`server/src/lib/image.ts`），再交给解码器；收款码只保存解码文本。用户头像直接使用 QQ 头像地址（外链图片），服务端不再下载或落盘。
 - **防信息泄露**：登录错误页对文案做 HTML 转义；生产 500 只返回通用提示，堆栈落 `system_errors`。
 
 ## 11. 里程碑
