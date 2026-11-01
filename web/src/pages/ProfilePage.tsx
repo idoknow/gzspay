@@ -1,4 +1,4 @@
-/** 个人信息：修改姓名/学号（需支付密码）、更换邮箱（支付密码 + 验证码）、换绑校园卡。 */
+/** 个人信息：各项资料只读展示，点击对应条目弹出编辑框（姓名 / 学号 / 邮箱 / 校园卡）。 */
 
 import { useState, type ReactNode } from "react";
 import { Dialog } from "../components/Dialog";
@@ -10,22 +10,81 @@ import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { bindCard, startEmailChange, updateProfile, verifyEmailChange } from "../lib/api";
 import { isEmail, isSixDigitCode, isStudentNo } from "../lib/format";
-import { errorMessage } from "../lib/http";
 import { useCountdown } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 import { CARD_PREFIX, extractCardContent } from "../lib/scan";
 
 type PendingAction = (password: string) => Promise<void>;
 
+function ChevronRightIcon(): ReactNode {
+  return (
+    <svg
+      className="h-4 w-4 shrink-0 text-muted"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m9.5 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+interface InfoRowProps {
+  label: string;
+  value: ReactNode;
+  hint?: string;
+  onClick?: () => void;
+  trailing?: ReactNode;
+}
+
+/** 一行资料：只显示当前值，需要修改时点击整行进入编辑。 */
+function InfoRow({ label, value, hint, onClick, trailing }: InfoRowProps): ReactNode {
+  const body = (
+    <>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] text-muted">{label}</p>
+        <div className="mt-0.5 flex items-center gap-2 text-[13.5px] font-medium text-text">{value}</div>
+        {hint ? <p className="mt-0.5 text-[10.5px] leading-relaxed text-muted">{hint}</p> : null}
+      </div>
+      {trailing ?? (onClick ? <ChevronRightIcon /> : null)}
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="flex w-full items-center gap-3 px-4 py-3">{body}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-surface-2"
+      onClick={onClick}
+      aria-label={`修改${label}`}
+    >
+      {body}
+    </button>
+  );
+}
+
 export function ProfilePage(): ReactNode {
   const toast = useToast();
   const { me, patchMe, refresh } = useAuth();
-  const [surname, setSurname] = useState(me?.surname ?? "");
-  const [givenName, setGivenName] = useState(me?.givenName ?? "");
-  const [studentNo, setStudentNo] = useState(me?.studentNo ?? "");
 
   const [passwordAction, setPasswordAction] = useState<PendingAction | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+
+  /** 当前打开的编辑弹窗 */
+  const [nameOpen, setNameOpen] = useState(false);
+  const [studentNoOpen, setStudentNoOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
+
+  const [nameDraft, setNameDraft] = useState({ surname: "", givenName: "" });
+  const [studentNoDraft, setStudentNoDraft] = useState("");
 
   const [email, setEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
@@ -50,28 +109,72 @@ export function ProfilePage(): ReactNode {
     setPasswordAction(null);
   };
 
-  const saveProfile = (): void => {
-    const finalSurname = surname.trim();
-    const finalGivenName = givenName.trim();
-    const finalStudentNo = studentNo.trim();
-    if (!finalSurname) {
+  const openNameEditor = (): void => {
+    setNameDraft({ surname: me.surname ?? "", givenName: me.givenName ?? "" });
+    setNameOpen(true);
+  };
+
+  const openStudentNoEditor = (): void => {
+    setStudentNoDraft(me.studentNo ?? "");
+    setStudentNoOpen(true);
+  };
+
+  const openEmailEditor = (): void => {
+    setEmail("");
+    setEmailCode("");
+    setEmailStarted(false);
+    setDevCode(null);
+    countdown.stop();
+    setEmailOpen(true);
+  };
+
+  const saveName = (): void => {
+    const surname = nameDraft.surname.trim();
+    const givenName = nameDraft.givenName.trim();
+    if (!surname) {
       toast.error("请填写姓");
       return;
     }
-    if (!finalGivenName) {
+    if (!givenName) {
       toast.error("请填写名");
       return;
     }
-    if (!isStudentNo(finalStudentNo)) {
-      toast.error("学号格式不正确（4-20 位字母或数字）");
-      return;
-    }
+    setNameOpen(false);
     withPassword(async (password) => {
       setSavingProfile(true);
       try {
-        const next = await updateProfile({ surname: finalSurname, givenName: finalGivenName, studentNo: finalStudentNo, paymentPassword: password });
+        const next = await updateProfile({
+          surname,
+          givenName,
+          studentNo: me.studentNo ?? "",
+          paymentPassword: password,
+        });
         patchMe(next);
-        toast.success("个人信息已更新");
+        toast.success("姓名已更新");
+      } finally {
+        setSavingProfile(false);
+      }
+    });
+  };
+
+  const saveStudentNo = (): void => {
+    const studentNo = studentNoDraft.trim();
+    if (!isStudentNo(studentNo)) {
+      toast.error("学号格式不正确（4-20 位字母或数字）");
+      return;
+    }
+    setStudentNoOpen(false);
+    withPassword(async (password) => {
+      setSavingProfile(true);
+      try {
+        const next = await updateProfile({
+          surname: me.surname ?? "",
+          givenName: me.givenName ?? "",
+          studentNo,
+          paymentPassword: password,
+        });
+        patchMe(next);
+        toast.success("学号已更新");
       } finally {
         setSavingProfile(false);
       }
@@ -108,6 +211,7 @@ export function ProfilePage(): ReactNode {
       const next = await verifyEmailChange({ email: target, code, paymentPassword: password });
       patchMe(next);
       toast.success("邮箱已更新");
+      setEmailOpen(false);
       setEmail("");
       setEmailCode("");
       setEmailStarted(false);
@@ -120,13 +224,9 @@ export function ProfilePage(): ReactNode {
 
   const bindWithContent = (content: string): void => {
     withPassword(async (password) => {
-      try {
-        const next = await bindCard({ cardContent: content, paymentPassword: password });
-        patchMe(next);
-        toast.success("校园卡已换绑");
-      } catch (cause) {
-        throw cause;
-      }
+      const next = await bindCard({ cardContent: content, paymentPassword: password });
+      patchMe(next);
+      toast.success("校园卡已换绑");
     });
   };
 
@@ -150,52 +250,181 @@ export function ProfilePage(): ReactNode {
     bindWithContent(value.startsWith(CARD_PREFIX) ? value : `${CARD_PREFIX}${value}`);
   };
 
+  const cardHint = me.cardNoMasked ? "换绑后旧卡将自动解绑，需要验证支付密码。" : "还没有绑定校园卡，扫码或手动输入卡号即可绑定。";
+
   return (
     <div className="bg-app min-h-[100dvh]">
       <PageHeader title="个人信息" back />
 
       <main className="page space-y-4 pb-10 pt-4">
-        <section className="card space-y-3 p-4">
-          <h2 className="text-sm font-semibold text-text">基本信息</h2>
-          <p className="text-[11px] text-muted">修改姓名或学号需要验证支付密码，修改后会同步到校园墙账号。</p>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="label" htmlFor="profile-surname">
-                姓
-              </label>
-              <input id="profile-surname" className="input" value={surname} maxLength={10} onChange={(event) => setSurname(event.target.value)} />
-            </div>
-            <div>
-              <label className="label" htmlFor="profile-given">
-                名
-              </label>
-              <input id="profile-given" className="input" value={givenName} maxLength={16} onChange={(event) => setGivenName(event.target.value)} />
-            </div>
-          </div>
-          <div>
-            <label className="label" htmlFor="profile-student-no">
-              校学号
-            </label>
-            <input
-              id="profile-student-no"
-              className="input"
-              value={studentNo}
-              maxLength={20}
-              autoCapitalize="characters"
-              onChange={(event) => setStudentNo(event.target.value)}
-            />
-            <p className="mt-1 text-[11px] text-muted">当前：{me.studentNo}</p>
-          </div>
-          <button type="button" className="btn btn-primary btn-block" disabled={savingProfile} onClick={saveProfile}>
-            {savingProfile ? <Spinner size={16} /> : null}
-            保存基本信息
-          </button>
+        <section className="card overflow-hidden p-0">
+          <InfoRow
+            label="姓名"
+            value={me.displayName}
+            hint="修改后需要验证支付密码，并同步到校园墙账号。"
+            onClick={openNameEditor}
+          />
+          <div className="h-px bg-line/70" />
+          <InfoRow
+            label="校学号"
+            value={me.studentNo || "未填写"}
+            onClick={openStudentNoEditor}
+          />
+          <div className="h-px bg-line/70" />
+          <InfoRow
+            label="登录邮箱"
+            value={me.emailMasked || "未绑定"}
+            hint="更换邮箱需要验证支付密码，验证码 10 分钟内有效。"
+            onClick={openEmailEditor}
+          />
         </section>
 
-        <section className="card space-y-3 p-4">
-          <h2 className="text-sm font-semibold text-text">登录邮箱</h2>
-          <p className="text-[11px] text-muted">当前邮箱：{me.emailMasked || "未绑定"}</p>
-          <p className="text-[11px] text-muted">更换邮箱需要验证支付密码，验证码 10 分钟内有效。</p>
+        <section className="card overflow-hidden p-0">
+          <InfoRow
+            label="校园卡"
+            value={
+              <>
+                <span>{me.cardNoMasked ? (showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked) : "未绑定"}</span>
+                {me.cardNoMasked ? (
+                  <button
+                    type="button"
+                    className="grid h-6 w-6 place-items-center rounded-full text-brand transition hover:bg-brand-soft active:scale-90"
+                    aria-label={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
+                    aria-pressed={showCardNo}
+                    title={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
+                    onClick={() => setShowCardNo((value) => !value)}
+                  >
+                    <EyeIcon off={showCardNo} size={14} />
+                  </button>
+                ) : null}
+              </>
+            }
+            hint={cardHint}
+            trailing={
+              <button
+                type="button"
+                className="btn btn-outline btn-sm shrink-0"
+                onClick={() => setCardOpen(true)}
+              >
+                {me.cardNoMasked ? "换绑" : "绑定"}
+              </button>
+            }
+          />
+        </section>
+
+        <button
+          type="button"
+          className="btn btn-ghost btn-block"
+          onClick={() => {
+            void refresh();
+            toast.info("资料已刷新");
+          }}
+        >
+          刷新资料
+        </button>
+      </main>
+
+      <PaymentPasswordDialog
+        open={passwordAction !== null}
+        onClose={() => setPasswordAction(null)}
+        title="验证支付密码"
+        description="该操作需要验证支付密码"
+        onSubmit={handlePassword}
+      />
+
+      <Dialog
+        open={nameOpen}
+        onClose={() => setNameOpen(false)}
+        title="修改姓名"
+        description="修改后需要验证支付密码，并同步到校园墙账号。"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setNameOpen(false)}>
+              取消
+            </button>
+            <button type="button" className="btn btn-primary" disabled={savingProfile} onClick={saveName}>
+              {savingProfile ? <Spinner size={16} /> : null}
+              保存
+            </button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="label" htmlFor="profile-surname">
+              姓
+            </label>
+            <input
+              id="profile-surname"
+              className="input"
+              value={nameDraft.surname}
+              maxLength={10}
+              onChange={(event) => setNameDraft((draft) => ({ ...draft, surname: event.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="profile-given">
+              名
+            </label>
+            <input
+              id="profile-given"
+              className="input"
+              value={nameDraft.givenName}
+              maxLength={16}
+              onChange={(event) => setNameDraft((draft) => ({ ...draft, givenName: event.target.value }))}
+            />
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={studentNoOpen}
+        onClose={() => setStudentNoOpen(false)}
+        title="修改学号"
+        description="修改后需要验证支付密码，并同步到校园墙账号。"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setStudentNoOpen(false)}>
+              取消
+            </button>
+            <button type="button" className="btn btn-primary" disabled={savingProfile} onClick={saveStudentNo}>
+              {savingProfile ? <Spinner size={16} /> : null}
+              保存
+            </button>
+          </>
+        }
+      >
+        <label className="label" htmlFor="profile-student-no">
+          校学号
+        </label>
+        <input
+          id="profile-student-no"
+          className="input"
+          value={studentNoDraft}
+          maxLength={20}
+          autoCapitalize="characters"
+          placeholder="请输入校学号"
+          onChange={(event) => setStudentNoDraft(event.target.value)}
+        />
+      </Dialog>
+
+      <Dialog
+        open={emailOpen}
+        onClose={() => setEmailOpen(false)}
+        title="更换登录邮箱"
+        description="需要验证支付密码，验证码 10 分钟内有效。"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setEmailOpen(false)}>
+              取消
+            </button>
+            <button type="button" className="btn btn-primary" onClick={confirmEmail}>
+              验证并更换
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
           <div>
             <label className="label" htmlFor="profile-email">
               新邮箱
@@ -231,56 +460,46 @@ export function ProfilePage(): ReactNode {
               disabled={countdown.running && countdown.remaining > 0}
               onClick={sendEmailCode}
             >
-              {countdown.running && countdown.remaining > 0 ? `${countdown.remaining}s` : emailStarted ? "重新发送" : "获取验证码"}
+              {countdown.running && countdown.remaining > 0
+                ? `${countdown.remaining}s`
+                : emailStarted
+                  ? "重新发送"
+                  : "获取验证码"}
             </button>
           </div>
           {devCode ? <p className="text-[11px] text-accent-strong">开发环境验证码：{devCode}</p> : null}
-          <button type="button" className="btn btn-secondary btn-block" onClick={confirmEmail}>
-            验证并更换邮箱
-          </button>
-        </section>
+        </div>
+      </Dialog>
 
-        <section className="card space-y-3 p-4">
-          <h2 className="text-sm font-semibold text-text">校园卡</h2>
-          <div className="flex items-center gap-2 text-[11px] text-muted">
-            <span>当前校园卡：</span>
-            <span className="font-medium text-text">
-              {me.cardNoMasked ? (showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked) : "未绑定"}
-            </span>
-            {me.cardNoMasked ? (
-              <button
-                type="button"
-                className="grid h-6 w-6 place-items-center rounded-full text-brand transition hover:bg-brand-soft active:scale-90"
-                aria-label={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
-                aria-pressed={showCardNo}
-                title={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
-                onClick={() => setShowCardNo((value) => !value)}
-              >
-                <EyeIcon off={showCardNo} size={14} />
-              </button>
-            ) : null}
-          </div>
-          <p className="text-[11px] text-muted">换绑后旧卡将自动解绑，需要验证支付密码。</p>
-          <button type="button" className="btn btn-primary btn-block" onClick={() => setScannerOpen(true)}>
-            扫码换绑校园卡
+      <Dialog
+        open={cardOpen}
+        onClose={() => setCardOpen(false)}
+        title={me.cardNoMasked ? "换绑校园卡" : "绑定校园卡"}
+        description={cardHint}
+      >
+        <div className="space-y-2">
+          <button
+            type="button"
+            className="btn btn-primary btn-block"
+            onClick={() => {
+              setCardOpen(false);
+              setScannerOpen(true);
+            }}
+          >
+            扫码{me.cardNoMasked ? "换绑" : "绑定"}校园卡
           </button>
-          <button type="button" className="btn btn-outline btn-block" onClick={() => setManualCardOpen(true)}>
+          <button
+            type="button"
+            className="btn btn-outline btn-block"
+            onClick={() => {
+              setCardOpen(false);
+              setManualCardOpen(true);
+            }}
+          >
             手动输入卡号
           </button>
-        </section>
-
-        <button type="button" className="btn btn-ghost btn-block" onClick={() => { void refresh(); toast.info("资料已刷新"); }}>
-          刷新资料
-        </button>
-      </main>
-
-      <PaymentPasswordDialog
-        open={passwordAction !== null}
-        onClose={() => setPasswordAction(null)}
-        title="验证支付密码"
-        description="该操作需要验证支付密码"
-        onSubmit={handlePassword}
-      />
+        </div>
+      </Dialog>
 
       <QrScanner
         open={scannerOpen}
