@@ -1,10 +1,9 @@
-/** 我的收付款码：开启后展示动态二维码（自动刷新 + 到期失效），也可扫码解析他人的动态码。 */
+/** 我的收付款码：进入即展示动态二维码（自动刷新 + 到期失效），也可扫码解析他人的动态码。 */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
 import { PageHeader } from "../components/PageHeader";
-import { EmptyState } from "../components/EmptyState";
 import { InlineError, Spinner } from "../components/Loading";
 import { Logo } from "../components/Logo";
 import { QrImage } from "../components/QrImage";
@@ -21,7 +20,6 @@ import type { DynamicCodeResponse } from "../lib/types";
 export function DynamicCodePage(): ReactNode {
   const navigate = useNavigate();
   const toast = useToast();
-  const [enabled, setEnabled] = useState(true);
   const [code, setCode] = useState<DynamicCodeResponse | null>(null);
   const [refreshAt, setRefreshAt] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,29 +45,16 @@ export function DynamicCodePage(): ReactNode {
     }
   }, []);
 
-  // 开启时立即获取动态码；关闭/离开页面时停止刷新
+  // 进入页面即获取动态码；离开页面由服务端令牌自然过期
   useEffect(() => {
-    if (enabled) {
-      void load();
-    } else {
-      setCode(null);
-      setRefreshAt(0);
-      setError(null);
-    }
-  }, [enabled, load]);
+    void load();
+  }, [load]);
 
   // 自动刷新：每 refreshAfterSeconds 秒换一张新码
   useEffect(() => {
-    if (!enabled || !code || refreshing) return;
+    if (!code || refreshing) return;
     if (refreshAt > 0 && now >= refreshAt) void load();
-  }, [enabled, code, refreshing, refreshAt, now, load]);
-
-  // 离开页面自动关闭（停止刷新、清空本地二维码）
-  useEffect(() => {
-    return () => {
-      setCode(null);
-    };
-  }, []);
+  }, [code, refreshing, refreshAt, now, load]);
 
   const expiresMs = code ? Date.parse(code.expiresAt) : 0;
   const expiresIn = Number.isFinite(expiresMs) ? Math.max(0, Math.ceil((expiresMs - now) / 1000)) : 0;
@@ -106,90 +91,60 @@ export function DynamicCodePage(): ReactNode {
                 每 {code?.refreshAfterSeconds ?? 30} 秒自动刷新，二维码 60 秒后失效
               </p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={enabled}
-              aria-label="开启收付款码"
-              disabled={refreshing && !code}
-              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
-                enabled ? "bg-brand" : "bg-surface-3"
-              }`}
-              onClick={() => {
-                if (refreshing) return;
-                setEnabled((value) => !value);
-              }}
-            >
-              <span
-                className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
-                  enabled ? "left-[22px]" : "left-0.5"
-                }`}
-              />
-            </button>
+            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              实时
+            </span>
           </div>
         </section>
 
-        {!enabled ? (
-          <section className="card p-6">
-            <EmptyState
-              title="收付款码已关闭"
-              description="开启后，商家可以扫描此码向你发起收款请求，你也可以扫描他人的动态码付款。"
-              action={
-                <button type="button" className="btn btn-primary" onClick={() => setEnabled(true)}>
-                  开启收付款码
-                </button>
-              }
-            />
-          </section>
-        ) : (
-          <section className="card p-4">
-            <div className="flex flex-col items-center">
-              {qrError ? (
-                <p className="py-10 text-center text-xs text-danger">{qrError}</p>
-              ) : !dataUrl ? (
-                <div className="skeleton h-[232px] w-[232px] watch:h-[176px] watch:w-[176px]" />
-              ) : (
-                <div className="relative rounded-3xl border border-line bg-white p-4 watch:rounded-2xl watch:p-2">
-                  <QrImage dataUrl={dataUrl} size={232} alt="我的动态收付款码" />
-                  {expired ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl bg-black/55 text-white">
-                      <p className="text-sm font-semibold">二维码已失效</p>
-                      <button type="button" className="btn btn-sm btn-accent mt-3" onClick={() => void load()}>
-                        点击刷新
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              )}
+        <section className="card p-4">
+          <div className="flex flex-col items-center">
+            {qrError ? (
+              <p className="py-10 text-center text-xs text-danger">{qrError}</p>
+            ) : !dataUrl ? (
+              <div className="skeleton h-[232px] w-[232px] watch:h-[176px] watch:w-[176px]" />
+            ) : (
+              <div className="relative rounded-3xl border border-line bg-white p-4 watch:rounded-2xl watch:p-2">
+                <QrImage dataUrl={dataUrl} size={232} alt="我的动态收付款码" />
+                {expired ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl bg-black/55 text-white">
+                    <p className="text-sm font-semibold">二维码已失效</p>
+                    <button type="button" className="btn btn-sm btn-accent mt-3" onClick={() => void load()}>
+                      点击刷新
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            )}
 
-              <p className="mt-4 text-center text-xs leading-relaxed text-muted">
-                {expired
-                  ? "正在为你刷新新的二维码…"
-                  : `${formatCountdown(expiresIn)} 后失效 · ${refreshIn > 0 ? `${refreshIn} 秒后自动刷新` : "正在刷新…"}`}
-              </p>
+            <p className="mt-4 text-center text-xs leading-relaxed text-muted">
+              {expired
+                ? "正在为你刷新新的二维码…"
+                : `${formatCountdown(expiresIn)} 后失效 · ${refreshIn > 0 ? `${refreshIn} 秒后自动刷新` : "正在刷新…"}`}
+            </p>
 
-              {code ? (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm mt-3"
-                  disabled={refreshing}
-                  onClick={() => void load()}
-                >
-                  {refreshing ? <Spinner size={14} /> : null}
-                  立即刷新
-                </button>
-              ) : null}
-            </div>
+            {code ? (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm mt-3"
+                disabled={refreshing}
+                onClick={() => void load()}
+              >
+                {refreshing ? <Spinner size={14} /> : null}
+                立即刷新
+              </button>
+            ) : null}
+          </div>
 
-            <div className="divider my-4" />
-            <InlineError message={error} />
-            <ul className="space-y-1.5 text-xs leading-relaxed text-muted">
-              <li>· 请让商家扫描此码向你发起收款，核对金额无误后再输入支付密码。</li>
-              <li>· 付款人密码只在自己手机上输入，不要把密码告诉任何人。</li>
-              <li>· 资金通过第三方收款码流转，gzspay 不代收代付。</li>
-            </ul>
-          </section>
-        )}
+          <div className="divider my-4" />
+          <InlineError message={error} />
+          <ul className="space-y-1.5 text-xs leading-relaxed text-muted">
+            <li>· 请让商家扫描此码向你发起收款，核对金额无误后再输入支付密码。</li>
+            <li>· 付款人密码只在自己手机上输入，不要把密码告诉任何人。</li>
+            <li>· 资金通过第三方收款码流转，gzspay 不代收代付。</li>
+          </ul>
+        </section>
 
         <button type="button" className="card flex w-full items-center gap-3 p-4 text-left" onClick={() => setScannerOpen(true)}>
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
