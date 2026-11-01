@@ -260,7 +260,7 @@ logo、当前版本号、更新日志（按版本倒序，未发布的记录按�
 | 校验 | Zod | 请求体校验与类型推导共用一套 schema |
 | 前端 | React 19 + Vite 7 + TypeScript | 快速构建、按需拆包（扫码/图表懒加载） |
 | 样式 | Tailwind CSS v4 + CSS 变量主题 | 浅/深色一键切换，亮蓝 + 暖黄品牌色 |
-| 二维码 | 服务端 `qrcode` 生成 / `jimp` + `jsqr` 解码，浏览器 `jsqr` + `getUserMedia` 扫描 | 收款码重生成与上传校验都在服务端完成 |
+| 二维码 | 服务端 `qrcode` 生成 / `pngjs` + `jpeg-js` + `jsqr` 解码，浏览器 `jsqr` + `getUserMedia` 扫描 | 收款码重生成与上传校验都在服务端完成 |
 | 邮件 | Nodemailer（SMTP 可配；开发环境落库 outbox） | 验证码与通知邮件统一出口 |
 | 实时 | SSE（Server-Sent Events） | 动态码支付请求实时推送，无需 WebSocket 基础设施 |
 | 测试 | Vitest + Supertest | 领域逻辑单测 + HTTP 集成测试 |

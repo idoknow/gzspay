@@ -12,23 +12,19 @@ export function friendlyIssueMessage(issue: ZodIssue): string {
   if (/[\u4e00-\u9fa5]/.test(issue.message)) return issue.message;
   switch (issue.code) {
     case "invalid_type":
-      return issue.received === "undefined" ? "请填写必填项" : "填写的内容格式不正确";
-    case "invalid_enum_value":
-    case "invalid_literal":
+      return issue.input === undefined ? "请填写必填项" : "填写的内容格式不正确";
+    case "invalid_value":
       return "选项不在允许范围内";
     case "too_small":
       return "填写的内容过短";
     case "too_big":
       return "填写的内容过长";
-    case "invalid_string":
+    case "invalid_format":
       return "填写的内容格式不正确";
     case "unrecognized_keys":
       return "提交了多余的字段，请刷新后重试";
     case "not_multiple_of":
-    case "not_finite":
       return "填写的内容不是有效数字";
-    case "invalid_date":
-      return "填写的时间格式不正确";
     case "custom":
     default:
       return "填写的内容有误，请检查后重试";

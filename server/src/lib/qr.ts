@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
-import { Jimp } from "jimp";
+import { PNG } from "pngjs";
 import QRCode from "qrcode";
+import { sniffImageKind } from "./image.js";
 import type { Channel } from "./types.js";
 
 /** 生成二维码 PNG Buffer（服务端统一重新生成，避免直接存用户上传的图片） */
@@ -32,17 +33,69 @@ type JsQrFn = (
   options?: { inversionAttempts?: "attemptBoth" | "dontInvert" | "onlyInvert" | "invertFirst" },
 ) => JsQrResult;
 
-// jsqr 是 UMD/CJS 包，用 createRequire 加载避免 ESM 默认导入的类型差异
+interface RawImage {
+  data: Uint8Array;
+  width: number;
+  height: number;
+}
+
+// jsqr 与 jpeg-js 是 UMD/CJS 包，用 createRequire 加载避免 ESM 默认导入的类型差异
 const nodeRequire = createRequire(import.meta.url);
 const jsQR = nodeRequire("jsqr") as JsQrFn;
+const jpeg = nodeRequire("jpeg-js") as {
+  decode(
+    data: Buffer,
+    options: {
+      useTArray: true;
+      formatAsRGBA: true;
+      maxResolutionInMP: number;
+      maxMemoryUsageInMB: number;
+    },
+  ): RawImage;
+};
+
+/** 解码上限：上传本身限 2MB，这里再兜底避免超大尺寸图片占满内存 */
+const MAX_IMAGE_PIXELS = 40_000_000;
+const MAX_IMAGE_MP = MAX_IMAGE_PIXELS / 1_000_000;
+
+/** 从 PNG 文件头（IHDR）读尺寸，解码前就能拒绝超大的图片 */
+function pngSize(buffer: Buffer): { width: number; height: number } | null {
+  if (buffer.length < 24) return null;
+  return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+}
+
+/** 把 PNG / JPEG 解码成 RGBA 像素；其它格式返回 null */
+function decodeToRgba(buffer: Buffer): RawImage | null {
+  const kind = sniffImageKind(buffer);
+  if (kind === "png") {
+    const size = pngSize(buffer);
+    if (!size || size.width * size.height > MAX_IMAGE_PIXELS) return null;
+    const png = PNG.sync.read(buffer);
+    return { data: png.data, width: png.width, height: png.height };
+  }
+  if (kind === "jpeg") {
+    const image = jpeg.decode(buffer, {
+      useTArray: true,
+      formatAsRGBA: true,
+      maxResolutionInMP: MAX_IMAGE_MP,
+      maxMemoryUsageInMB: 256,
+    });
+    return { data: image.data, width: image.width, height: image.height };
+  }
+  return null;
+}
 
 /** 从上传图片中解码二维码；失败返回 null */
 export async function decodeQrImage(buffer: Buffer): Promise<string | null> {
   try {
-    const image = await Jimp.read(buffer);
-    const { data, width, height } = image.bitmap;
-    const pixels = new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength);
-    const result = jsQR(pixels, width, height, { inversionAttempts: "attemptBoth" });
+    const image = decodeToRgba(buffer);
+    if (!image || image.width * image.height > MAX_IMAGE_PIXELS) return null;
+    const pixels = new Uint8ClampedArray(
+      image.data.buffer,
+      image.data.byteOffset,
+      image.data.byteLength,
+    );
+    const result = jsQR(pixels, image.width, image.height, { inversionAttempts: "attemptBoth" });
     const content = result?.data?.trim();
     return content && content.length > 0 ? content : null;
   } catch {

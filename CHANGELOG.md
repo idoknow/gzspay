@@ -32,6 +32,7 @@
 
 ### 变更
 
+- 依赖升级并清理安全告警：`nodemailer` 升到 10.3.1、`zod` 升到 4.6.7（校验错误提示适配 zod 4 的 issue 类型）；服务端不再使用 `jimp`，改用 `pngjs` / `jpeg-js` 解码收款码图片（保留文件头校验与像素上限），`npm audit --omit=dev` 由 30 个 high 降为 0。
 - 修改支付密码支持两种验证方式任选其一：除了向绑定邮箱发验证码，也可以跳转校园墙再授权一次（授权账号必须与当前登录账号一致，凭证 5 分钟一次性、不把令牌放进跳转链接），通过后自动回到页面设置新密码；新增 `GET /api/me/payment-password/reset/campux/start` 与 `POST /api/me/payment-password/reset/campux/claim`。
 - 安全加固配套改动：主题引导脚本从 `web/index.html` 的内联 `<script>` 抽到 `web/public/theme-boot.js`（配合 CSP `script-src 'self'`）；登录失败错误页对提示文案做 HTML 转义；新增安全相关测试（安全响应头与 `no-store`、登录限流 429、图片文件头校验、生产配置自检）。
 - 高并发优化：SQLite 增加 300 条查询语句缓存并调优 `mmap_size` / `cache_size` / `temp_store`，批量写入走单事务（`runBatch`），`transaction()` 支持嵌套保存点；请求指标改为内存缓冲后每秒批量入库（原来每个请求一次写事务）；`/api/about` 等较大的 JSON 响应启用 gzip（≤4KB 同步压缩、更大的走异步 zlib），响应体从 52.4KB 降到 13.4KB；SSE 增加单用户 5 条、全站 2000 条连接上限与背压保护；会话解析由两条 SQL 合并为一条 JOIN；运行时配置与更新日志增加短 TTL 缓存；订单列表消除每行两次的 N+1 查询；HTTP keep-alive / headers / request 超时对齐常见代理设置。64 并发下只读接口吞吐中位数提升约 7%–31%。
