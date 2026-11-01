@@ -1,6 +1,7 @@
 /** 商品与发布：商品增删改、上下架、排序、备注要求编辑、预览付款人视角。 */
 
 import { useEffect, useState, type ReactNode } from "react";
+import { Avatar } from "../components/Avatar";
 import { PageHeader } from "../components/PageHeader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Dialog } from "../components/Dialog";
@@ -21,6 +22,7 @@ import {
 import { cn, centsToYuan, yuanToCents } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
+import { useAuth } from "../lib/session";
 import type { MerchantInfo, Product } from "../lib/types";
 
 interface ProductDraft {
@@ -45,6 +47,7 @@ function draftFromProduct(product: Product): ProductDraft {
 
 export function ProductsPage(): ReactNode {
   const toast = useToast();
+  const { me } = useAuth();
   const merchantQuery = useAsync(() => getMerchant(), []);
   const productsQuery = useAsync(() => listProducts(), []);
   const [note, setNote] = useState("");
@@ -365,9 +368,12 @@ export function ProductsPage(): ReactNode {
       }>
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-lg font-bold text-brand">
-              {(merchant?.name ?? "商").slice(0, 1)}
-            </div>
+            <Avatar
+              name={me?.displayName ?? merchant?.name ?? "商家"}
+              avatarUrl={me?.avatarUrl}
+              size={48}
+              className="ring-1 ring-line/70"
+            />
             <div>
               <p className="text-sm font-semibold text-text">{merchant?.name ?? "商家"}</p>
               <p className="text-[11px] text-muted">扫码后看到的商家信息</p>
