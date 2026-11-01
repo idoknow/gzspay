@@ -66,11 +66,11 @@ export function BottomNav(): ReactNode {
         <div className="grid grid-cols-3 items-center">
           <NavItem to="/trades" label="交易" icon="trade" />
 
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center">
             <NavLink
               to="/pay"
               aria-label="收付款"
-              className="-mt-8 flex h-[58px] w-[58px] items-center justify-center rounded-full text-white ring-4 ring-bg transition active:scale-95 watch:-mt-4 watch:h-10 watch:w-10"
+              className="-mt-7 flex h-[54px] w-[54px] items-center justify-center rounded-full text-white ring-4 ring-bg transition active:scale-95 watch:-mt-3 watch:h-9 watch:w-9"
               style={{
                 background: "var(--brand-gradient)",
                 boxShadow:
@@ -78,7 +78,7 @@ export function BottomNav(): ReactNode {
               }}
             >
               <svg
-                className="h-[26px] w-[26px] watch:h-[18px] watch:w-[18px]"
+                className="h-[24px] w-[24px] watch:h-[16px] watch:w-[16px]"
                 viewBox="0 0 24 24"
                 fill="none"
                 aria-hidden="true"
@@ -92,6 +92,9 @@ export function BottomNav(): ReactNode {
                 <path d="M7 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </NavLink>
+            <span className="mt-0.5 text-[10px] font-semibold tracking-wide text-brand watch:mt-0 watch:text-[8px]">
+              Pay
+            </span>
           </div>
 
           <NavItem to="/me" label="我的" icon="me" />
