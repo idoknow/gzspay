@@ -25,6 +25,7 @@ import {
   centsToYuan,
   cn,
   formatCents,
+  startOfDay,
   startOfMonth,
   startOfWeek,
   startOfYear,
@@ -37,9 +38,10 @@ import { canvasToJpegBytes, canvasToPngBlob, renderStatsReport } from "../lib/st
 import type { PayChannel, StatsBucket, StatsSummary, StatsTimeseries } from "../lib/types";
 import { buildXlsx, type XlsxCell } from "../lib/xlsx";
 
-type Preset = "week" | "month" | "year";
+type Preset = "today" | "week" | "month" | "year";
 
 const PRESETS: { key: Preset; label: string }[] = [
+  { key: "today", label: "今日" },
   { key: "week", label: "本周" },
   { key: "month", label: "本月" },
   { key: "year", label: "本年" },
@@ -66,6 +68,9 @@ function buildRange(preset: Preset): Range {
   let start: Date;
   const end: Date = now;
   switch (preset) {
+    case "today":
+      start = startOfDay(now);
+      break;
     case "week":
       start = startOfWeek(now);
       break;
@@ -311,7 +316,7 @@ export function StatsPage(): ReactNode {
               aria-hidden="true"
               className="segmented-thumb left-1"
               style={{
-                width: "calc((100% - 8px) / 3)",
+                width: "calc((100% - 8px) / 4)",
                 transform: `translateX(${Math.max(
                   0,
                   PRESETS.findIndex((item) => item.key === preset),
@@ -325,7 +330,7 @@ export function StatsPage(): ReactNode {
                 role="tab"
                 aria-selected={preset === item.key}
                 className={cn(
-                  "segmented-item text-[12.5px]",
+                  "segmented-item text-[12.5px] watch:text-[11px]",
                   preset === item.key && "segmented-item-active",
                 )}
                 onClick={() => setPreset(item.key)}

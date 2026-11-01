@@ -1,4 +1,4 @@
-# gzspay 接口契约
+﻿# gzspay 接口契约
 
 本文档是前后端共同遵守的接口约定。后端实现见 `server/src/routes/`，前端客户端见 `web/src/lib/api.ts`。
 
@@ -291,7 +291,7 @@ interface SSEOrderUpdate {
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/stats/summary?from&to&includePending` | `{ expenseCents, incomeCents, netCents, orderCount, expenseCount, incomeCount, avgOrderCents, maxOrderCents, previous: { expenseCents, incomeCents, orderCount }, channels: [{ channel, label, count, amountCents }], hours: [{ hour, count, amountCents }] }`（`previous` 为等长上一区间用于环比；`hours` 为 0–23 时、服务器本地时间） |
-| `GET` | `/api/stats/timeseries?from&to&granularity=day|month&includePending` | `{ buckets: [{ key, expenseCents, incomeCents, expenseCount, incomeCount }] }` |
+| `GET` | `/api/stats/timeseries?from&to&granularity=day|month&includePending` | `{ buckets: [{ key, expenseCents, incomeCents, expenseCount, incomeCount }] }`，`key` 为服务器本地时区的日期（day: `YYYY-MM-DD`、month: `YYYY-MM`） |
 | `GET` | `/api/stats/export?from&to&includePending` | CSV 文件（`text/csv; charset=utf-8`，带 BOM） |
 
 ## 9. 公告

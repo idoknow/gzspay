@@ -207,9 +207,15 @@ export interface TimeseriesBucket {
   incomeCount: number;
 }
 
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/** 桶键按服务器本地时区生成，与前端展示的日期（今日/本周/本月）一致 */
 function bucketKey(date: Date, granularity: "day" | "month"): string {
-  const iso = date.toISOString();
-  return granularity === "day" ? iso.slice(0, 10) : iso.slice(0, 7);
+  const year = date.getFullYear();
+  const month = pad2(date.getMonth() + 1);
+  return granularity === "day" ? `${year}-${month}-${pad2(date.getDate())}` : `${year}-${month}`;
 }
 
 function enumerateKeys(range: DateRange, granularity: "day" | "month"): string[] {
@@ -217,18 +223,18 @@ function enumerateKeys(range: DateRange, granularity: "day" | "month"): string[]
   const cursor = new Date(range.from);
   const end = new Date(range.to);
   if (granularity === "day") {
-    cursor.setUTCHours(0, 0, 0, 0);
-    while (cursor.getTime() <= end.getTime() + 24 * 60 * 60 * 1000 && keys.length < 400) {
-      keys.push(cursor.toISOString().slice(0, 10));
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    cursor.setHours(0, 0, 0, 0);
+    while (cursor.getTime() <= end.getTime() && keys.length < 400) {
+      keys.push(bucketKey(cursor, "day"));
+      cursor.setDate(cursor.getDate() + 1);
     }
     return keys;
   }
-  cursor.setUTCDate(1);
-  cursor.setUTCHours(0, 0, 0, 0);
+  cursor.setDate(1);
+  cursor.setHours(0, 0, 0, 0);
   while (cursor.getTime() <= end.getTime() && keys.length < 120) {
-    keys.push(cursor.toISOString().slice(0, 7));
-    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    keys.push(bucketKey(cursor, "month"));
+    cursor.setMonth(cursor.getMonth() + 1);
   }
   return keys;
 }
