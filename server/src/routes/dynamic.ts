@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
+import { config } from "../config.js";
 import { CARD_QR_PREFIX } from "../lib/crypto.js";
 import { errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
+import { rateLimit, userKey } from "../lib/rate-limit.js";
 import { requestIp } from "../lib/types.js";
 import { parse } from "../lib/validate.js";
 import {
@@ -22,6 +24,13 @@ dynamicRouter.use(requireUser());
 /** 开启动态码：30 秒刷新、60 秒过期、一次性令牌 */
 dynamicRouter.post(
   "/",
+  rateLimit({
+    scope: "dynamic.issue",
+    limit: config.security.rateLimitDynamicPerMinute,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "刷新太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const dto = issueDynamicCode(req.auth!.user);
     res.status(201).json({ ...dto, qrContent: `gzspay:dynamic:${dto.token}`, prefix: CARD_QR_PREFIX });
@@ -51,6 +60,13 @@ const requestSchema = z.object({
 /** 商家扫客户动态码后发起收款请求（消费令牌，实时推送到客户手机） */
 dynamicRouter.post(
   "/request",
+  rateLimit({
+    scope: "dynamic.request",
+    limit: config.security.rateLimitDynamicPerMinute,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "发起收款太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const body = parse(requestSchema, req.body);
     const token = body.token.replace(/^gzspay:dynamic:/, "");

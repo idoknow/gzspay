@@ -59,8 +59,11 @@ node scripts/bench.mjs        # 可选：并发压测关键只读接口，输出
 
 ## 安全边界
 
-- gzspay 不接触资金，不接入任何支付机构资金接口。
+- gzspay 不接触资金，不接入任何支付机构资金接口。完整措施与上线检查清单见 [docs/security.md](./docs/security.md)。
 - 支付密码校验失败 5 次锁定 30 分钟；锁定期间拒绝任何校验。
 - 写接口需通过 CSRF 校验（SameSite Cookie + Origin 白名单）。
+- 敏感接口必须挂限流（`server/src/lib/rate-limit.ts`）：登录发起、OAuth 回调、下单、转账、扫卡、邮箱验证码、动态码；超限返回 `429 RATE_LIMITED` 并带 `Retry-After`。
+- 上传的图片（头像、收款码）必须先按文件头校验 PNG/JPEG（`server/src/lib/image.ts`），不能只看 Content-Type 或扩展名。
+- 生产环境启动会做配置自检（SESSION_SECRET 强度、https 站点地址），不合格直接退出；不要把示例密钥带上线。
 - 管理后台接口复用主站会话：账号必须在 `admins` 表内，写操作再按角色（`super`/`ops`/`auditor`）限制；没有独立的管理会话或二次验证。
 - 系统未初始化（无管理员且未标记 `system.initialized`）时，除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外的接口必须返回 `503`。

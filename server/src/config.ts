@@ -79,6 +79,13 @@ export const config = {
   sessionSecret: str("SESSION_SECRET", "dev-only-session-secret-change-me"),
   sessionCookieName: "gzs_session",
   sessionTtlDays: int("SESSION_TTL_DAYS", 7),
+  /** 内网 / 无 https 证书部署时显式放行 http 地址（见 lib/security.ts） */
+  allowInsecureBaseUrl: bool("ALLOW_INSECURE_BASE_URL", false),
+  /**
+   * 反向代理层数：默认生产信任 1 层（Nginx），开发直连不信任。
+   * 不放在代理后面却信任 X-Forwarded-For，会让攻击者伪造 IP 绕过限流。
+   */
+  trustProxy: str("TRUST_PROXY", isProduction ? "1" : "false"),
 
   campux: {
     baseUrl: optionalStr("CAMPUX_BASE_URL") ?? "",
@@ -115,6 +122,14 @@ export const config = {
     dynamicCodeTtlSeconds: 60,
     dynamicCodeRefreshSeconds: 30,
     paymentRequestTtlSeconds: 180,
+    /** 限流阈值（每分钟），设为 0 表示关闭对应限流 */
+    rateLimitLoginPerMinute: int("RATE_LIMIT_LOGIN_PER_MINUTE", 20),
+    rateLimitCallbackPerMinute: int("RATE_LIMIT_CALLBACK_PER_MINUTE", 30),
+    rateLimitOrderPerMinute: int("RATE_LIMIT_ORDER_PER_MINUTE", 30),
+    rateLimitTransferPerMinute: int("RATE_LIMIT_TRANSFER_PER_MINUTE", 10),
+    rateLimitScanPerMinute: int("RATE_LIMIT_SCAN_PER_MINUTE", 30),
+    rateLimitEmailPerMinute: int("RATE_LIMIT_EMAIL_PER_MINUTE", 5),
+    rateLimitDynamicPerMinute: int("RATE_LIMIT_DYNAMIC_PER_MINUTE", 20),
   },
 
   /** 测试环境可通过环境变量覆盖 */

@@ -5,6 +5,7 @@ import { config } from "../src/config.js";
 import { execute, migrate, queryOne, resetDatabaseForTests } from "../src/db/index.js";
 import { buildCardQrContent, hashToken, randomToken } from "../src/lib/crypto.js";
 import { generateQrPngBuffer } from "../src/lib/qr.js";
+import { resetRateLimits } from "../src/lib/rate-limit.js";
 import { loginOrRegister } from "../src/services/users.js";
 
 const CSRF = { "X-Requested-With": "gzspay" };
@@ -739,5 +740,50 @@ describe("管理后台", () => {
     const { session } = await login("plain-user", "普通用户");
     const response = await agentWith(session).get("/api/admin/overview").expect(401);
     expect(response.body.error.code).toBe("NOT_ADMIN");
+  });
+});
+
+describe("安全防护", () => {
+  it("接口响应带安全头，且敏感接口禁止缓存", async () => {
+    const response = await request(app).get("/api/health").expect(200);
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["x-frame-options"]).toBe("DENY");
+    expect(response.headers["referrer-policy"]).toBe("same-origin");
+    expect(response.headers["cross-origin-opener-policy"]).toBe("same-origin");
+    expect(response.headers["cross-origin-resource-policy"]).toBe("same-origin");
+    expect(response.headers["permissions-policy"]).toContain("camera=(self)");
+    expect(response.headers["cache-control"]).toBe("no-store");
+    // 测试环境不是生产：不下发 HSTS 与 CSP（否则会影响 Vite 的 HMR 与内联脚本）
+    expect(response.headers["strict-transport-security"]).toBeUndefined();
+    expect(response.headers["content-security-policy"]).toBeUndefined();
+  });
+
+  it("登录入口超过阈值后返回 429 并带 Retry-After", async () => {
+    resetRateLimits();
+    const limit = config.security.rateLimitLoginPerMinute;
+    expect(limit).toBeGreaterThan(0);
+    for (let index = 0; index < limit; index += 1) {
+      const response = await request(app).get("/api/auth/login");
+      expect(response.status).not.toBe(429);
+    }
+    const blocked = await request(app).get("/api/auth/login");
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error.code).toBe("RATE_LIMITED");
+    expect(Number(blocked.headers["retry-after"])).toBeGreaterThan(0);
+    resetRateLimits();
+  });
+
+  it("收款码上传只接受 PNG / JPEG 图片", async () => {
+    const { session } = await login("qr-format", "收款码格式");
+    const response = await agentWith(session)
+      .post("/api/merchant/register")
+      .field("name", "格式测试")
+      .field("channels", JSON.stringify(["alipay"]))
+      .attach("qr_alipay", Buffer.from("<svg></svg>"), {
+        filename: "fake.png",
+        contentType: "image/png",
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.error.message).toContain("PNG 或 JPG");
   });
 });

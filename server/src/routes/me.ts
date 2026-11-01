@@ -9,6 +9,7 @@ import { buildCardQrContent, maskCardNo, randomToken, sha256 } from "../lib/cryp
 import { issueEmailCode, consumeEmailCode, latestCodeEmail } from "../lib/email.js";
 import { errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
+import { rateLimit, userKey } from "../lib/rate-limit.js";
 import { sendMailInBackground, templates } from "../lib/mail.js";
 import { clearSessionCookie } from "../lib/session.js";
 import { requestIp } from "../lib/types.js";
@@ -78,6 +79,13 @@ const emailStartSchema = z.object({
 
 meRouter.post(
   "/email/start",
+  rateLimit({
+    scope: "me.email.start",
+    limit: config.security.rateLimitEmailPerMinute,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "验证码发送过于频繁，请稍后再试",
+  }),
   asyncHandler(async (req, res) => {
     const user = req.auth!.user;
     const body = parse(emailStartSchema, req.body);

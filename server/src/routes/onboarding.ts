@@ -5,6 +5,7 @@ import { issueEmailCode, consumeEmailCode, latestCodeEmail } from "../lib/email.
 import { errors } from "../lib/errors.js";
 import { asyncHandler } from "../lib/http.js";
 import { requireUser } from "../lib/http.js";
+import { rateLimit, userKey } from "../lib/rate-limit.js";
 import { parse } from "../lib/validate.js";
 import { requestIp } from "../lib/types.js";
 import type { OnboardStep, UserRow } from "../lib/types.js";
@@ -96,6 +97,13 @@ const emailStartSchema = z.object({ email: z.string().trim().min(1, "请填写�
 onboardingRouter.post(
   "/email/start",
   requireUser({ allowFrozen: true }),
+  rateLimit({
+    scope: "onboarding.email.start",
+    limit: config.security.rateLimitEmailPerMinute,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "验证码发送过于频繁，请稍后再试",
+  }),
   asyncHandler(async (req, res) => {
     const user = req.auth!.user;
     const body = parse(emailStartSchema, req.body);

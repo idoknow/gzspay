@@ -36,6 +36,11 @@ npm test                # 可选：运行接口测试
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | 发信配置；未配置时邮件写入 `mail_outbox` 表而不发送 |
 | `DATABASE_PATH` | SQLite 文件路径，建议放在持久化目录 |
 | `EMAIL_CODE_DEV_MODE` | 仅本地/冒烟使用（把邮箱验证码回显到接口响应）；**生产必须为 `0` 或不设置** |
+| `TRUST_PROXY` | 反向代理层数。Nginx 反代时设为 `1`（默认值）；直接公网监听时设为 `false`，否则 `X-Forwarded-For` 可被伪造绕过限流 |
+| `ALLOW_INSECURE_BASE_URL` | 仅内网无证书部署时设为 `1`，允许 `APP_BASE_URL` / `PUBLIC_BASE_URL` 使用 http；生产默认要求 https |
+| `RATE_LIMIT_*` | 各接口每分钟限流阈值（登录 / 回调 / 下单 / 转账 / 扫卡 / 邮箱验证码 / 动态码），设为 `0` 关闭对应限流 |
+
+> 启动时会做安全自检：生产环境下若 `SESSION_SECRET` 仍是示例值、短于 32 字符，或站点地址不是 https（且未设置 `ALLOW_INSECURE_BASE_URL=1`），服务会打印原因后直接退出。完整安全说明见 [security.md](./security.md)。
 
 校园墙后台只需登记一个回调地址：
 

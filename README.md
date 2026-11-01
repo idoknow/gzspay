@@ -6,7 +6,7 @@
 
 资金不经过 gzspay：钱仍通过商家自己的支付宝、微信支付、QQ 钱包收款码转账；gzspay 负责认人、下单、支付密码授权与付款后的备注核对和商家确认。
 
-完整设计见 [DESIGN.md](./DESIGN.md)，接口契约见 [docs/api.md](./docs/api.md)，品牌与图标规范见 [docs/brand.md](./docs/brand.md)。
+完整设计见 [DESIGN.md](./DESIGN.md)，接口契约见 [docs/api.md](./docs/api.md)，品牌与图标规范见 [docs/brand.md](./docs/brand.md)，安全防护与上线检查清单见 [docs/security.md](./docs/security.md)。
 
 ## 技术栈
 
@@ -72,7 +72,7 @@ EXTRA_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```text
 server/   后端服务（API、领域逻辑、SQLite、邮件、二维码）
 web/      前端（手机端页面 + /admin 管理后台；品牌资产在 web/public）
-docs/     接口契约、部署说明、品牌规范
+docs/     接口契约、部署说明、安全说明、品牌规范
 scripts/  开发启动、端到端冒烟、品牌资产生成（scripts/brand）
 ```
 

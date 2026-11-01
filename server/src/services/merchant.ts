@@ -2,6 +2,7 @@ import { execute, nowIso, queryAll, queryOne, transaction } from "../db/index.js
 import { writeAudit } from "../lib/audit.js";
 import { displayFullName, newId } from "../lib/crypto.js";
 import { errors } from "../lib/errors.js";
+import { sniffImageKind } from "../lib/image.js";
 import { decodeQrImage, detectChannel, isValidChannelQr } from "../lib/qr.js";
 import {
   CHANNELS,
@@ -106,6 +107,10 @@ function assertChannel(value: string): Channel {
 }
 
 async function decodeChannelQr(file: Buffer, expected: Channel): Promise<string> {
+  // 先确认是 PNG/JPEG 图片头，再交给解码器，避免把任意二进制喂给 jsQR
+  if (!sniffImageKind(file)) {
+    throw errors.validation("请上传 PNG 或 JPG 图片格式的收款码截图");
+  }
   const content = await decodeQrImage(file);
   if (!content) throw errors.validation(`${CHANNEL_LABELS[expected]}收款码无法识别，请重新上传清晰的截图`);
   if (!isValidChannelQr(content, expected)) {

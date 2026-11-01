@@ -25,9 +25,11 @@
 - 「我的收付款码」页下方的「扫一扫」改为页面内摄像头取景（中间取景框、识别后自动继续），不再弹全屏遮罩，也不提供手动输入与相册识别。
 - 「我的收付款码」明确支持收款与付款两种用法：他人扫此码可向你付款，商家扫此码也可向你发起收款；页面说明与提示同步更新。
 - 新增压测脚本：`node scripts/bench-seed.mjs` 复制一份数据库并为指定学号写入测试会话，`node scripts/bench.mjs` 对 `/api/health`、`/api/about`、`/api/me`、订单列表与统计接口做并发压测，输出 req/s、p50/p95 与平均响应体大小，便于改动前后对比性能。
+- 新增安全防护：进程内滑动窗口限流覆盖登录发起、OAuth 回调、下单、转账、扫卡、邮箱验证码与动态码（超限 `429 RATE_LIMITED` 并带 `Retry-After`，阈值用 `RATE_LIMIT_*` 调整，设为 0 关闭）；生产环境启动自检（`SESSION_SECRET` 必须是 ≥32 字符的随机串、`APP_BASE_URL`/`PUBLIC_BASE_URL` 必须是 https，否则拒绝启动；`TRUST_PROXY` 可配置防伪造 `X-Forwarded-For`）；生产响应头增加 HSTS 与 CSP、COOP/CORP，`/api/*` 统一 `no-store`；头像与商家收款码上传改为按文件头校验 PNG/JPEG；新增 `docs/security.md` 记录防护措施与上线检查清单。
 
 ### 变更
 
+- 安全加固配套改动：主题引导脚本从 `web/index.html` 的内联 `<script>` 抽到 `web/public/theme-boot.js`（配合 CSP `script-src 'self'`）；登录失败错误页对提示文案做 HTML 转义；新增安全相关测试（安全响应头与 `no-store`、登录限流 429、图片文件头校验、生产配置自检）。
 - 高并发优化：SQLite 增加 300 条查询语句缓存并调优 `mmap_size` / `cache_size` / `temp_store`，批量写入走单事务（`runBatch`），`transaction()` 支持嵌套保存点；请求指标改为内存缓冲后每秒批量入库（原来每个请求一次写事务）；`/api/about` 等较大的 JSON 响应启用 gzip（≤4KB 同步压缩、更大的走异步 zlib），响应体从 52.4KB 降到 13.4KB；SSE 增加单用户 5 条、全站 2000 条连接上限与背压保护；会话解析由两条 SQL 合并为一条 JOIN；运行时配置与更新日志增加短 TTL 缓存；订单列表消除每行两次的 N+1 查询；HTTP keep-alive / headers / request 超时对齐常见代理设置。64 并发下只读接口吞吐中位数提升约 7%–31%。
 - 管理后台完全复用主站登录会话：删除独立的管理端 OAuth 回调、邮箱验证码二次验证、`gzs_admin` Cookie 与 `admin_pending` 会话；`/api/admin/auth/login` 改为跳转 `/api/auth/login?redirect=%2Fadmin`，`/api/admin/auth/session` 只返回 `UNAUTHENTICATED` / `NOT_ADMIN` / `SYSTEM_NOT_INITIALIZED` 三种失败。
 - 移除开发登录接口 `POST /api/auth/dev-login` 与相关配置；测试与端到端冒烟改为直连数据库写入用户与会话（`sha256(token.secret)`）再发请求，冒烟覆盖初始化向导 → 首个超管 → 主链路全流程（40 项断言）。

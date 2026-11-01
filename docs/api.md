@@ -33,7 +33,7 @@
 | `PAYMENT_PASSWORD_LOCKED` | 423 | 支付密码锁定（含 `details.lockedUntil`） |
 | `PAYMENT_PASSWORD_NOT_SET` | 400 | 尚未设置支付密码 |
 | `LOCKED` | 423 | 账号冻结 |
-| `RATE_LIMITED` | 429 | 请求过于频繁 |
+| `RATE_LIMITED` | 429 | 请求过于频繁（响应头带 `Retry-After`，单位为秒；登录、OAuth 回调、下单、转账、扫卡、邮箱验证码、动态码均有限流） |
 | `ORDER_STATUS_INVALID` | 409 | 订单状态不允许该操作 |
 | `LIMIT_EXCEEDED` | 400 | 超出金额上限 |
 | `NOT_ADMIN` | 401 | 已登录但账号不在管理员名单内 |

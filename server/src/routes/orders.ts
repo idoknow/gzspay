@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
+import { config } from "../config.js";
 import { errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
 import { generateQrPngBuffer } from "../lib/qr.js";
+import { rateLimit, userKey } from "../lib/rate-limit.js";
 import { requestIp } from "../lib/types.js";
 import { pagination, parse, toInt } from "../lib/validate.js";
 import { resolveDynamicCode } from "../services/dynamic.js";
@@ -55,6 +57,13 @@ const createOrderSchema = z.object({
 
 ordersRouter.post(
   "/",
+  rateLimit({
+    scope: "orders.create",
+    limit: config.security.rateLimitOrderPerMinute,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "下单太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const user = req.auth!.user;
     const body = parse(createOrderSchema, req.body);
@@ -144,6 +153,13 @@ const transferSchema = z.object({
 /** 转账：向指定学号的用户转账，订单进入对方待收款、自己的待付款列表 */
 ordersRouter.post(
   "/transfer",
+  rateLimit({
+    scope: "orders.transfer",
+    limit: config.security.rateLimitTransferPerMinute,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "转账太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const user = req.auth!.user;
     const body = parse(transferSchema, req.body);

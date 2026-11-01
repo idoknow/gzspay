@@ -17,16 +17,45 @@ export function asyncHandler(
   };
 }
 
+/**
+ * 生产环境 CSP：脚本只允许同源（前端构建产物都是同源文件），
+ * 样式允许内联（React 的 style 属性与开屏样式需要），图片允许 data:/blob:（二维码与头像预览）。
+ */
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 /** 安全响应头 */
-export function securityHeaders(_req: Request, res: Response, next: NextFunction): void {
+export function securityHeaders(req: Request, res: Response, next: NextFunction): void {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "same-origin");
   res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
   res.setHeader(
     "Permissions-Policy",
-    "camera=(self), microphone=(), geolocation=()",
+    "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
   );
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  // 接口响应可能包含个人信息、卡号脱敏值、管理员数据，禁止中间缓存
+  if (req.path.startsWith("/api/")) {
+    res.setHeader("Cache-Control", "no-store");
+  }
+  // HSTS 与 CSP 只在上线环境下发：开发环境 Vite 的 HMR 需要内联脚本与 ws 连接
+  if (config.isProduction) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    res.setHeader("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+  }
   next();
 }
 

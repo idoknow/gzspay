@@ -4,6 +4,7 @@ import { config } from "../config.js";
 import { execute, nowIso } from "../db/index.js";
 import { writeSystemError } from "./audit.js";
 import { newId } from "./crypto.js";
+import { imageExtension, sniffImageKind } from "./image.js";
 import type { UserRow } from "./types.js";
 
 /**
@@ -22,10 +23,12 @@ export async function syncQqAvatar(user: UserRow): Promise<string | null> {
     if (!contentType.startsWith("image/")) return null;
     const buffer = Buffer.from(await response.arrayBuffer());
     if (buffer.byteLength === 0 || buffer.byteLength > 2 * 1024 * 1024) return null;
+    // 只认文件头：Content-Type 由对方控制，不能作为落盘依据（避免把 SVG/HTML 存成图片）
+    const kind = sniffImageKind(buffer);
+    if (!kind) return null;
 
     mkdirSync(config.avatarDir, { recursive: true });
-    const extension = contentType.includes("png") ? "png" : "jpg";
-    const fileName = `${newId()}.${extension}`;
+    const fileName = `${newId()}.${imageExtension(kind)}`;
     writeFileSync(path.join(config.avatarDir, fileName), buffer);
     const publicUrl = `/media/avatars/${fileName}`;
     execute("UPDATE users SET avatar_url = ?, updated_at = ? WHERE id = ?", publicUrl, nowIso(), user.id);

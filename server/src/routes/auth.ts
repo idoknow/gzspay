@@ -5,6 +5,7 @@ import { writeLoginLog } from "../lib/audit.js";
 import { completeAuthorization, createAuthorizationRequest } from "../lib/campux.js";
 import { AppError, errors } from "../lib/errors.js";
 import { asyncHandler, attachUser } from "../lib/http.js";
+import { rateLimit } from "../lib/rate-limit.js";
 import {
   clearSessionCookie,
   issueSession,
@@ -39,36 +40,63 @@ authRouter.get("/session", attachUser, (req, res) => {
 });
 
 /** 发起校园墙登录（未配置时返回明确的 503，前端据此提示管理员） */
-authRouter.get("/login", (req, res, next) => {
-  try {
-    if (!isCampuxConfigured()) {
-      throw new AppError(
-        503,
-        "CAMPUX_NOT_CONFIGURED",
-        "管理员尚未配置校园墙登录，暂时无法登录",
-      );
+authRouter.get(
+  "/login",
+  rateLimit({
+    scope: "auth.login",
+    limit: config.security.rateLimitLoginPerMinute,
+    windowSeconds: 60,
+    message: "登录请求过于频繁，请稍后再试",
+  }),
+  (req, res, next) => {
+    try {
+      if (!isCampuxConfigured()) {
+        throw new AppError(
+          503,
+          "CAMPUX_NOT_CONFIGURED",
+          "管理员尚未配置校园墙登录，暂时无法登录",
+        );
+      }
+      const redirectTo = typeof req.query.redirect === "string" ? req.query.redirect : null;
+      const url = createAuthorizationRequest(redirectTo);
+      res.redirect(302, url);
+    } catch (error) {
+      next(error);
     }
-    const redirectTo = typeof req.query.redirect === "string" ? req.query.redirect : null;
-    const url = createAuthorizationRequest(redirectTo);
-    res.redirect(302, url);
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
+
+/** 转义 HTML，避免把上游返回的文案原样插进错误页（防御性处理） */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 function errorPage(title: string, message: string): string {
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message);
   return `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title}</title>
+<title>${safeTitle}</title>
 <style>body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f5f2;color:#171a20;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px}
 .card{max-width:420px;background:#fff;border-radius:20px;padding:28px;box-shadow:0 12px 30px rgba(23,26,32,.12)}
 h1{font-size:20px;margin:0 0 12px}p{line-height:1.7;color:#4a4f5a}
 a.btn{display:inline-block;margin-top:16px;background:#171a20;color:#fff;text-decoration:none;padding:10px 20px;border-radius:12px}</style>
-</head><body><div class="card"><h1>${title}</h1><p>${message}</p><a class="btn" href="/login">重新登录</a></div></body></html>`;
+</head><body><div class="card"><h1>${safeTitle}</h1><p>${safeMessage}</p><a class="btn" href="/login">重新登录</a></div></body></html>`;
 }
 
 authRouter.get(
   "/callback",
+  rateLimit({
+    scope: "auth.callback",
+    limit: config.security.rateLimitCallbackPerMinute,
+    windowSeconds: 60,
+    message: "登录回调过于频繁，请稍后再试",
+  }),
   asyncHandler(async (req, res) => {
     const ip = requestIp(req);
     const code = typeof req.query.code === "string" ? req.query.code : undefined;

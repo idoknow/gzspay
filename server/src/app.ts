@@ -101,11 +101,23 @@ function jsonCompression(req: Request, res: Response, next: NextFunction): void 
   next();
 }
 
+/**
+ * 解析 TRUST_PROXY：默认生产信任 1 层反向代理，开发环境不信任。
+ * 直接在公网暴露时保持 false，否则 X-Forwarded-For 可被伪造（影响限流与审计 IP）。
+ */
+function parseTrustProxy(value: string): boolean | number | string {
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "" || trimmed === "false" || trimmed === "0") return false;
+  if (trimmed === "true") return true;
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  return value.trim();
+}
+
 export function createApp(): Express {
   const app = express();
 
   app.disable("x-powered-by");
-  app.set("trust proxy", 1);
+  app.set("trust proxy", parseTrustProxy(config.trustProxy));
   app.use(securityHeaders);
   app.use(jsonCompression);
   app.use(express.json({ limit: "1mb" }));

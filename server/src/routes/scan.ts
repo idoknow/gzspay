@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
+import { config } from "../config.js";
 import { errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
 import { maskCardNo } from "../lib/crypto.js";
+import { rateLimit, userKey } from "../lib/rate-limit.js";
 import { parse } from "../lib/validate.js";
 import { isMerchant, publicUserOf, resolveCardOwner } from "../services/users.js";
 
@@ -16,6 +18,14 @@ export const scanRouter: Router = Router();
 scanRouter.post(
   "/card",
   requireUser(),
+  // 扫卡接口按学号 / 卡号反查身份，限制频率以降低枚举风险
+  rateLimit({
+    scope: "scan.card",
+    limit: config.security.rateLimitScanPerMinute,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "扫码太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const body = parse(z.object({ cardContent: z.string().trim().min(1, "请扫描校园卡二维码") }), req.body);
     const owner = resolveCardOwner(body.cardContent);

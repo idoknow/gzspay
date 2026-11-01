@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { cleanupExpired, closeDatabase, execute, migrate, optimizeDatabase } from "./db/index.js";
 import { flushRequestMetrics } from "./lib/metrics.js";
 import { applyRuntimeConfig, isSystemReady, readAdminConfig } from "./lib/runtime-config.js";
+import { assertSecureConfig } from "./lib/security.js";
 import { writeSystemError } from "./lib/audit.js";
 
 const METRICS_RETENTION_DAYS = 7;
@@ -47,6 +48,19 @@ function shutdown(server: Server, timer: NodeJS.Timeout, signal: string): void {
 }
 
 function main(): void {
+  // 生产环境配置不合格直接拒绝启动，避免带着示例密钥 / http 地址上线
+  try {
+    assertSecureConfig();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(`[gzspay] 启动失败：${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
+  if (config.isProduction && config.exposeEmailCode) {
+    // eslint-disable-next-line no-console
+    console.warn("[gzspay] 警告：生产环境开启了 EMAIL_CODE_DEV_MODE，邮箱验证码会回显到接口响应里，请尽快关闭");
+  }
+
   migrate();
   try {
     readAdminConfig();
