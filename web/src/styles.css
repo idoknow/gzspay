@@ -425,6 +425,16 @@ img {
     transform: translateY(0);
   }
 }
+@keyframes gz-notify-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 @keyframes gz-spin {
   to {
     transform: rotate(360deg);
@@ -501,6 +511,9 @@ img {
 }
 .animate-slide-up {
   animation: gz-slide-up 0.28s cubic-bezier(0.22, 0.7, 0.3, 1) both;
+}
+.animate-notify-in {
+  animation: gz-notify-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .animate-spin-slow {
   animation: gz-spin 0.9s linear infinite;

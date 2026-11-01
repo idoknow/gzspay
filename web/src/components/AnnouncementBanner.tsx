@@ -1,11 +1,12 @@
-/** 交易页公告横幅：可关闭，当天内记住（localStorage 按日期）。 */
+/** 交易页顶部公告通知（苹果通知中心风格，磨砂玻璃卡片）：可关闭，当天内记住（localStorage 按日期）。 */
 
 import { useMemo, useState, type ReactNode } from "react";
 import { getActiveAnnouncements } from "../lib/api";
 import { toDateKey } from "../lib/format";
-import { useAsync } from "../lib/hooks";
+import { useAsync, useWatchLayout } from "../lib/hooks";
 import type { Announcement } from "../lib/types";
 import { Dialog } from "./Dialog";
+import { LogoMark } from "./Logo";
 
 const STORAGE_KEY = "gzspay-announcement-dismissed";
 
@@ -28,6 +29,7 @@ function readDismissed(): DismissedState | null {
 
 export function AnnouncementBanner(): ReactNode {
   const today = toDateKey(new Date());
+  const watch = useWatchLayout();
   const dismissed = useMemo(() => readDismissed(), []);
   const { data, error, reload } = useAsync(() => getActiveAnnouncements(), []);
   const [hidden, setHidden] = useState(false);
@@ -42,7 +44,7 @@ export function AnnouncementBanner(): ReactNode {
 
   if (error) {
     return (
-      <div className="mb-3 flex items-center justify-between rounded-2xl bg-surface-2 px-3.5 py-2 text-xs text-muted">
+      <div className="animate-notify-in mb-3 flex items-center justify-between rounded-[22px] border border-line/70 bg-surface/80 px-3.5 py-2.5 text-xs text-muted shadow-[var(--shadow-xs)] backdrop-blur-2xl">
         <span>公告加载失败</span>
         <button type="button" className="font-semibold text-brand" onClick={reload}>
           重试
@@ -65,28 +67,38 @@ export function AnnouncementBanner(): ReactNode {
 
   return (
     <>
-      <div className="mb-3 flex items-start gap-3 rounded-2xl bg-accent-soft px-3.5 py-3 shadow-[var(--shadow-xs)] ring-1 ring-accent/30">
-        <span
-          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#4a3300]"
-          style={{ background: "var(--accent-gradient)" }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 10v4l5 1 5 4V5L9 9l-5 1Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-            <path d="M17 9.5a4 4 0 0 1 0 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </span>
-        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setDetail(announcement)}>
-          <p className="truncate text-sm font-semibold text-text">{announcement.title}</p>
-          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-warning">{announcement.content}</p>
-        </button>
+      <div className="animate-notify-in relative mb-3 rounded-[22px] border border-line/70 bg-surface/80 py-3 pr-11 pl-3.5 shadow-[0_20px_44px_-24px_rgba(17,20,26,0.6)] backdrop-blur-2xl watch:rounded-[18px] watch:py-2.5 watch:pr-9 watch:pl-3">
+        <div className="flex items-start gap-3 watch:gap-2.5">
+          <span className="shrink-0 drop-shadow-[0_4px_10px_rgba(30,107,255,0.35)]">
+            <LogoMark size={watch ? 30 : 38} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold tracking-wide text-muted">gzspay</span>
+              <span className="text-[10px] text-muted/70">公告</span>
+            </div>
+            <button
+              type="button"
+              className="mt-0.5 block w-full text-left"
+              onClick={() => setDetail(announcement)}
+            >
+              <span className="block truncate text-[13.5px] font-semibold leading-relaxed text-text watch:text-[12.5px]">
+                {announcement.title}
+              </span>
+              <span className="mt-0.5 line-clamp-2 block text-[12.5px] leading-relaxed text-muted watch:text-[11.5px]">
+                {announcement.content}
+              </span>
+            </button>
+          </div>
+        </div>
         <button
           type="button"
           aria-label="关闭公告"
           onClick={dismiss}
-          className="-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-warning/80 active:bg-black/5"
+          className="absolute top-2.5 right-2.5 flex h-6 w-6 items-center justify-center rounded-full text-muted/80 transition hover:bg-surface-2 active:scale-90 watch:top-2 watch:right-2"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
           </svg>
         </button>
       </div>
