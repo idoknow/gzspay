@@ -7,6 +7,7 @@ import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { PageHeader } from "../components/PageHeader";
 import { getAbout } from "../lib/api";
 import { useAsync } from "../lib/hooks";
+import { Markdown } from "../lib/markdown";
 
 type DocKey = "privacy" | "terms" | null;
 
@@ -45,8 +46,10 @@ export function AboutPage(): ReactNode {
               {data.changelog.map((entry) => (
                 <li key={`${entry.version}-${entry.date}`}>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand">v{entry.version}</span>
-                    <span className="text-[11px] text-muted">{entry.date}</span>
+                    <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand">
+                      {entry.version === "未发布" ? entry.version : `v${entry.version}`}
+                    </span>
+                    {entry.date ? <span className="text-[11px] text-muted">{entry.date}</span> : null}
                   </div>
                   <ul className="mt-1 space-y-1 pl-1">
                     {entry.items.map((item, index) => (
@@ -65,13 +68,19 @@ export function AboutPage(): ReactNode {
         </section>
 
         <section className="card divide-y divide-line p-0">
-          <button type="button" className="flex w-full items-center justify-between px-4 py-3.5 text-left" onClick={() => setDoc("privacy")}>
+          <button type="button" className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left" onClick={() => setDoc("privacy")}>
             <span className="text-sm text-text">隐私协议</span>
-            <span className="text-muted">›</span>
+            <span className="flex items-center gap-2 text-[11px] text-muted">
+              {data?.privacyUpdatedAt ? `最后更新 ${data.privacyUpdatedAt}` : null}
+              <span className="text-muted">›</span>
+            </span>
           </button>
-          <button type="button" className="flex w-full items-center justify-between px-4 py-3.5 text-left" onClick={() => setDoc("terms")}>
+          <button type="button" className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left" onClick={() => setDoc("terms")}>
             <span className="text-sm text-text">服务条款</span>
-            <span className="text-muted">›</span>
+            <span className="flex items-center gap-2 text-[11px] text-muted">
+              {data?.termsUpdatedAt ? `最后更新 ${data.termsUpdatedAt}` : null}
+              <span className="text-muted">›</span>
+            </span>
           </button>
         </section>
 
@@ -88,9 +97,10 @@ export function AboutPage(): ReactNode {
           </button>
         }
       >
-        <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-text">
-          {(doc === "privacy" ? data?.privacy : data?.terms) || "内容加载中或暂不可用。"}
-        </div>
+        <Markdown
+          className="max-h-[60vh] overflow-y-auto pr-1"
+          text={(doc === "privacy" ? data?.privacy : data?.terms) || "内容加载中或暂不可用。"}
+        />
       </Dialog>
     </div>
   );

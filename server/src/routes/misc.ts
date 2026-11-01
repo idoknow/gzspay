@@ -3,7 +3,7 @@ import { config } from "../config.js";
 import { nowIso, queryAll, queryOne } from "../db/index.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
 import type { AnnouncementRow } from "../lib/types.js";
-import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "../content/legal.js";
+import { LEGAL_EFFECTIVE_AT, LEGAL_UPDATED_AT, PRIVACY_POLICY, TERMS_OF_SERVICE } from "../content/legal.js";
 import { readChangelog } from "./me.js";
 import { eventStreamHandler } from "../services/events.js";
 
@@ -26,6 +26,9 @@ miscRouter.get("/about", (_req, res) => {
     changelog: readChangelog(),
     privacy: PRIVACY_POLICY,
     terms: TERMS_OF_SERVICE,
+    privacyUpdatedAt: LEGAL_UPDATED_AT,
+    termsUpdatedAt: LEGAL_UPDATED_AT,
+    legalEffectiveAt: LEGAL_EFFECTIVE_AT,
   });
 });
 

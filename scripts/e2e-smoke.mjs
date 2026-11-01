@@ -250,7 +250,14 @@ async function main() {
   check("订单时间线完整", timeline.data.events?.length >= 3, `events=${timeline.data.events?.length}`);
 
   const about = await anonymous.expect("/api/about", 200);
-  check("关于页含版本与隐私协议", typeof about.data.version === "string" && about.data.privacy?.length > 100);
+  check(
+    "关于页返回 Markdown 文档与改动日期",
+    typeof about.data.version === "string" &&
+      about.data.privacy?.startsWith("# gzspay 隐私协议") &&
+      about.data.terms?.includes("## 修订记录") &&
+      typeof about.data.privacyUpdatedAt === "string" &&
+      typeof about.data.legalEffectiveAt === "string",
+  );
 
   console.log(`\n结果：${passed} 项通过，${failed} 项失败`);
   if (failed > 0) process.exit(1);

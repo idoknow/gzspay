@@ -121,7 +121,7 @@ interface Me {
 | `POST` | `/api/me/card` | `{ cardContent, paymentPassword }` 换绑校园卡（新卡未被占用，旧卡解绑） |
 | `PATCH` | `/api/me/settings` | `{ newOrder?, paid?, settled? }` 邮件开关 |
 | `GET` | `/api/me/card-qr` | `{ content, cardNoMasked }` 我的校园卡二维码内容 |
-| `GET` | `/api/about` | `{ version, changelog: [{version, date, items[]}], privacy, terms }` |
+| `GET` | `/api/about` | `{ version, changelog: [{version, date, items[]}], privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文，日期为 YYYY-MM-DD） |
 
 ## 5. 商家
 
@@ -341,4 +341,4 @@ interface SSEOrderUpdate {
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/health` | `{ status: "ok"|"degraded", version, time, uptimeSeconds, database: "up"|"down" }` |
-| `GET` | `/api/about` | `{ version, changelog: [{ version, date, items[] }], privacy, terms }` |
+| `GET` | `/api/about` | `{ version, changelog: [{ version, date, items[] }], privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文） |

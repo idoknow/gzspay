@@ -341,6 +341,15 @@ describe("管理后台", () => {
     expect(saved.body.security.singlePaymentLimitCents).toBe(600000);
   });
 
+  it("关于页返回 Markdown 文档与改动日期", async () => {
+    const about = await request(app).get("/api/about").expect(200);
+    expect(about.body.privacy).toContain("# gzspay 隐私协议");
+    expect(about.body.terms).toContain("## 修订记录");
+    expect(about.body.privacyUpdatedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(about.body.termsUpdatedAt).toBe(about.body.privacyUpdatedAt);
+    expect(about.body.legalEffectiveAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it("普通用户访问管理接口被拒绝", async () => {
     const { session } = await login("plain-user", "普通用户");
     const response = await agentWith(session).get("/api/admin/overview").expect(401);

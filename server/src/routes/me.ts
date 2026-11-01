@@ -4,7 +4,6 @@ import { Router } from "express";
 import { z } from "zod";
 import { REPO_ROOT, config } from "../config.js";
 import { execute, isoAfter, nowIso, queryOne } from "../db/index.js";
-import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "../content/legal.js";
 import { writeAudit } from "../lib/audit.js";
 import { buildCardQrContent, maskCardNo, randomToken, sha256 } from "../lib/crypto.js";
 import { issueEmailCode, consumeEmailCode, latestCodeEmail } from "../lib/email.js";
@@ -286,12 +285,3 @@ export function readChangelog(): ChangelogEntry[] {
     return [];
   }
 }
-
-meRouter.get("/about", (_req, res) => {
-  res.json({
-    version: config.version,
-    changelog: readChangelog(),
-    privacy: PRIVACY_POLICY,
-    terms: TERMS_OF_SERVICE,
-  });
-});

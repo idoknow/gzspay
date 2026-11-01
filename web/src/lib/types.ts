@@ -350,6 +350,14 @@ export interface ChangelogEntry {
 export interface AboutResponse {
   version: string;
   changelog: ChangelogEntry[];
+  /** Markdown 原文 */
   privacy: string;
+  /** Markdown 原文 */
   terms: string;
+  /** 隐私协议最近一次改动日期（YYYY-MM-DD） */
+  privacyUpdatedAt: string;
+  /** 服务条款最近一次改动日期（YYYY-MM-DD） */
+  termsUpdatedAt: string;
+  /** 两份文档的生效日期（YYYY-MM-DD） */
+  legalEffectiveAt: string;
 }
