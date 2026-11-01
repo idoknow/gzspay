@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
+import { EyeIcon } from "../components/EyeIcon";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
 import { formatFriendlyTime } from "../lib/format";
@@ -170,16 +171,19 @@ export function MePage(): ReactNode {
                 </div>
                 <p className="mt-1 text-xs text-[color:var(--hero-fg-soft)]">学号 {me.studentNo || "未填写"}</p>
                 {me.cardNoMasked ? (
-                  <button
-                    type="button"
-                    className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[color:var(--hero-fg-soft)]"
-                    onClick={() => setShowCardNo((value) => !value)}
-                  >
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[color:var(--hero-fg-soft)]">
                     <span>卡号 {showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked}</span>
-                    <span className="font-semibold text-[color:var(--hero-fg)] underline decoration-[color:var(--hero-ring)] underline-offset-2">
-                      {showCardNo ? "隐藏" : "显示"}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      className="grid h-6 w-6 place-items-center rounded-full text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)] transition active:scale-90 watch:h-5 watch:w-5"
+                      aria-label={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
+                      aria-pressed={showCardNo}
+                      title={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
+                      onClick={() => setShowCardNo((value) => !value)}
+                    >
+                      <EyeIcon off={showCardNo} size={13} />
+                    </button>
+                  </div>
                 ) : (
                   <p className="mt-0.5 text-[11px] text-[color:var(--hero-fg-soft)]">卡号 未绑定</p>
                 )}

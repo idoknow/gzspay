@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Dialog } from "../components/Dialog";
+import { EyeIcon } from "../components/EyeIcon";
 import { PageHeader } from "../components/PageHeader";
 import { PaymentPasswordDialog } from "../components/PaymentPasswordDialog";
 import { QrScanner } from "../components/QrScanner";
@@ -241,17 +242,24 @@ export function ProfilePage(): ReactNode {
 
         <section className="card space-y-3 p-4">
           <h2 className="text-sm font-semibold text-text">校园卡</h2>
-          <p className="text-[11px] text-muted">
-            当前校园卡：
-            <button
-              type="button"
-              className="text-brand"
-              onClick={() => setShowCardNo((value) => !value)}
-            >
+          <div className="flex items-center gap-2 text-[11px] text-muted">
+            <span>当前校园卡：</span>
+            <span className="font-medium text-text">
               {me.cardNoMasked ? (showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked) : "未绑定"}
-              {me.cardNoMasked ? (showCardNo ? "（隐藏）" : "（显示）") : ""}
-            </button>
-          </p>
+            </span>
+            {me.cardNoMasked ? (
+              <button
+                type="button"
+                className="grid h-6 w-6 place-items-center rounded-full text-brand transition hover:bg-brand-soft active:scale-90"
+                aria-label={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
+                aria-pressed={showCardNo}
+                title={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
+                onClick={() => setShowCardNo((value) => !value)}
+              >
+                <EyeIcon off={showCardNo} size={14} />
+              </button>
+            ) : null}
+          </div>
           <p className="text-[11px] text-muted">换绑后旧卡将自动解绑，需要验证支付密码。</p>
           <button type="button" className="btn btn-primary btn-block" onClick={() => setScannerOpen(true)}>
             扫码换绑校园卡
