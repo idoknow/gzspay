@@ -12,7 +12,7 @@ import { bindCard, startEmailChange, updateProfile, verifyEmailChange } from "..
 import { isEmail, isSixDigitCode, isStudentNo } from "../lib/format";
 import { useCountdown } from "../lib/hooks";
 import { useAuth } from "../lib/session";
-import { CARD_PREFIX, extractCardContent } from "../lib/scan";
+import { extractCardContent } from "../lib/scan";
 
 type PendingAction = (password: string) => Promise<void>;
 
@@ -93,8 +93,6 @@ export function ProfilePage(): ReactNode {
   const countdown = useCountdown(60);
 
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [manualCardOpen, setManualCardOpen] = useState(false);
-  const [manualCard, setManualCard] = useState("");
   const [showCardNo, setShowCardNo] = useState(false);
 
   if (!me) return null;
@@ -234,23 +232,15 @@ export function ProfilePage(): ReactNode {
     setScannerOpen(false);
     const content = extractCardContent(raw);
     if (!content) {
-      toast.error("未识别到校园卡信息，请重试或手动输入卡号");
+      toast.error("未识别到校园卡二维码，请重新扫描");
       return;
     }
     bindWithContent(content);
   };
 
-  const handleManualCard = (): void => {
-    const value = manualCard.trim();
-    if (!value) {
-      toast.error("请输入校园卡号");
-      return;
-    }
-    setManualCardOpen(false);
-    bindWithContent(value.startsWith(CARD_PREFIX) ? value : `${CARD_PREFIX}${value}`);
-  };
-
-  const cardHint = me.cardNoMasked ? "换绑后旧卡将自动解绑，需要验证支付密码。" : "还没有绑定校园卡，扫码或手动输入卡号即可绑定。";
+  const cardHint = me.cardNoMasked
+    ? "换绑后旧卡将自动解绑，需要验证支付密码。"
+    : "还没有绑定校园卡，扫描校园卡上的二维码即可绑定。";
 
   return (
     <div className="bg-app min-h-[100dvh]">
@@ -486,18 +476,11 @@ export function ProfilePage(): ReactNode {
               setScannerOpen(true);
             }}
           >
-            扫码{me.cardNoMasked ? "换绑" : "绑定"}校园卡
+            扫描校园卡二维码
           </button>
-          <button
-            type="button"
-            className="btn btn-outline btn-block"
-            onClick={() => {
-              setCardOpen(false);
-              setManualCardOpen(true);
-            }}
-          >
-            手动输入卡号
-          </button>
+          <p className="text-center text-[11px] leading-relaxed text-muted">
+            绑定校园卡只支持摄像头扫码，不能手动输入或从相册选择。
+          </p>
         </div>
       </Dialog>
 
@@ -505,35 +488,12 @@ export function ProfilePage(): ReactNode {
         open={scannerOpen}
         title="扫描校园卡二维码"
         hint="将校园卡二维码放入取景框内"
+        scanOnly
         manualLabel="校园卡卡号"
         manualPlaceholder="例如 2023123456"
         onResult={handleScanResult}
         onClose={() => setScannerOpen(false)}
       />
-
-      <Dialog
-        open={manualCardOpen}
-        onClose={() => setManualCardOpen(false)}
-        title="手动输入卡号"
-        description="输入校园卡上的卡号即可换绑"
-        footer={
-          <>
-            <button type="button" className="btn btn-secondary" onClick={() => setManualCardOpen(false)}>
-              取消
-            </button>
-            <button type="button" className="btn btn-primary" onClick={handleManualCard}>
-              下一步
-            </button>
-          </>
-        }
-      >
-        <input
-          className="input"
-          value={manualCard}
-          placeholder="请输入校园卡号"
-          onChange={(event) => setManualCard(event.target.value)}
-        />
-      </Dialog>
     </div>
   );
 }

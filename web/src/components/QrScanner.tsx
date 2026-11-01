@@ -15,6 +15,8 @@ export interface QrScannerProps {
   open: boolean;
   title?: string;
   hint?: string;
+  /** 只允许摄像头扫码：隐藏相册识别与手动输入入口（绑定校园卡等场景） */
+  scanOnly?: boolean;
   /** 手动输入区标题（手表上默认展示） */
   manualLabel?: string;
   /** 手动输入框占位文案 */
@@ -28,6 +30,7 @@ export function QrScanner({
   open,
   title = "扫描二维码",
   hint = "将二维码放入取景框内，即可自动识别",
+  scanOnly = false,
   manualLabel = "手动输入二维码内容",
   manualPlaceholder = "例如 gzspay:card:2023123456",
   onResult,
@@ -82,12 +85,13 @@ export function QrScanner({
     handledRef.current = false;
     setNotice(null);
     setCameraError(null);
-    const preferManual = watch;
+    // 只允许扫码时强制打开摄像头；否则小屏 / 手表默认手动输入
+    const preferManual = watch && !scanOnly;
     setManualOpen(preferManual);
     setCameraOn(!preferManual);
     setStarting(false);
     return () => stopCamera();
-  }, [open, watch, stopCamera]);
+  }, [open, watch, scanOnly, stopCamera]);
 
   // 需要相机时启动（手表上点「打开摄像头」后也会走到这里）
   useEffect(() => {
@@ -125,7 +129,7 @@ export function QrScanner({
     try {
       const raw = await decodeQrFromImageFile(file);
       if (!raw) {
-        setNotice("没有识别到二维码，请换一张更清晰的照片，或手动输入卡号");
+        setNotice("没有识别到二维码，请换一张更清晰的照片重试");
         return;
       }
       handledRef.current = true;
@@ -167,8 +171,8 @@ export function QrScanner({
     />
   );
 
-  // 手表 / 小屏：手动输入优先，摄像头作为可选项
-  if (watch && !cameraOn) {
+  // 手表 / 小屏：手动输入优先，摄像头作为可选项（只允许扫码时不走这个形态）
+  if (watch && !cameraOn && !scanOnly) {
     return createPortal(
       <div className="fixed inset-0 z-[105] flex flex-col bg-black text-white">
         <div className="safe-top flex items-center justify-between px-2.5 py-1.5">
@@ -273,23 +277,31 @@ export function QrScanner({
               <button type="button" className="btn btn-primary btn-sm" onClick={() => void openCamera()}>
                 重试相机
               </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => fileRef.current?.click()}
-              >
-                从相册识别
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm text-white"
-                onClick={() => {
-                  setManualOpen(true);
-                  if (watch) setCameraOn(false);
-                }}
-              >
-                手动输入
-              </button>
+              {scanOnly ? (
+                <button type="button" className="btn btn-ghost btn-sm text-white" onClick={onClose}>
+                  取消
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    从相册识别
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm text-white"
+                    onClick={() => {
+                      setManualOpen(true);
+                      if (watch) setCameraOn(false);
+                    }}
+                  >
+                    手动输入
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ) : null}
@@ -299,30 +311,36 @@ export function QrScanner({
           <p className="text-center text-sm text-white/85 watch:text-xs">{hint}</p>
           {notice ? <p className="mt-2 text-center text-xs text-[#ffd666] watch:text-[10px]">{notice}</p> : null}
           {starting ? <p className="mt-2 text-center text-xs text-white/60 watch:text-[10px]">正在打开摄像头…</p> : null}
-          <div className="mt-4 grid grid-cols-3 gap-3 watch:mt-2.5 watch:gap-1.5">
-            <button
-              type="button"
-              className="flex flex-col items-center gap-1.5 rounded-2xl bg-white/10 py-3 text-xs backdrop-blur active:bg-white/20 watch:gap-0.5 watch:rounded-xl watch:py-1.5 watch:text-[10px]"
-              onClick={() => fileRef.current?.click()}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="watch:h-4 watch:w-4">
-                <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="1.8" />
-                <circle cx="8.5" cy="10" r="1.6" fill="currentColor" />
-                <path d="M4 17l5-5 4 4 3-3 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              从相册识别
-            </button>
-            <button
-              type="button"
-              className="flex flex-col items-center gap-1.5 rounded-2xl bg-white/10 py-3 text-xs backdrop-blur active:bg-white/20 watch:gap-0.5 watch:rounded-xl watch:py-1.5 watch:text-[10px]"
-              onClick={() => setManualOpen((current) => !current)}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="watch:h-4 watch:w-4">
-                <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M8 9h8M8 12.5h8M8 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-              手动输入
-            </button>
+          <div
+            className={`mt-4 grid gap-3 watch:mt-2.5 watch:gap-1.5 ${scanOnly ? "grid-cols-1" : "grid-cols-3"}`}
+          >
+            {scanOnly ? null : (
+              <>
+                <button
+                  type="button"
+                  className="flex flex-col items-center gap-1.5 rounded-2xl bg-white/10 py-3 text-xs backdrop-blur active:bg-white/20 watch:gap-0.5 watch:rounded-xl watch:py-1.5 watch:text-[10px]"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="watch:h-4 watch:w-4">
+                    <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                    <circle cx="8.5" cy="10" r="1.6" fill="currentColor" />
+                    <path d="M4 17l5-5 4 4 3-3 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  从相册识别
+                </button>
+                <button
+                  type="button"
+                  className="flex flex-col items-center gap-1.5 rounded-2xl bg-white/10 py-3 text-xs backdrop-blur active:bg-white/20 watch:gap-0.5 watch:rounded-xl watch:py-1.5 watch:text-[10px]"
+                  onClick={() => setManualOpen((current) => !current)}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="watch:h-4 watch:w-4">
+                    <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M8 9h8M8 12.5h8M8 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                  手动输入
+                </button>
+              </>
+            )}
             <button
               type="button"
               className="flex flex-col items-center gap-1.5 rounded-2xl bg-white/10 py-3 text-xs backdrop-blur active:bg-white/20 watch:gap-0.5 watch:rounded-xl watch:py-1.5 watch:text-[10px]"
@@ -335,7 +353,7 @@ export function QrScanner({
             </button>
           </div>
 
-          {manualOpen ? (
+          {!scanOnly && manualOpen ? (
             <div className="mt-4 rounded-2xl bg-white/10 p-3 backdrop-blur watch:mt-2 watch:p-2">
               <label className="mb-2 block text-xs text-white/70 watch:mb-1 watch:text-[10px]" htmlFor="qr-manual-input">
                 {manualLabel}

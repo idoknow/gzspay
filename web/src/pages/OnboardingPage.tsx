@@ -20,7 +20,7 @@ import {
 import { errorMessage } from "../lib/http";
 import { isEmail, isSixDigitCode, isStudentNo } from "../lib/format";
 import { useCountdown, useAsync } from "../lib/hooks";
-import { CARD_PREFIX, extractCardContent } from "../lib/scan";
+import { extractCardContent } from "../lib/scan";
 import { useAuth } from "../lib/session";
 import type { Me, OnboardStep, OnboardingResponse } from "../lib/types";
 
@@ -299,7 +299,6 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
 
 function CardStep({ me, onDone }: StepProps): ReactNode {
   const toast = useToast();
-  const [manual, setManual] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -321,19 +320,10 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
     setScannerOpen(false);
     const content = extractCardContent(raw);
     if (!content) {
-      toast.error("未识别到校园卡二维码，请重新扫描或手动输入卡号");
+      toast.error("未识别到校园卡二维码，请重新扫描");
       return;
     }
     void submitCard(raw.trim());
-  };
-
-  const handleManual = (): void => {
-    const value = manual.trim();
-    if (!value) {
-      toast.error("请输入校园卡卡号");
-      return;
-    }
-    void submitCard(value.startsWith(CARD_PREFIX) ? value : `${CARD_PREFIX}${value}`);
   };
 
   return (
@@ -352,7 +342,7 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
             </svg>
           </span>
           <p className="mt-3 text-sm font-semibold text-text">将校园卡二维码放入取景框</p>
-          <p className="mt-1 text-xs text-muted">自动识别，无需手动输入</p>
+          <p className="mt-1 text-xs text-muted">绑定校园卡只支持摄像头扫码，不能手动输入或从相册选择</p>
           <button
             type="button"
             className="btn btn-primary btn-block mt-4"
@@ -364,33 +354,15 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
           </button>
         </div>
         <p className="mt-3 text-center text-[11px] leading-relaxed text-muted">
-          相机无法使用？请在系统浏览器（Safari / Chrome）中打开本页，或在下方手动输入卡号。
+          相机无法使用？请在系统浏览器（Safari / Chrome）中打开本页，并允许使用摄像头。
         </p>
-      </div>
-
-      <div className="card-flat p-4">
-        <label className="label" htmlFor="cardNo">
-          手动输入卡号
-        </label>
-        <div className="flex gap-2">
-          <input
-            id="cardNo"
-            className="input flex-1"
-            value={manual}
-            autoComplete="off"
-            placeholder="请输入校园卡卡号"
-            onChange={(event) => setManual(event.target.value)}
-          />
-          <button type="button" className="btn btn-outline shrink-0 text-sm" disabled={busy} onClick={handleManual}>
-            提交
-          </button>
-        </div>
       </div>
 
       <QrScanner
         open={scannerOpen}
         title="扫描校园卡二维码"
         hint="将校园卡二维码放入取景框，即可自动识别"
+        scanOnly
         manualLabel="校园卡卡号"
         manualPlaceholder="例如 2023123456"
         onResult={handleScan}
