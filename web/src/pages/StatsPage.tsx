@@ -1,4 +1,4 @@
-/** 交易统计：周/月/年/自定义区间，汇总 + 柱状对比 + 累计趋势 + CSV 导出。 */
+/** 交易统计：本周/本月/本年，汇总 + 柱状对比 + 累计趋势 + CSV 导出。 */
 
 import { useMemo, useState, type ReactNode } from "react";
 import { ChartBar } from "../components/ChartBar";
@@ -21,13 +21,12 @@ import { errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
 import type { StatsBucket, StatsSummary, StatsTimeseries } from "../lib/types";
 
-type Preset = "week" | "month" | "year" | "custom";
+type Preset = "week" | "month" | "year";
 
 const PRESETS: { key: Preset; label: string }[] = [
   { key: "week", label: "本周" },
   { key: "month", label: "本月" },
   { key: "year", label: "本年" },
-  { key: "custom", label: "自定义" },
 ];
 
 interface Range {
@@ -38,10 +37,10 @@ interface Range {
   granularity: "day" | "month";
 }
 
-function buildRange(preset: Preset, customFrom: string, customTo: string): Range {
+function buildRange(preset: Preset): Range {
   const now = new Date();
   let start: Date;
-  let end: Date = now;
+  const end: Date = now;
   switch (preset) {
     case "week":
       start = startOfWeek(now);
@@ -49,22 +48,10 @@ function buildRange(preset: Preset, customFrom: string, customTo: string): Range
     case "year":
       start = startOfYear(now);
       break;
-    case "custom": {
-      const parsedFrom = customFrom ? new Date(`${customFrom}T00:00:00`) : startOfMonth(now);
-      const parsedTo = customTo ? new Date(`${customTo}T23:59:59`) : now;
-      start = Number.isNaN(parsedFrom.getTime()) ? startOfMonth(now) : parsedFrom;
-      end = Number.isNaN(parsedTo.getTime()) ? now : parsedTo;
-      break;
-    }
     case "month":
     default:
       start = startOfMonth(now);
       break;
-  }
-  if (start.getTime() > end.getTime()) {
-    const swap = start;
-    start = end;
-    end = swap;
   }
   const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000));
   return {
@@ -84,12 +71,10 @@ interface StatsData {
 export function StatsPage(): ReactNode {
   const toast = useToast();
   const [preset, setPreset] = useState<Preset>("month");
-  const [customFrom, setCustomFrom] = useState(() => toDateKey(startOfMonth(new Date())));
-  const [customTo, setCustomTo] = useState(() => toDateKey(new Date()));
   const [includePending, setIncludePending] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const range = useMemo(() => buildRange(preset, customFrom, customTo), [preset, customFrom, customTo]);
+  const range = useMemo(() => buildRange(preset), [preset]);
   const query: StatsQuery = useMemo(
     () => ({ from: range.from, to: range.to, includePending }),
     [range.from, range.to, includePending],
@@ -130,7 +115,7 @@ export function StatsPage(): ReactNode {
               aria-hidden="true"
               className="segmented-thumb left-1"
               style={{
-                width: "calc(25% - 2px)",
+                width: "calc((100% - 8px) / 3)",
                 transform: `translateX(${Math.max(
                   0,
                   PRESETS.findIndex((item) => item.key === preset),
@@ -154,34 +139,9 @@ export function StatsPage(): ReactNode {
             ))}
           </div>
 
-          {preset === "custom" ? (
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <label className="text-[11px] text-muted">
-                开始
-                <input
-                  type="date"
-                  className="input mt-1 py-2"
-                  value={customFrom}
-                  max={customTo}
-                  onChange={(event) => setCustomFrom(event.target.value)}
-                />
-              </label>
-              <label className="text-[11px] text-muted">
-                结束
-                <input
-                  type="date"
-                  className="input mt-1 py-2"
-                  value={customTo}
-                  min={customFrom}
-                  onChange={(event) => setCustomTo(event.target.value)}
-                />
-              </label>
-            </div>
-          ) : (
-            <p className="mt-2 px-1 text-[11px] text-muted">
-              {range.fromKey} 至 {range.toKey}
-            </p>
-          )}
+          <p className="mt-2 px-1 text-[11px] text-muted">
+            {range.fromKey} 至 {range.toKey}
+          </p>
 
           <div className="mt-3 flex items-center justify-between rounded-2xl bg-surface-2 px-3 py-2.5">
             <div>
