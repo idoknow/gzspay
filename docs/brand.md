@@ -24,7 +24,13 @@
 - `--text: #171a20`、`--muted: #6b6f7a`、`--bg: #f5f5f2`、`--surface: #ffffff`、`--surface-2: #f0f0ec`、`--line: #e6e6e0`
 - `--hero-bg` / `--hero-fg` / `--hero-chip` / `--hero-ring`：个人中心头图的暖黄渐变卡面（深色主题自动换成深棕渐变）
 
-管理后台有独立的 `.admin-root` 调色板（`web/src/admin/admin.css`），取同一组色值。
+管理后台有独立的 `.admin-root` 调色板（`web/src/admin/admin.css`），取同一组色值：
+
+- 画布 `--admin-bg: #f5f5f2`、卡片 `#ffffff`、次级底 `#faf9f6`、描边 `#e7e6e0`
+- 文字 `#171a20`、次级 `#4f5663`、辅助 `#767c88`
+- 主色 `#1e6bff`（按钮/链接/状态）、点缀 `#ffc933`
+- 侧边栏为深墨渐变（`#15171c` → `#1e2128`），通过白色透明层做选中态
+- 卡片圆角 18px，**卡片顶部不画彩色强调线**；统计卡用悬浮阴影表达层次
 
 ## 资产清单
 

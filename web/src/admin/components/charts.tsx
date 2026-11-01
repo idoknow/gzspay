@@ -414,12 +414,12 @@ export function DualAxisTrendChart({
 /* ------------------------------------------------------------- 环形图 */
 
 const DONUT_COLORS = [
-  "#2f7cf6",
-  "#f5a623",
+  "#1e6bff",
+  "#f0b21f",
   "#17996b",
   "#8b5cf6",
   "#d64545",
-  "#8794a9",
+  "#8f949d",
 ];
 
 export interface DonutSlice {
