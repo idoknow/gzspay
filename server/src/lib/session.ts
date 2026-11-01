@@ -75,20 +75,62 @@ export function sessionTokenFromRequest(req: Request): string | null {
   return typeof token === "string" && token.length > 0 ? token : null;
 }
 
+/** 会话 + 用户一次性查出来（原来分两条 SQL，每个请求都多一次查询） */
+interface JoinedSessionRow extends UserRow {
+  session_id: string;
+  session_kind: string;
+  session_ip: string | null;
+  session_user_agent: string | null;
+  session_created_at: string;
+  session_expires_at: string;
+  session_last_seen_at: string;
+}
+
+const SESSION_FIELDS = [
+  "session_id",
+  "session_kind",
+  "session_ip",
+  "session_user_agent",
+  "session_created_at",
+  "session_expires_at",
+  "session_last_seen_at",
+] as const;
+
 /** 根据令牌解析会话；过期或不存在返回 null */
 export function resolveSession(token: string): AuthSession | null {
-  const session = queryOne<SessionRow>("SELECT * FROM sessions WHERE id = ?", hashToken(token));
-  if (!session) return null;
-  if (session.kind !== "user") return null;
+  const row = queryOne<JoinedSessionRow>(
+    `SELECT u.*,
+            s.id AS session_id,
+            s.kind AS session_kind,
+            s.ip AS session_ip,
+            s.user_agent AS session_user_agent,
+            s.created_at AS session_created_at,
+            s.expires_at AS session_expires_at,
+            s.last_seen_at AS session_last_seen_at
+       FROM sessions s
+       JOIN users u ON u.id = s.user_id
+      WHERE s.id = ?`,
+    hashToken(token),
+  );
+  if (!row) return null;
+  if (row.session_kind !== "user") return null;
+  const session: SessionRow = {
+    id: row.session_id,
+    user_id: row.id,
+    kind: "user",
+    ip: row.session_ip,
+    user_agent: row.session_user_agent,
+    created_at: row.session_created_at,
+    expires_at: row.session_expires_at,
+    last_seen_at: row.session_last_seen_at,
+  };
   if (session.expires_at <= nowIso()) {
     execute("DELETE FROM sessions WHERE id = ?", session.id);
     return null;
   }
-  const user = queryOne<UserRow>("SELECT * FROM users WHERE id = ?", session.user_id);
-  if (!user) {
-    execute("DELETE FROM sessions WHERE id = ?", session.id);
-    return null;
-  }
+  const userRecord: Record<string, unknown> = { ...row };
+  for (const field of SESSION_FIELDS) delete userRecord[field];
+  const user = userRecord as unknown as UserRow;
   // 节流更新 last_seen_at
   if (Date.now() - Date.parse(session.last_seen_at) > 60_000) {
     execute("UPDATE sessions SET last_seen_at = ? WHERE id = ?", nowIso(), session.id);

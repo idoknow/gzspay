@@ -49,9 +49,30 @@ const SYSTEM_KEYS = {
 
 const DEFAULT_SITE_NAME = "gzspay 桂中校园支付";
 
+/**
+ * app_config 的读取非常频繁：systemGate 每个 /api 请求都要判断系统是否初始化、
+ * 校园墙是否配置。原来每个请求都会扫一遍 app_config 表，这里加一层短 TTL 缓存，
+ * 配置写入时主动失效，写入后立即生效。
+ */
+const STORED_CONFIG_TTL_MS = 2000;
+let storedCache: { at: number; map: Map<string, string> } | null = null;
+let readyCache: { at: number; value: boolean } | null = null;
+
+/** 配置变更后调用，让下一次读取重新查库 */
+export function invalidateRuntimeConfigCache(): void {
+  storedCache = null;
+  readyCache = null;
+}
+
 function storedMap(): Map<string, string> {
+  const now = Date.now();
+  if (storedCache && now - storedCache.at < STORED_CONFIG_TTL_MS) {
+    return storedCache.map;
+  }
   const rows = queryAll<KeyValue>("SELECT key, value FROM app_config");
-  return new Map(rows.map((row) => [row.key, row.value]));
+  const map = new Map(rows.map((row) => [row.key, row.value]));
+  storedCache = { at: now, map };
+  return map;
 }
 
 function toIntOr(value: string | undefined, fallback: number): number {
@@ -326,11 +347,14 @@ export interface SaveConfigInput {
 
 /** 写回 app_config（mail / campux / system / security 均可选），并立即生效 */
 export function writeRuntimeConfig(input: SaveConfigInput): void {
+  // 先失效缓存，保证接下来的 applyRuntimeConfig 读到刚写入的值
+  invalidateRuntimeConfigCache();
   if (input.campux) writeCampux(input.campux);
   if (input.mail) writeMail(input.mail);
   if (input.system) writeSystem(input.system);
   if (input.security) writeSecurity(input.security);
   applyRuntimeConfig();
+  invalidateRuntimeConfigCache();
 }
 
 /** 后台「系统配置」保存入口（保留旧签名，供管理后台使用） */
@@ -350,6 +374,7 @@ export function saveAdminConfig(actorId: string, input: SaveConfigInput, ip: str
 /** 标记系统已完成初始化 */
 export function markInitialized(): void {
   setConfigValue(SYSTEM_KEYS.initialized, "1");
+  invalidateRuntimeConfigCache();
 }
 
 export function countAdmins(): number {
@@ -358,7 +383,11 @@ export function countAdmins(): number {
 }
 
 export function isSystemReady(): boolean {
-  return readInitializedFlag() || countAdmins() > 0;
+  const now = Date.now();
+  if (readyCache && now - readyCache.at < STORED_CONFIG_TTL_MS) return readyCache.value;
+  const value = readInitializedFlag() || countAdmins() > 0;
+  readyCache = { at: now, value };
+  return value;
 }
 
 /** 校园墙登录是否可用（运行期配置优先，环境变量兜底） */

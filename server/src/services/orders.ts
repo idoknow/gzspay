@@ -169,11 +169,48 @@ export function toOrderDto(order: OrderRow, viewerId: string): OrderDto {
   };
 }
 
-export function toOrderSummary(order: OrderRow, viewerId: string): OrderSummaryDto {
+/** 批量查用户，避免列表接口里 N+1 查询 */
+function findUsersByIds(ids: string[]): Map<string, UserRow> {
+  const unique = Array.from(new Set(ids.filter((id) => typeof id === "string" && id.length > 0)));
+  const users = new Map<string, UserRow>();
+  const chunkSize = 200;
+  for (let start = 0; start < unique.length; start += chunkSize) {
+    const chunk = unique.slice(start, start + chunkSize);
+    const placeholders = chunk.map(() => "?").join(",");
+    const rows = queryAll<UserRow>(
+      `SELECT * FROM users WHERE id IN (${placeholders})`,
+      ...(chunk as never[]),
+    );
+    for (const row of rows) users.set(row.id, row);
+  }
+  return users;
+}
+
+/** 批量查「有未处理申诉」的订单，避免列表接口里逐条查询 */
+function openAppealOrderIds(orderIds: string[]): Set<string> {
+  const unique = Array.from(new Set(orderIds));
+  const result = new Set<string>();
+  const chunkSize = 200;
+  for (let start = 0; start < unique.length; start += chunkSize) {
+    const chunk = unique.slice(start, start + chunkSize);
+    const placeholders = chunk.map(() => "?").join(",");
+    const rows = queryAll<{ order_id: string }>(
+      `SELECT order_id FROM appeals WHERE status = 'open' AND order_id IN (${placeholders})`,
+      ...(chunk as never[]),
+    );
+    for (const row of rows) result.add(row.order_id);
+  }
+  return result;
+}
+
+function summaryOf(
+  order: OrderRow,
+  viewerId: string,
+  usersById: Map<string, UserRow>,
+  openAppeals: Set<string>,
+): OrderSummaryDto {
   const role = roleOf(order, viewerId);
-  const counterpartyUser = role === "payer"
-    ? findUserById(order.merchant_id)
-    : findUserById(order.payer_id);
+  const counterpartyUser = usersById.get(role === "payer" ? order.merchant_id : order.payer_id);
   const counterparty: PublicUser = counterpartyUser
     ? {
         ...publicUserOf(counterpartyUser),
@@ -200,8 +237,17 @@ export function toOrderSummary(order: OrderRow, viewerId: string): OrderSummaryD
     role,
     counterparty,
     noteRequirement: order.note_requirement_snapshot ?? "",
-    hasAppeal: hasOpenAppeal(order.id),
+    hasAppeal: openAppeals.has(order.id),
   };
+}
+
+export function toOrderSummary(order: OrderRow, viewerId: string): OrderSummaryDto {
+  return summaryOf(
+    order,
+    viewerId,
+    findUsersByIds([order.payer_id, order.merchant_id]),
+    openAppealOrderIds([order.id]),
+  );
 }
 
 export function findOrderById(orderId: string): OrderRow | undefined {
@@ -661,8 +707,14 @@ export function listOrders(
     query.pageSize,
     (query.page - 1) * query.pageSize,
   );
+  // 批量取对端用户与申诉状态，整页只查两次，避免逐条订单的 N+1 查询
+  const counterpartyIds = rows.map((row) =>
+    row.payer_id === user.id ? row.merchant_id : row.payer_id,
+  );
+  const usersById = findUsersByIds(counterpartyIds);
+  const openAppeals = openAppealOrderIds(rows.map((row) => row.id));
   return {
-    items: rows.map((row) => toOrderSummary(row, user.id)),
+    items: rows.map((row) => summaryOf(row, user.id, usersById, openAppeals)),
     total,
     page: query.page,
     pageSize: query.pageSize,

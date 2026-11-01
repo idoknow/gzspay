@@ -347,7 +347,17 @@ gzspay/
 - 页面固定展示“请核对收款方信息”“资金通过第三方收款码流转”提示。
 - 全站 HTTPS、脱敏展示（学号/邮箱/卡号）、管理员查看敏感信息写日志。
 
-### 10.8 部署
+### 10.8 性能与并发
+
+- 单进程 + SQLite（WAL）就能支撑校园规模：只读接口在 64 并发下可达数千 req/s（`scripts/bench.mjs` 可复测）。
+- SQLite：`journal_mode=WAL`、`busy_timeout=5000`、`synchronous=NORMAL`，并开启 `mmap_size` / `cache_size` / `temp_store=MEMORY`；查询语句走最多 300 条的预编译缓存；批量写用单事务（`runBatch`），`transaction()` 支持嵌套保存点。
+- 减少每请求固定开销：请求指标先进内存缓冲、每秒批量入库；会话解析一条 JOIN 查完；运行时配置、更新日志内容按短 TTL 缓存，配置写入后立即失效。
+- 响应压缩：较大的 JSON（1KB–512KB）在服务端 gzip，≤4KB 同步压、更大的交异步 zlib，避免阻塞事件循环；带 `If-None-Match` 的请求交给 Express 的 304 逻辑。
+- 列表接口避免 N+1：订单列表整页批量取对端用户与未处理申诉，固定 2 次查询。
+- 实时推送：SSE 单用户最多 5 条、全站最多 2000 条连接，超限返回 `429`；写入时检查背压，慢连接直接跳过该事件。
+- 进程与连接：`keepAliveTimeout = 65s`、`headersTimeout = 66s`、`requestTimeout = 60s`，与 Nginx 默认 keep-alive 对齐；退出时先 flush 指标缓冲再关库。
+
+### 10.9 部署
 
 - 单进程 Node 服务 + SQLite 文件 + Nginx 反代（HTTPS 终结）。
 - 前端由 Vite 构建为静态资源，由服务端静态托管（`web/dist`），同源避免跨域与 Cookie 问题。

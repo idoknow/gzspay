@@ -2,8 +2,8 @@ import cookieParser from "cookie-parser";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { gzip, gzipSync } from "node:zlib";
 import { config } from "./config.js";
-import { execute } from "./db/index.js";
 import {
   attachUser,
   csrfGuard,
@@ -12,6 +12,7 @@ import {
   securityHeaders,
   systemGate,
 } from "./lib/http.js";
+import { recordRequestMetric } from "./lib/metrics.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { dynamicRouter } from "./routes/dynamic.js";
@@ -30,7 +31,7 @@ function shouldSkipMetrics(pathname: string): boolean {
   return METRIC_SKIP_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
-/** 记录接口耗时与状态，用于管理后台的系统状态页。 */
+/** 记录接口耗时与状态，用于管理后台的系统状态页（内存缓冲后批量入库） */
 function metricsMiddleware(req: Request, res: Response, next: NextFunction): void {
   if (shouldSkipMetrics(req.path)) {
     next();
@@ -38,20 +39,65 @@ function metricsMiddleware(req: Request, res: Response, next: NextFunction): voi
   }
   const startedAt = process.hrtime.bigint();
   res.on("finish", () => {
-    try {
-      const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-      execute(
-        "INSERT INTO request_metrics (method, path, status, duration_ms, created_at) VALUES (?, ?, ?, ?, ?)",
-        req.method,
-        req.path,
-        res.statusCode,
-        Math.round(durationMs),
-        new Date().toISOString(),
-      );
-    } catch {
-      // 指标写入失败不影响业务请求
-    }
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+    recordRequestMetric(req.method, req.path, res.statusCode, Math.round(durationMs));
   });
+  next();
+}
+
+/** gzip 压缩阈值：小于 1KB 不值得压缩，大于 512KB 不压（避免大包占用压缩线程池） */
+const COMPRESS_MIN_BYTES = 1024;
+const COMPRESS_MAX_BYTES = 512 * 1024;
+/** 小响应同步压省一次线程池调度，大响应交给异步 zlib，避免阻塞事件循环 */
+const COMPRESS_SYNC_LIMIT = 4096;
+
+function acceptsGzip(header: string | undefined): boolean {
+  return typeof header === "string" && /(^|,)\s*(gzip|\*)\s*(;|,|$)/i.test(header);
+}
+
+/**
+ * 对较大的 JSON 响应做 gzip。
+ * 只处理 GET（不压缩写请求的响应），带 If-None-Match 时交给 Express 自己的 304 逻辑，
+ * 压缩失败则退回原 res.json。
+ */
+function jsonCompression(req: Request, res: Response, next: NextFunction): void {
+  if (req.method !== "GET" || req.headers["if-none-match"]) {
+    next();
+    return;
+  }
+  if (!acceptsGzip(req.headers["accept-encoding"])) {
+    next();
+    return;
+  }
+  const originalJson = res.json.bind(res);
+  res.json = ((body: unknown): Response => {
+    try {
+      const text = JSON.stringify(body);
+      if (text.length < COMPRESS_MIN_BYTES || text.length > COMPRESS_MAX_BYTES) {
+        return originalJson(body);
+      }
+      const send = (compressed: Buffer): Response => {
+        res.setHeader("Vary", "Accept-Encoding");
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.setHeader("Content-Encoding", "gzip");
+        res.setHeader("Content-Length", String(compressed.length));
+        return res.end(compressed) as Response;
+      };
+      if (text.length <= COMPRESS_SYNC_LIMIT) {
+        return send(gzipSync(text));
+      }
+      gzip(Buffer.from(text), (error, compressed) => {
+        if (error || res.writableEnded) {
+          if (!res.headersSent) originalJson(body);
+          return;
+        }
+        send(compressed);
+      });
+      return res;
+    } catch {
+      return originalJson(body);
+    }
+  }) as Response["json"];
   next();
 }
 
@@ -61,6 +107,7 @@ export function createApp(): Express {
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
   app.use(securityHeaders);
+  app.use(jsonCompression);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
   app.use(cookieParser());

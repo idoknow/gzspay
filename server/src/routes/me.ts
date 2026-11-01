@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { Router } from "express";
 import { z } from "zod";
@@ -330,10 +330,41 @@ export interface ChangelogEntry {
   groups: ChangelogGroup[];
 }
 
-/** 从仓库根目录 CHANGELOG.md 解析版本历史（按版本倒序） */
+interface ChangelogCache {
+  entries: ChangelogEntry[];
+  mtimeMs: number;
+  checkedAt: number;
+}
+
+let changelogCache: ChangelogCache | null = null;
+const CHANGELOG_CACHE_TTL_MS = 60_000;
+
+/**
+ * 从仓库根目录 CHANGELOG.md 解析版本历史（按版本倒序）。
+ * 关于页会被反复打开，这里按文件 mtime + 60 秒 TTL 缓存，避免每次请求都读盘解析。
+ */
 export function readChangelog(): ChangelogEntry[] {
+  const file = path.join(REPO_ROOT, "CHANGELOG.md");
   try {
-    const text = readFileSync(path.join(REPO_ROOT, "CHANGELOG.md"), "utf-8");
+    const now = Date.now();
+    if (changelogCache && now - changelogCache.checkedAt < CHANGELOG_CACHE_TTL_MS) {
+      return changelogCache.entries;
+    }
+    const stat = statSync(file);
+    if (changelogCache && stat.mtimeMs === changelogCache.mtimeMs) {
+      changelogCache.checkedAt = now;
+      return changelogCache.entries;
+    }
+    const entries = parseChangelog(readFileSync(file, "utf-8"));
+    changelogCache = { entries, mtimeMs: stat.mtimeMs, checkedAt: now };
+    return entries;
+  } catch {
+    return changelogCache?.entries ?? [];
+  }
+}
+
+function parseChangelog(text: string): ChangelogEntry[] {
+  {
     const entries: ChangelogEntry[] = [];
     let current: ChangelogEntry | null = null;
     let group: ChangelogGroup | null = null;
@@ -371,9 +402,6 @@ export function readChangelog(): ChangelogEntry[] {
     if (current) entries.push(current);
     // 去掉没有条目的分组，避免「### 修复」下暂时还没写内容时出现空块
     for (const entry of entries) entry.groups = entry.groups.filter((item) => item.items.length > 0);
-    // 刚发布版本后「未发布」可能只剩说明文字，没有条目时直接隐藏，不让关于页出现空版本块
     return entries.filter((entry) => entry.groups.length > 0);
-  } catch {
-    return [];
   }
 }

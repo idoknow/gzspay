@@ -53,6 +53,8 @@ npm test                # 后端单测 + 集成测试
 npm run check:changelog # 校验 CHANGELOG.md「未发布」小节
 npm run build           # 生产构建
 node scripts/smoke.mjs  # 冒烟：启动服务并跑关键接口
+node scripts/bench-seed.mjs   # 可选：复制一份库并为测试账号写入会话（输出 cookie）
+node scripts/bench.mjs        # 可选：并发压测关键只读接口，输出 req/s 与 p95
 ```
 
 ## 安全边界

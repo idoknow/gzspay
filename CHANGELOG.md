@@ -24,9 +24,11 @@
 - 管理后台顶栏新增侧边栏收缩按钮：桌面端可把侧边栏收成 76px 图标栏（悬停显示名称），再点展开，选择记在本机刷新后保持；窄屏下仍走抽屉导航。
 - 「我的收付款码」页下方的「扫一扫」改为页面内摄像头取景（中间取景框、识别后自动继续），不再弹全屏遮罩，也不提供手动输入与相册识别。
 - 「我的收付款码」明确支持收款与付款两种用法：他人扫此码可向你付款，商家扫此码也可向你发起收款；页面说明与提示同步更新。
+- 新增压测脚本：`node scripts/bench-seed.mjs` 复制一份数据库并为指定学号写入测试会话，`node scripts/bench.mjs` 对 `/api/health`、`/api/about`、`/api/me`、订单列表与统计接口做并发压测，输出 req/s、p50/p95 与平均响应体大小，便于改动前后对比性能。
 
 ### 变更
 
+- 高并发优化：SQLite 增加 300 条查询语句缓存并调优 `mmap_size` / `cache_size` / `temp_store`，批量写入走单事务（`runBatch`），`transaction()` 支持嵌套保存点；请求指标改为内存缓冲后每秒批量入库（原来每个请求一次写事务）；`/api/about` 等较大的 JSON 响应启用 gzip（≤4KB 同步压缩、更大的走异步 zlib），响应体从 52.4KB 降到 13.4KB；SSE 增加单用户 5 条、全站 2000 条连接上限与背压保护；会话解析由两条 SQL 合并为一条 JOIN；运行时配置与更新日志增加短 TTL 缓存；订单列表消除每行两次的 N+1 查询；HTTP keep-alive / headers / request 超时对齐常见代理设置。64 并发下只读接口吞吐中位数提升约 7%–31%。
 - 管理后台完全复用主站登录会话：删除独立的管理端 OAuth 回调、邮箱验证码二次验证、`gzs_admin` Cookie 与 `admin_pending` 会话；`/api/admin/auth/login` 改为跳转 `/api/auth/login?redirect=%2Fadmin`，`/api/admin/auth/session` 只返回 `UNAUTHENTICATED` / `NOT_ADMIN` / `SYSTEM_NOT_INITIALIZED` 三种失败。
 - 移除开发登录接口 `POST /api/auth/dev-login` 与相关配置；测试与端到端冒烟改为直连数据库写入用户与会话（`sha256(token.secret)`）再发请求，冒烟覆盖初始化向导 → 首个超管 → 主链路全流程（40 项断言）。
 - 后台系统配置扩展为「校园墙 / 发件 / 安全 / 站点信息」四块，校园墙凭据与站点地址可在后台修改并立即生效；`.env` 中对应值作为未配置时的兜底。

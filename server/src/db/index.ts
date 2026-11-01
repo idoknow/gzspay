@@ -29,11 +29,17 @@ function openDatabase(): DatabaseSync {
   }
   const database = new DatabaseSync(dbPath);
   database.exec("PRAGMA foreign_keys = ON;");
+  // 高并发读写的几个关键 pragma：WAL 让读不阻塞写，NORMAL 省掉每次 fsync，
+  // busy_timeout 避免瞬时写冲突直接报 SQLITE_BUSY。
   if (dbPath !== ":memory:") {
     database.exec("PRAGMA journal_mode = WAL;");
     database.exec("PRAGMA busy_timeout = 5000;");
+    database.exec("PRAGMA wal_autocheckpoint = 1000;");
+    database.exec("PRAGMA mmap_size = 268435456;");
   }
   database.exec("PRAGMA synchronous = NORMAL;");
+  database.exec("PRAGMA temp_store = MEMORY;");
+  database.exec("PRAGMA cache_size = -16000;");
   return database;
 }
 
@@ -97,14 +103,31 @@ function normalizeParams(params: unknown[]): SQLInputValue[] {
   });
 }
 
+/**
+ * 预编译语句缓存：SQLite 每次 prepare 都要解析 SQL 并生成执行计划，
+ * 高并发下这是很可观的开销。这里按 SQL 文本缓存 StatementSync，
+ * 缓存上限内不会无限增长（超出时整体清空，简单且不会泄漏）。
+ */
+const STATEMENT_CACHE_LIMIT = 300;
+const statementCache = new Map<string, ReturnType<DatabaseSync["prepare"]>>();
+
+function cachedStatement(sql: string): ReturnType<DatabaseSync["prepare"]> {
+  const hit = statementCache.get(sql);
+  if (hit) return hit;
+  const statement = db.prepare(sql);
+  if (statementCache.size >= STATEMENT_CACHE_LIMIT) statementCache.clear();
+  statementCache.set(sql, statement);
+  return statement;
+}
+
 export function queryOne<T = DbRow>(sql: string, ...params: unknown[]): T | undefined {
-  const stmt = db.prepare(sql);
+  const stmt = cachedStatement(sql);
   const row = stmt.get(...normalizeParams(params));
   return row as T | undefined;
 }
 
 export function queryAll<T = DbRow>(sql: string, ...params: unknown[]): T[] {
-  const stmt = db.prepare(sql);
+  const stmt = cachedStatement(sql);
   return stmt.all(...normalizeParams(params)) as T[];
 }
 
@@ -112,14 +135,50 @@ export function execute(
   sql: string,
   ...params: unknown[]
 ): { changes: number; lastInsertRowid: number | bigint } {
-  const stmt = db.prepare(sql);
+  const stmt = cachedStatement(sql);
   const result = stmt.run(...normalizeParams(params));
   return { changes: Number(result.changes), lastInsertRowid: result.lastInsertRowid };
 }
 
-/** 在一个事务中执行；异常自动回滚 */
+/** 批量写入：一个事务里跑多条语句，比逐条提交快一个数量级 */
+export function runBatch(statements: { sql: string; params: unknown[] }[]): void {
+  if (statements.length === 0) return;
+  transaction(() => {
+    for (const item of statements) {
+      cachedStatement(item.sql).run(...normalizeParams(item.params));
+    }
+  });
+}
+
+let transactionDepth = 0;
+
+/**
+ * 在一个事务中执行；异常自动回滚。
+ * 嵌套调用用 SAVEPOINT 实现（外层已经 BEGIN 时不会重复 BEGIN）。
+ */
 export function transaction<T>(fn: () => T): T {
+  if (transactionDepth > 0) {
+    const name = `sp_${transactionDepth}`;
+    transactionDepth += 1;
+    db.exec(`SAVEPOINT ${name};`);
+    try {
+      const result = fn();
+      db.exec(`RELEASE ${name};`);
+      return result;
+    } catch (error) {
+      try {
+        db.exec(`ROLLBACK TO ${name};`);
+        db.exec(`RELEASE ${name};`);
+      } catch {
+        // 忽略回滚失败
+      }
+      throw error;
+    } finally {
+      transactionDepth -= 1;
+    }
+  }
   db.exec("BEGIN IMMEDIATE;");
+  transactionDepth = 1;
   try {
     const result = fn();
     db.exec("COMMIT;");
@@ -131,6 +190,17 @@ export function transaction<T>(fn: () => T): T {
       // 忽略回滚失败
     }
     throw error;
+  } finally {
+    transactionDepth = 0;
+  }
+}
+
+/** 让 SQLite 重新统计索引使用情况并优化查询计划，适合在清理任务后偶尔调用 */
+export function optimizeDatabase(): void {
+  try {
+    db.exec("PRAGMA optimize;");
+  } catch {
+    // 优化失败不影响业务
   }
 }
 

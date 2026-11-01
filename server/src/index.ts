@@ -1,7 +1,8 @@
 import { type Server } from "node:http";
 import { app } from "./app.js";
 import { config } from "./config.js";
-import { cleanupExpired, closeDatabase, execute, migrate } from "./db/index.js";
+import { cleanupExpired, closeDatabase, execute, migrate, optimizeDatabase } from "./db/index.js";
+import { flushRequestMetrics } from "./lib/metrics.js";
 import { applyRuntimeConfig, isSystemReady, readAdminConfig } from "./lib/runtime-config.js";
 import { writeSystemError } from "./lib/audit.js";
 
@@ -16,6 +17,7 @@ function startCleanupTimer(): NodeJS.Timeout {
         Date.now() - METRICS_RETENTION_DAYS * 24 * 60 * 60 * 1000,
       ).toISOString();
       execute("DELETE FROM request_metrics WHERE created_at < ?", cutoff);
+      optimizeDatabase();
     } catch (error) {
       writeSystemError({
         scope: "cleanup",
@@ -33,10 +35,15 @@ function shutdown(server: Server, timer: NodeJS.Timeout, signal: string): void {
   console.log(`[gzspay] 收到 ${signal}，正在关闭服务…`);
   clearInterval(timer);
   server.close(() => {
+    flushRequestMetrics();
     closeDatabase();
     process.exit(0);
   });
-  setTimeout(() => process.exit(0), 5000).unref();
+  setTimeout(() => {
+    flushRequestMetrics();
+    closeDatabase();
+    process.exit(0);
+  }, 5000).unref();
 }
 
 function main(): void {
@@ -60,6 +67,11 @@ function main(): void {
     // eslint-disable-next-line no-console
     console.log(`[gzspay] 服务已启动: http://localhost:${config.port} (${config.nodeEnv})`);
   });
+  // keep-alive 比反向代理的空闲超时略长，避免代理复用连接时拿到已关闭的 socket；
+  // headersTimeout 必须大于 keepAliveTimeout，否则 Node 会先掐掉请求头。
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000;
+  server.requestTimeout = 60_000;
   const timer = startCleanupTimer();
 
   process.on("SIGINT", () => shutdown(server, timer, "SIGINT"));

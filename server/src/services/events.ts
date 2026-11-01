@@ -11,11 +11,25 @@ interface SseClient {
 const clients = new Set<SseClient>();
 let nextClientId = 1;
 const HEARTBEAT_MS = 25_000;
+/** 单用户最多保留 5 条连接（多标签页/多设备够用，避免客户端异常重连把内存占满） */
+const MAX_CLIENTS_PER_USER = 5;
+/** 单进程 SSE 连接总数上限，超过后拒绝新连接，保护内存与 fd */
+const MAX_CLIENTS_TOTAL = 2000;
 
 export type SseEventName = "payment_request" | "order_update" | "ready" | "ping";
 
+function countUserClients(userId: string): number {
+  let count = 0;
+  for (const client of clients) {
+    if (client.userId === userId) count += 1;
+  }
+  return count;
+}
+
 function writeEvent(client: SseClient, event: SseEventName, data: unknown): void {
   try {
+    // 客户端读得慢时先跳过这一条，避免堆积把内存顶爆（心跳会顺带清理状态）
+    if (client.res.writableEnded || client.res.writableNeedDrain) return;
     client.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   } catch {
     clients.delete(client);
@@ -29,6 +43,12 @@ export function eventStreamHandler(req: Request, res: Response): void {
     res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "请先登录" } });
     return;
   }
+  if (clients.size >= MAX_CLIENTS_TOTAL || countUserClients(auth.user.id) >= MAX_CLIENTS_PER_USER) {
+    res.status(429).json({
+      error: { code: "TOO_MANY_STREAMS", message: "实时连接过多，请关闭其他页面后再试" },
+    });
+    return;
+  }
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -38,6 +58,8 @@ export function eventStreamHandler(req: Request, res: Response): void {
 
   const client: SseClient = { id: nextClientId++, userId: auth.user.id, res };
   clients.add(client);
+  // 断线后客户端按 retry 自动重连
+  res.write(`retry: ${Math.max(1000, config.security.dynamicCodeRefreshSeconds * 1000)}\n\n`);
   writeEvent(client, "ready", { connectedAt: new Date().toISOString() });
 
   const heartbeat = setInterval(() => {
@@ -66,8 +88,10 @@ export function pushToUsers(
   event: SseEventName,
   payloadFor: (userId: string) => unknown,
 ): void {
+  if (userIds.length === 0) return;
+  const targets = new Set(userIds);
   for (const client of clients) {
-    if (userIds.includes(client.userId)) {
+    if (targets.has(client.userId)) {
       writeEvent(client, event, payloadFor(client.userId));
     }
   }
