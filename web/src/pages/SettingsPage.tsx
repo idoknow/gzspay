@@ -1,6 +1,7 @@
 /** 设置：外观（浅色/深色/自动，即时生效）与邮件通知开关。 */
 
 import { useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { Toggle } from "../components/Toggle";
 import { useToast } from "../components/Toast";
@@ -57,6 +58,40 @@ function CheckIcon(): ReactNode {
 }
 
 /** 外观选项的缩略预览：浅色 / 深色 / 自动（左浅右深对半）。 */
+function ShieldIcon(): ReactNode {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 2.8 4.8 5.6v5.7c0 4.4 3 8.4 7.2 9.9 4.2-1.5 7.2-5.5 7.2-9.9V5.6L12 2.8Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m9 12 2.2 2.2L15.4 10"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChevronRightIcon(): ReactNode {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path
+        d="m7.5 5 5 5-5 5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function ThemePreview({ mode }: { mode: ThemeMode }): ReactNode {
   const light = { bg: "#f5f5f2", surface: "#ffffff", line: "#e2e2da", dot: "#171a20" };
   const darkTone = { bg: "#101114", surface: "#23262d", line: "#3a3e47", dot: "#f2f3f5" };
@@ -97,6 +132,7 @@ const NOTIFY_ROWS: { key: keyof NotificationSettings; title: string; description
 
 export function SettingsPage(): ReactNode {
   const toast = useToast();
+  const navigate = useNavigate();
   const { me, patchMe } = useAuth();
   const themeMode = useThemeMode();
   const [saving, setSaving] = useState<keyof NotificationSettings | null>(null);
@@ -177,6 +213,28 @@ export function SettingsPage(): ReactNode {
               );
             })}
           </div>
+        </section>
+
+        <section className="card p-0">
+          <h2 className="px-4 pt-4 text-sm font-semibold text-text">账号安全</h2>
+          <button
+            type="button"
+            className="mt-2 flex w-full items-center gap-3 px-4 py-3.5 text-left transition active:bg-surface-2"
+            onClick={() => navigate("/me/devices")}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-text ring-1 ring-line/70 watch:h-8 watch:w-8">
+              <ShieldIcon />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-text">登录设备管理</span>
+              <span className="mt-0.5 block text-[11px] text-muted">
+                查看登录过的设备与 IP，可强制退出其它设备
+              </span>
+            </span>
+            <span className="shrink-0 text-muted" aria-hidden="true">
+              <ChevronRightIcon />
+            </span>
+          </button>
         </section>
 
         <section className="card p-4">

@@ -10,8 +10,15 @@ import { issueEmailCode, consumeEmailCode, latestCodeEmail } from "../lib/email.
 import { errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
 import { sendMailInBackground, templates } from "../lib/mail.js";
+import { clearSessionCookie } from "../lib/session.js";
 import { requestIp } from "../lib/types.js";
 import { parse } from "../lib/validate.js";
+import {
+  ONLINE_WINDOW_MINUTES,
+  listUserDevices,
+  revokeOtherUserDevices,
+  revokeUserDevice,
+} from "../services/devices.js";
 import {
   bindCampusCard,
   findUserByEmail,
@@ -155,6 +162,57 @@ meRouter.patch(
       user.id,
     );
     res.json(toMe(req.auth!.user));
+  }),
+);
+
+// ---------------- 登录设备 ----------------
+
+meRouter.get("/devices", (req, res) => {
+  const auth = req.auth!;
+  res.json({
+    items: listUserDevices(auth.user.id, auth.session.id),
+    onlineWindowMinutes: ONLINE_WINDOW_MINUTES,
+  });
+});
+
+meRouter.post(
+  "/devices/logout-others",
+  asyncHandler((req, res) => {
+    const auth = req.auth!;
+    const revoked = revokeOtherUserDevices(auth.user.id, auth.session.id);
+    writeAudit({
+      actorId: auth.user.id,
+      actorRole: "user",
+      action: "user.devices.logout_others",
+      targetType: "user",
+      targetId: auth.user.id,
+      detail: `退出其它登录设备 ${revoked} 台`,
+      ip: requestIp(req),
+    });
+    res.json({ ok: true, revoked });
+  }),
+);
+
+meRouter.post(
+  "/devices/:id/logout",
+  asyncHandler((req, res) => {
+    const auth = req.auth!;
+    const sessionId = String(req.params.id);
+    if (!revokeUserDevice(auth.user.id, sessionId)) {
+      throw errors.notFound("设备不存在或已退出登录");
+    }
+    const current = sessionId === auth.session.id;
+    if (current) clearSessionCookie(res);
+    writeAudit({
+      actorId: auth.user.id,
+      actorRole: "user",
+      action: "user.devices.logout",
+      targetType: "user",
+      targetId: auth.user.id,
+      detail: current ? "退出当前设备" : "强制退出其它登录设备",
+      ip: requestIp(req),
+    });
+    res.json({ ok: true, current });
   }),
 );
 

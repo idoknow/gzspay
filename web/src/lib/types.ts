@@ -28,6 +28,31 @@ export interface NotificationSettings {
   settled: boolean;
 }
 
+/** 登录设备类型 */
+export type LoginDeviceType = "mobile" | "tablet" | "desktop" | "other";
+
+/** 一次登录会话对应的设备（「我的 → 设置 → 登录设备管理」） */
+export interface LoginDevice {
+  id: string;
+  /** 是否是当前正在使用的设备 */
+  current: boolean;
+  deviceName: string;
+  deviceType: LoginDeviceType;
+  os: string;
+  browser: string;
+  ip: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  /** 会话未过期且最近有请求 */
+  online: boolean;
+}
+
+export interface LoginDevicesResponse {
+  items: LoginDevice[];
+  onlineWindowMinutes: number;
+}
+
 /** 当前登录用户 */
 export interface Me {
   id: string;

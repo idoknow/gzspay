@@ -136,6 +136,9 @@ interface Me {
 | `POST` | `/api/me/card` | `{ cardContent, paymentPassword }` 换绑校园卡（新卡未被占用，旧卡解绑） |
 | `PATCH` | `/api/me/settings` | `{ newOrder?, paid?, settled? }` 邮件开关 |
 | `GET` | `/api/me/card-qr` | `{ content, cardNoMasked }` 我的校园卡二维码内容 |
+| `GET` | `/api/me/devices` | `{ items: LoginDevice[], onlineWindowMinutes }` 登录设备列表；`LoginDevice = { id, current, deviceName, deviceType: "mobile"\|"tablet"\|"desktop"\|"other", os, browser, ip, createdAt, lastSeenAt, expiresAt, online }`，`current` 为当前请求所属会话，`online` 指会话未过期且最近 `onlineWindowMinutes`（5）分钟内有请求 |
+| `POST` | `/api/me/devices/:id/logout` | 退出指定设备，`{ ok: true, current }`；退出的是当前设备时会同时清掉会话 Cookie |
+| `POST` | `/api/me/devices/logout-others` | 退出除当前设备外的所有设备，`{ ok: true, revoked }` |
 | `GET` | `/api/about` | `{ version, changelog: [{version, date, items[], groups: [{title, items[]}]}], privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文，日期为 YYYY-MM-DD） |
 
 ## 5. 商家

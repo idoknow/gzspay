@@ -15,6 +15,7 @@ import { AnnouncementDetailPage } from "./pages/AnnouncementDetailPage";
 import { AnnouncementsPage } from "./pages/AnnouncementsPage";
 import { BootPage } from "./pages/BootPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
+import { DevicesPage } from "./pages/DevicesPage";
 import { DynamicCodePage } from "./pages/DynamicCodePage";
 import { LoginPage } from "./pages/LoginPage";
 import { MePage } from "./pages/MePage";
@@ -135,6 +136,7 @@ const router = createBrowserRouter([
       { path: "/me/profile", element: <ProfilePage /> },
       { path: "/me/password", element: <ChangePasswordPage /> },
       { path: "/me/settings", element: <SettingsPage /> },
+      { path: "/me/devices", element: <DevicesPage /> },
       { path: "/me/about", element: <AboutPage /> },
       { path: "/merchant", element: <MerchantPage /> },
       { path: "/merchant/register", element: <MerchantRegisterPage /> },

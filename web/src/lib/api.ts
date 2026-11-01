@@ -12,6 +12,7 @@ import type {
   DynamicCodeResolveResponse,
   DynamicCodeResponse,
   EmailStartResponse,
+  LoginDevicesResponse,
   MerchantChannel,
   MerchantCreateOrderPayload,
   MerchantInfo,
@@ -224,6 +225,21 @@ export function bindCard(payload: { cardContent: string; paymentPassword: string
 
 export function updateNotificationSettings(settings: Partial<NotificationSettings>): Promise<Me> {
   return api.patch<Me>("/me/settings", settings);
+}
+
+export function getLoginDevices(): Promise<LoginDevicesResponse> {
+  return api.get<LoginDevicesResponse>("/me/devices");
+}
+
+export function logoutDevice(id: string): Promise<{ ok: boolean; current: boolean }> {
+  return api.post<{ ok: boolean; current: boolean }>(
+    `/me/devices/${encodeURIComponent(id)}/logout`,
+    {},
+  );
+}
+
+export function logoutOtherDevices(): Promise<{ ok: boolean; revoked: number }> {
+  return api.post<{ ok: boolean; revoked: number }>("/me/devices/logout-others", {});
 }
 
 export function getCardQr(): Promise<CardQrResponse> {

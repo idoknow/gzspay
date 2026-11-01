@@ -461,6 +461,56 @@ describe("商家与订单", () => {
   });
 });
 
+describe("登录设备", () => {
+  it("登录设备列表返回当前会话且可退出其它与当前设备", async () => {
+    const first = await login("device-list", "设备用户");
+    const second = await login("device-list", "设备用户");
+
+    const list = await agentWith(first.session).get("/api/me/devices").expect(200);
+    expect(typeof list.body.onlineWindowMinutes).toBe("number");
+    const items = list.body.items as Array<{
+      id: string;
+      current: boolean;
+      online: boolean;
+      deviceName: string;
+      deviceType: string;
+      os: string;
+      browser: string;
+      ip: string | null;
+      createdAt: string;
+      lastSeenAt: string;
+    }>;
+    expect(items.length).toBeGreaterThanOrEqual(2);
+    const currentItems = items.filter((item) => item.current);
+    expect(currentItems).toHaveLength(1);
+    const current = currentItems[0]!;
+    expect(current.ip).toBe("127.0.0.1");
+    expect(current.online).toBe(true);
+    expect(["mobile", "tablet", "desktop", "other"]).toContain(current.deviceType);
+    expect(typeof current.deviceName).toBe("string");
+    expect(typeof current.os).toBe("string");
+    expect(typeof current.browser).toBe("string");
+    expect(typeof current.lastSeenAt).toBe("string");
+
+    // 退出全部其它设备：另一会话失效，当前会话仍可用
+    const others = await agentWith(first.session)
+      .post("/api/me/devices/logout-others")
+      .send({})
+      .expect(200);
+    expect(others.body.revoked).toBeGreaterThanOrEqual(1);
+    await agentWith(second.session).get("/api/me").expect(401);
+    await agentWith(first.session).get("/api/me").expect(200);
+
+    // 退出当前设备：Cookie 被清掉，会话随即失效
+    const self = await agentWith(first.session)
+      .post(`/api/me/devices/${current.id}/logout`)
+      .send({})
+      .expect(200);
+    expect(self.body.current).toBe(true);
+    await agentWith(first.session).get("/api/me").expect(401);
+  });
+});
+
 describe("管理后台", () => {
   let adminCookie: string;
   let adminUserId: string;
