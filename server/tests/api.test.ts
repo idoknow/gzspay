@@ -388,6 +388,15 @@ describe("管理后台", () => {
       expect(typeof item).toBe("string");
       expect(item.trim().length).toBeGreaterThan(0);
     }
+    // 更新日志按「新增 / 变更 / 修复」分组，分组内条目应与展平后的 items 一致
+    expect(Array.isArray(latest.groups)).toBe(true);
+    expect(latest.groups.length).toBeGreaterThan(0);
+    for (const group of latest.groups) {
+      expect(typeof group.title).toBe("string");
+      expect(group.title.length).toBeGreaterThan(0);
+      expect(group.items.length).toBeGreaterThan(0);
+    }
+    expect(latest.groups.flatMap((group) => group.items)).toEqual(latest.items);
   });
 
   it("普通用户访问管理接口被拒绝", async () => {

@@ -257,10 +257,19 @@ meRouter.post(
 
 // ---------------- 关于 ----------------
 
+export interface ChangelogGroup {
+  /** 「新增」「变更」「修复」等小标题；没有小标题的条目归到「其他」。 */
+  title: string;
+  items: string[];
+}
+
 export interface ChangelogEntry {
   version: string;
   date: string;
+  /** 展平后的全部条目，便于只想要纯文本的客户端使用。 */
   items: string[];
+  /** 按「新增 / 变更 / 修复」分组，保留 CHANGELOG.md 的原有结构。 */
+  groups: ChangelogGroup[];
 }
 
 /** 从仓库根目录 CHANGELOG.md 解析版本历史（按版本倒序） */
@@ -269,17 +278,41 @@ export function readChangelog(): ChangelogEntry[] {
     const text = readFileSync(path.join(REPO_ROOT, "CHANGELOG.md"), "utf-8");
     const entries: ChangelogEntry[] = [];
     let current: ChangelogEntry | null = null;
+    let group: ChangelogGroup | null = null;
     for (const line of text.split(/\r?\n/)) {
       const heading = /^##\s+\[?([^\]]+?)\]?(?:\s*-\s*(\d{4}-\d{2}-\d{2}))?\s*$/.exec(line);
       if (heading) {
         if (current) entries.push(current);
-        current = { version: (heading[1] ?? "").trim(), date: heading[2] ?? "", items: [] };
+        current = { version: (heading[1] ?? "").trim(), date: heading[2] ?? "", items: [], groups: [] };
+        group = null;
+        continue;
+      }
+      if (!current) continue;
+      const sub = /^###\s+(.+?)\s*$/.exec(line);
+      if (sub) {
+        group = { title: (sub[1] ?? "").trim(), items: [] };
+        current.groups.push(group);
         continue;
       }
       const item = /^\s*[-*]\s+(.+)$/.exec(line);
-      if (item && current) current.items.push((item[1] ?? "").trim());
+      if (!item) continue;
+      const value = (item[1] ?? "").trim();
+      if (!value) continue;
+      current.items.push(value);
+      if (group) {
+        group.items.push(value);
+      } else {
+        let other = current.groups.find((entry) => entry.title === "其他");
+        if (!other) {
+          other = { title: "其他", items: [] };
+          current.groups.push(other);
+        }
+        other.items.push(value);
+      }
     }
     if (current) entries.push(current);
+    // 去掉没有条目的分组，避免「### 修复」下暂时还没写内容时出现空块
+    for (const entry of entries) entry.groups = entry.groups.filter((item) => item.items.length > 0);
     return entries;
   } catch {
     return [];

@@ -330,10 +330,19 @@ export interface AnnouncementsResponse {
 }
 
 /** 关于页 */
+/** 关于页：更新日志分组（新增 / 变更 / 修复） */
+export interface ChangelogGroup {
+  title: string;
+  items: string[];
+}
+
 export interface ChangelogEntry {
   version: string;
   date: string;
+  /** 展平后的全部条目 */
   items: string[];
+  /** 按「新增 / 变更 / 修复」分组 */
+  groups: ChangelogGroup[];
 }
 
 export interface AboutResponse {
