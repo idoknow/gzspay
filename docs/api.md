@@ -129,7 +129,7 @@ interface Me {
 | --- | --- | --- |
 | `GET` | `/api/merchant` | `{ registered, merchant? }`：含名称、备注要求、三种收款方式状态 |
 | `GET` | `/api/merchant/public/:userId` | 顾客扫码后查看：商家公开信息 + 在售商品 + 备注要求 |
-| `POST` | `/api/merchant/register` | multipart：`name`、`noteRequirement`、`channels`(JSON 数组) + 文件 `qr_alipay`/`qr_wechat`/`qr_qq`；每个文件解码校验渠道 |
+| `POST` | `/api/merchant/register` | multipart：`name`、`channels`(JSON 数组) + 文件 `qr_alipay`/`qr_wechat`/`qr_qq`；每个文件解码校验渠道。`noteRequirement` 仍可选传入以兼容旧客户端，但注册页不填写，注册后用 `PATCH /api/merchant` 设置 |
 | `PATCH` | `/api/merchant` | `{ name?, noteRequirement? }` |
 | `POST` | `/api/merchant/channels/:channel` | multipart 文件 `qr`，重新上传某渠道收款码，需 `paymentPassword` 字段 |
 | `PATCH` | `/api/merchant/channels/:channel` | `{ enabled }` 启用/停用；至少保留一个启用 |

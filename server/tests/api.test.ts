@@ -139,11 +139,18 @@ describe("商家与订单", () => {
     const registered = await agentWith(merchantSession)
       .post("/api/merchant/register")
       .field("name", "桂中便利店")
-      .field("noteRequirement", "请填写姓名和学号后四位")
       .field("channels", JSON.stringify(["alipay"]))
       .attach("qr_alipay", qr, "alipay.png")
       .expect(201);
     expect(registered.body.merchant.name).toBe("桂中便利店");
+    // 备注要求不在注册时填写，注册后再设置
+    expect(registered.body.merchant.noteRequirement).toBe("");
+    const patched = await agentWith(merchantSession)
+      .patch("/api/merchant")
+      .set(CSRF)
+      .send({ noteRequirement: "请填写姓名和学号后四位" })
+      .expect(200);
+    expect(patched.body.merchant.noteRequirement).toBe("请填写姓名和学号后四位");
 
     const payer = await login("payer", "付款同学");
     payerSession = payer.session;
@@ -155,6 +162,28 @@ describe("商家与订单", () => {
     const response = await agentWith(merchantSession).get("/api/merchant").expect(200);
     expect(response.body.registered).toBe(true);
     expect(response.body.merchant.channels[0]).toMatchObject({ channel: "alipay", enabled: true, hasQr: true });
+  });
+
+  it("未注册商家的账号不能发起收款", async () => {
+    const collect = await agentWith(payerSession)
+      .post("/api/orders/merchant-create")
+      .set(CSRF)
+      .send({
+        cardContent: "gzspay:card:CARD-PAYER-0001",
+        amountCents: 100,
+        paymentPassword: "123456",
+        idempotencyKey: "nonmerchant-collect-1",
+      })
+      .expect(403);
+    expect(collect.body.error.code).toBe("FORBIDDEN");
+    expect(collect.body.error.message).toContain("先注册商家");
+
+    const request = await agentWith(payerSession)
+      .post("/api/dynamic-code/request")
+      .set(CSRF)
+      .send({ token: "gzspay:dynamic:not-a-real-token", amountCents: 100 })
+      .expect(409);
+    expect(request.body.error.message).toContain("商家");
   });
 
   it("付款人可以扫码后看到商家主页", async () => {

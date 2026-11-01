@@ -61,6 +61,16 @@ function CardQrIcon({ size = 24 }: { size?: number }): ReactNode {
   );
 }
 
+function ShopIcon({ size = 24 }: { size?: number }): ReactNode {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 9.5V20h16V9.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M3 9.5 5.4 4h13.2L21 9.5a2.4 2.4 0 0 1-4.5 1.2 2.4 2.4 0 0 1-4.5 0 2.4 2.4 0 0 1-4.5 0A2.4 2.4 0 0 1 3 9.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M9.5 20v-5h5v5" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function ChannelBadges({ channels }: { channels: PayChannel[] }): ReactNode {
   if (channels.length === 0) return <span className="text-xs text-muted">暂无收款方式</span>;
   return (
@@ -190,7 +200,8 @@ export function PayPage(): ReactNode {
   /** 扫描客户动态码：解析出客户后进入收款金额填写，下一步发起收款请求。 */
   const loadDynamicCollect = async (token: string): Promise<void> => {
     if (!me?.isMerchant) {
-      toast.error("请先注册商家，才能向他人发起收款");
+      toast.error("收款需要先注册商家，正在为你打开注册页");
+      navigate("/merchant/register");
       return;
     }
     const result = await resolveDynamicCode(token);
@@ -229,6 +240,11 @@ export function PayPage(): ReactNode {
   };
 
   const scanForCollect = async (content: string): Promise<void> => {
+    if (!me?.isMerchant) {
+      toast.error("收款需要先注册商家，正在为你打开注册页");
+      navigate("/merchant/register");
+      return;
+    }
     const result = await scanCard(content);
     if (result.isSelf) {
       toast.error("不能向自己收款");
@@ -509,7 +525,46 @@ export function PayPage(): ReactNode {
     </header>
   );
 
-  const scanPanel = (kind: Mode): ReactNode => (
+  /** 未注册商家时，收款入口只展示开通引导，避免误以为扫码即可收款。 */
+  const collectRegisterPanel = (
+    <div className="space-y-4">
+      <section className="card overflow-hidden p-0">
+        <div className="bg-accent-soft px-4 py-8 text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-surface text-accent shadow-sm">
+            <ShopIcon size={38} />
+          </div>
+          <h1 className="mt-4 text-lg font-bold text-text">收款需要先开通商家</h1>
+          <p className="mx-auto mt-1.5 max-w-[300px] text-xs leading-relaxed text-muted">
+            收款是以商家身份向同学收钱。注册商家并上传至少一种收款码（支付宝、微信支付、QQ 钱包）后，才能扫客户校园卡收款或接收动态码收款请求。
+          </p>
+        </div>
+        <div className="space-y-2 p-4">
+          <button type="button" className="btn btn-primary btn-block" onClick={() => navigate("/merchant/register")}>
+            去注册商家
+          </button>
+          <button type="button" className="btn btn-outline btn-block" onClick={() => navigate("/merchant")}>
+            了解商家中心
+          </button>
+        </div>
+      </section>
+
+      <section className="card space-y-2 p-4">
+        <h2 className="text-sm font-semibold text-text">注册后可以</h2>
+        <ul className="space-y-1.5 text-xs leading-relaxed text-muted">
+          <li>· 扫客户的校园卡收款，手机交给对方输入支付密码</li>
+          <li>· 接收他人的动态码付款，请求实时推送到你的手机</li>
+          <li>· 上架商品、填写备注要求，让付款人自助下单</li>
+        </ul>
+        <p className="text-[11px] leading-relaxed text-muted">
+          资金通过你自己的第三方收款码流转，gzspay 不代收代付。备注要求可以在注册后到「商品与发布」填写。
+        </p>
+      </section>
+    </div>
+  );
+
+  const scanPanel = (kind: Mode): ReactNode => {
+    if (kind === "collect" && !me?.isMerchant) return collectRegisterPanel;
+    return (
     <div className="space-y-4">
       <section className="card overflow-hidden p-0">
         <div className="bg-brand-soft px-4 py-8 text-center">
@@ -540,15 +595,6 @@ export function PayPage(): ReactNode {
           </button>
         </div>
       </section>
-      {kind === "collect" && !me?.isMerchant ? (
-        <section className="card p-4">
-          <h2 className="text-sm font-semibold text-text">你还不是商家</h2>
-          <p className="mt-1 text-xs leading-relaxed text-muted">注册商家并上传收款码后，才能向他人发起收款。</p>
-          <button type="button" className="btn btn-accent btn-block mt-3" onClick={() => navigate("/merchant")}>
-            去注册商家
-          </button>
-        </section>
-      ) : null}
       <button type="button" className="card flex w-full items-center gap-3 p-4 text-left" onClick={() => navigate("/dynamic-code")}>
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent">
           <CardQrIcon size={24} />
@@ -560,7 +606,8 @@ export function PayPage(): ReactNode {
         <span className="text-muted">›</span>
       </button>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="bg-app min-h-[100dvh]">

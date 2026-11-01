@@ -1,4 +1,4 @@
-/** 商家注册：名称默认真实姓名、备注要求、多选收款方式并上传各渠道收款码（后端解码校验）。 */
+/** 商家注册：名称默认真实姓名、多选收款方式并上传各渠道收款码（后端解码校验）。备注要求注册后在商家中心填写。 */
 
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -21,7 +21,6 @@ export function MerchantRegisterPage(): ReactNode {
   const navigate = useNavigate();
   const { me, patchMe } = useAuth();
   const [name, setName] = useState(me?.displayName ?? "");
-  const [noteRequirement, setNoteRequirement] = useState("");
   const [channels, setChannels] = useState<PayChannel[]>([]);
   const [files, setFiles] = useState<Partial<Record<PayChannel, ChannelFile>>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -95,7 +94,6 @@ export function MerchantRegisterPage(): ReactNode {
     }
     const form = new FormData();
     form.append("name", finalName);
-    form.append("noteRequirement", noteRequirement.trim());
     form.append("channels", JSON.stringify(channels));
     for (const channel of channels) {
       const entry = files[channel];
@@ -106,7 +104,7 @@ export function MerchantRegisterPage(): ReactNode {
     try {
       await registerMerchant(form);
       if (me) patchMe({ ...me, isMerchant: true });
-      toast.success("商家注册成功");
+      toast.success("商家注册成功，可在「商品与发布」填写备注要求");
       navigate("/merchant", { replace: true });
     } catch (cause) {
       const message = errorMessage(cause);
@@ -144,21 +142,9 @@ export function MerchantRegisterPage(): ReactNode {
               placeholder="默认使用你的姓名，可修改"
               onChange={(event) => setName(event.target.value)}
             />
-            <p className="mt-1 text-[11px] text-muted">付款人扫码后会看到这个名称</p>
-          </div>
-          <div>
-            <label className="label" htmlFor="merchant-note">
-              备注要求（可选）
-            </label>
-            <textarea
-              id="merchant-note"
-              className="input min-h-20 py-3"
-              value={noteRequirement}
-              maxLength={120}
-              placeholder="例如：请备注商品名称；下单后当天完成付款"
-              onChange={(event) => setNoteRequirement(event.target.value)}
-            />
-            <p className="mt-1 text-[11px] text-muted">付款人创建订单前会看到并需确认该要求</p>
+            <p className="mt-1 text-[11px] text-muted">
+              付款人扫码后会看到这个名称。备注要求可在注册后到「商品与发布」填写。
+            </p>
           </div>
         </section>
 

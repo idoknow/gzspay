@@ -23,6 +23,7 @@ import {
   writeIdempotentResponse,
   type OrderStatusFilter,
 } from "../services/orders.js";
+import { requireMerchant } from "../services/merchant.js";
 import { resolveCardOwner, verifyPaymentPassword } from "../services/users.js";
 
 export const ordersRouter: Router = Router();
@@ -99,6 +100,7 @@ ordersRouter.post(
   "/merchant-create",
   asyncHandler((req, res) => {
     const merchant = req.auth!.user;
+    requireMerchant(merchant);
     const body = parse(merchantCreateSchema, req.body);
     const cached = readIdempotentResponse<{ order: unknown }>(
       merchant.id,
