@@ -12,6 +12,7 @@ import {
   confirmOrder,
   createOrderAsPayer,
   createOrderByMerchant,
+  createTransfer,
   findOrderById,
   listOrders,
   markOrderNotReceived,
@@ -24,7 +25,7 @@ import {
   type OrderStatusFilter,
 } from "../services/orders.js";
 import { requireMerchant } from "../services/merchant.js";
-import { resolveCardOwner, verifyPaymentPassword } from "../services/users.js";
+import { resolveCardOwner, findUserByStudentNo, verifyPaymentPassword } from "../services/users.js";
 
 export const ordersRouter: Router = Router();
 
@@ -128,6 +129,43 @@ ordersRouter.post(
     );
     const payload = { order: toOrderDto(order, merchant.id) };
     writeIdempotentResponse(merchant.id, body.idempotencyKey, "orders.merchant_create", payload);
+    res.status(201).json(payload);
+  }),
+);
+
+const transferSchema = z.object({
+  studentNo: z.string().trim().min(1, "请填写对方学号").max(40),
+  amountCents: z.number().int().positive("请填写转账金额"),
+  note: z.string().max(200).nullable().optional(),
+  paymentPassword: z.string().trim().min(1, "请输入支付密码"),
+  idempotencyKey: z.string().trim().min(6).max(80),
+});
+
+/** 转账：向指定学号的用户转账，订单进入对方待收款、自己的待付款列表 */
+ordersRouter.post(
+  "/transfer",
+  asyncHandler((req, res) => {
+    const user = req.auth!.user;
+    const body = parse(transferSchema, req.body);
+    const cached = readIdempotentResponse<{ order: unknown }>(
+      user.id,
+      body.idempotencyKey,
+      "orders.transfer",
+    );
+    if (cached) {
+      res.status(200).json(cached);
+      return;
+    }
+    const payee = findUserByStudentNo(body.studentNo);
+    if (!payee) throw errors.notFound("没有找到这个学号对应的账号");
+    verifyPaymentPassword(user, body.paymentPassword, requestIp(req));
+    const order = createTransfer(
+      user,
+      { payee, amountCents: body.amountCents, note: body.note },
+      requestIp(req),
+    );
+    const payload = { order: toOrderDto(order, user.id) };
+    writeIdempotentResponse(user.id, body.idempotencyKey, "orders.transfer", payload);
     res.status(201).json(payload);
   }),
 );

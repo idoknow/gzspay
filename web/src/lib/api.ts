@@ -373,6 +373,20 @@ export async function merchantCreateOrder(payload: MerchantCreateOrderPayload): 
   return unwrapOrder(raw);
 }
 
+export interface TransferOrderPayload {
+  studentNo: string;
+  amountCents: number;
+  note?: string | null;
+  paymentPassword: string;
+  idempotencyKey: string;
+}
+
+/** 转账给指定学号的用户：创建一笔待收款订单，出现在对方待收款与自己待付款列表 */
+export async function transferOrder(payload: TransferOrderPayload): Promise<Order> {
+  const raw = await api.post<unknown>("/orders/transfer", payload);
+  return unwrapOrder(raw);
+}
+
 export function listOrders(query: {
   scope: "pay" | "receive";
   status: "pending" | "paid" | "closed" | "settled" | "all";

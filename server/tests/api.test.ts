@@ -304,6 +304,65 @@ describe("商家与订单", () => {
     expect(receive.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
   });
 
+  it("按学号转账后出现在付款方待付款与收款方待收款列表", async () => {
+    const created = await agentWith(payerSession)
+      .post("/api/orders/transfer")
+      .send({
+        studentNo: "20230002",
+        amountCents: 880,
+        note: "班费",
+        paymentPassword: "123456",
+        idempotencyKey: "transfer-idem-0001",
+      })
+      .expect(201);
+    const transferId = created.body.order.id as string;
+    expect(created.body.order.title).toBe("转账");
+    expect(created.body.order.status).toBe("pending_payment");
+    expect(created.body.order.amountCents).toBe(880);
+
+    const pay = await agentWith(payerSession).get("/api/orders?scope=pay&status=pending").expect(200);
+    expect(pay.body.items.map((item: { id: string }) => item.id)).toContain(transferId);
+    const receive = await agentWith(merchantSession).get("/api/orders?scope=receive&status=pending").expect(200);
+    expect(receive.body.items.map((item: { id: string }) => item.id)).toContain(transferId);
+
+    // 幂等：同一 key 再提交返回同一订单
+    const again = await agentWith(payerSession)
+      .post("/api/orders/transfer")
+      .send({
+        studentNo: "20230002",
+        amountCents: 880,
+        note: "班费",
+        paymentPassword: "123456",
+        idempotencyKey: "transfer-idem-0001",
+      })
+      .expect(200);
+    expect(again.body.order.id).toBe(transferId);
+
+    // 不能给自己转账
+    const self = await agentWith(payerSession)
+      .post("/api/orders/transfer")
+      .send({
+        studentNo: "20230003",
+        amountCents: 100,
+        paymentPassword: "123456",
+        idempotencyKey: "transfer-self-0001",
+      })
+      .expect(409);
+    expect(self.body.error.message).toContain("自己");
+
+    // 学号不存在
+    const missing = await agentWith(payerSession)
+      .post("/api/orders/transfer")
+      .send({
+        studentNo: "99999999",
+        amountCents: 100,
+        paymentPassword: "123456",
+        idempotencyKey: "transfer-missing-01",
+      })
+      .expect(404);
+    expect(missing.body.error.code).toBe("NOT_FOUND");
+  });
+
   it("付款、确认收款的状态流转", async () => {
     const paid = await agentWith(payerSession)
       .post(`/api/orders/${orderId}/pay`)

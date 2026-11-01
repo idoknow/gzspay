@@ -500,6 +500,91 @@ export function createOrderByMerchant(
   return order;
 }
 
+export interface CreateTransferInput {
+  payee: UserRow;
+  amountCents: number;
+  note?: string | null;
+}
+
+/**
+ * 转账：向指定学号的用户转账（付款人发起，收款人确认收款）。
+ * 复用订单模型：merchant_id 记收款人、payer_id 记付款人，状态从 pending_payment 开始，
+ * 因此会自动出现在双方的「待付款 / 待收款」列表里。转账没有商品，也不需要商家资质。
+ */
+export function createTransfer(payer: UserRow, input: CreateTransferInput, ip: string): OrderRow {
+  const payee = input.payee;
+  if (payee.id === payer.id) throw errors.conflict("不能给自己转账");
+  if (payee.status === "frozen") throw errors.locked("对方账号已被冻结，暂时无法转账");
+  if (!Number.isInteger(input.amountCents) || input.amountCents < 1) {
+    throw errors.validation("请填写转账金额");
+  }
+  assertAmountLimits(payer.id, input.amountCents);
+
+  const note = (input.note ?? "").trim().slice(0, 200) || null;
+  const now = nowIso();
+  const orderId = newId();
+  const orderNo = generateOrderNo();
+  const payeeName = displayNameOf(payee);
+
+  transaction(() => {
+    execute(
+      `INSERT INTO orders (
+        id, order_no, merchant_id, payer_id, amount_cents, title, items_json, reserved_note,
+        actual_note, pay_channel, status, cancel_reason, created_by,
+        merchant_name_snapshot, payer_name_snapshot, note_requirement_snapshot,
+        created_at, updated_at, paid_at, completed_at, cancelled_at, flagged, closed_by_admin_id
+      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, NULL, 'pending_payment', NULL, 'payer', ?, ?, '', ?, ?, NULL, NULL, NULL, 0, NULL)`,
+      orderId,
+      orderNo,
+      payee.id,
+      payer.id,
+      input.amountCents,
+      "转账",
+      note,
+      payeeName,
+      payerNameSnapshotOf(payer),
+      now,
+      now,
+    );
+    addEvent(
+      orderId,
+      "created",
+      "payer",
+      payer.id,
+      `转账给 ${payeeName}，金额 ￥${(input.amountCents / 100).toFixed(2)}`,
+    );
+  });
+
+  const order = findOrderById(orderId) as OrderRow;
+  notifyOrderUpdate(order);
+
+  // 邮件通知：收款人收到一笔待收款
+  const payeeSettings = ensureNotificationSettings(payee.id);
+  if (payeeSettings.new_order === 1 && payee.email) {
+    sendMailInBackground(
+      templates.newOrder({
+        to: payee.email,
+        orderNo: order.order_no,
+        merchantName: order.merchant_name_snapshot,
+        payerName: order.payer_name_snapshot,
+        amountCents: order.amount_cents,
+        title: order.title,
+      }),
+    );
+  }
+
+  writeAudit({
+    actorId: payer.id,
+    actorRole: "user",
+    action: "order.transfer_created",
+    targetType: "order",
+    targetId: order.id,
+    detail: `收款人 ${order.merchant_name_snapshot}，金额 ￥${(order.amount_cents / 100).toFixed(2)}`,
+    ip,
+  });
+  return order;
+}
+
 /** 幂等：同一用户 + 同一 key + 同一接口直接复用上次响应 */
 export function readIdempotentResponse<T>(userId: string, key: string, endpoint: string): T | undefined {
   const row = queryOne<{ response_json: string; status_code: number; endpoint: string }>(

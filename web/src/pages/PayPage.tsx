@@ -24,6 +24,7 @@ import {
   merchantCreateOrder,
   resolveDynamicCode,
   scanCard,
+  transferOrder,
 } from "../lib/api";
 import { cn, formatCents, payChannelLabel, randomIdempotencyKey, yuanToCents } from "../lib/format";
 import { ApiError, errorMessage } from "../lib/http";
@@ -71,6 +72,15 @@ function ShopIcon({ size = 24 }: { size?: number }): ReactNode {
   );
 }
 
+function TransferIcon({ size = 24 }: { size?: number }): ReactNode {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 8h13M13.5 4.5 17 8l-3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 16H7M10.5 12.5 7 16l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function ChannelBadges({ channels }: { channels: PayChannel[] }): ReactNode {
   if (channels.length === 0) return <span className="text-xs text-muted">暂无收款方式</span>;
   return (
@@ -108,6 +118,18 @@ export function PayPage(): ReactNode {
   const [requirementOpen, setRequirementOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const idempotencyKey = useRef(randomIdempotencyKey());
+
+  // 转账
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferStudentNo, setTransferStudentNo] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferNote, setTransferNote] = useState("");
+  const [pendingTransfer, setPendingTransfer] = useState<{
+    studentNo: string;
+    amountCents: number;
+    note: string;
+  } | null>(null);
+  const transferKey = useRef(randomIdempotencyKey());
 
   // 收款
   const [collectStep, setCollectStep] = useState<CollectStep>("scan");
@@ -442,6 +464,62 @@ export function PayPage(): ReactNode {
     }
   };
 
+  /** 打开转账弹窗：每次清空上次填写的内容 */
+  const openTransfer = (): void => {
+    setTransferStudentNo("");
+    setTransferAmount("");
+    setTransferNote("");
+    setTransferOpen(true);
+  };
+
+  /** 校验转账信息后先收起表单，交给支付密码弹窗继续 */
+  const confirmTransfer = (): void => {
+    const studentNo = transferStudentNo.trim();
+    if (!studentNo) {
+      toast.error("请输入对方的学号");
+      return;
+    }
+    const amountCents = yuanToCents(transferAmount);
+    if (amountCents === null || amountCents < 1) {
+      toast.error("请输入转账金额");
+      return;
+    }
+    if (amountCents > 500000) {
+      toast.error("单笔转账不能超过 5000 元");
+      return;
+    }
+    setPendingTransfer({ studentNo, amountCents, note: transferNote.trim() });
+    setTransferOpen(false);
+    setPasswordOpen(true);
+  };
+
+  const submitTransfer = async (password: string): Promise<void> => {
+    if (!pendingTransfer) return;
+    try {
+      const order = await transferOrder({
+        ...pendingTransfer,
+        paymentPassword: password,
+        idempotencyKey: transferKey.current,
+      });
+      transferKey.current = randomIdempotencyKey();
+      setPasswordOpen(false);
+      setPendingTransfer(null);
+      toast.success("转账已发起，等待对方确认收款");
+      navigate(`/orders/${order.id}`, { replace: true });
+    } catch (cause) {
+      const message = errorMessage(cause);
+      if (
+        cause instanceof ApiError &&
+        (cause.code === "PAYMENT_PASSWORD_WRONG" || cause.code === "PAYMENT_PASSWORD_LOCKED")
+      ) {
+        toast.error(message);
+        throw cause;
+      }
+      setPasswordOpen(false);
+      toast.error(message);
+    }
+  };
+
   /** 商家扫客户动态码后：发起收款请求，客户手机通过 SSE 弹出确认。 */
   const sendPaymentRequest = async (): Promise<void> => {
     if (!collectDynamicToken) return;
@@ -649,6 +727,18 @@ export function PayPage(): ReactNode {
     return (
       <div className="space-y-4">
         {scannerOpen ? scanningCard : introCard}
+        {kind === "pay" ? (
+          <button type="button" className="card flex w-full items-center gap-3 p-4 text-left" onClick={openTransfer}>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+              <TransferIcon size={24} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-text">转账给同学</span>
+              <span className="mt-0.5 block text-xs text-muted">输入对方学号，用支付密码转账</span>
+            </span>
+            <span className="text-muted">›</span>
+          </button>
+        ) : null}
         <button type="button" className="card flex w-full items-center gap-3 p-4 text-left" onClick={() => navigate("/dynamic-code")}>
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent">
             <CardQrIcon size={24} />
@@ -1005,6 +1095,57 @@ export function PayPage(): ReactNode {
         />
       </Dialog>
 
+      <Dialog
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        title="转账给同学"
+        description="输入对方的学号与转账金额，下一步需要输入支付密码。"
+        footer={
+          <div className="flex gap-2">
+            <button type="button" className="btn btn-outline flex-1" onClick={() => setTransferOpen(false)}>
+              取消
+            </button>
+            <button type="button" className="btn btn-primary flex-1" onClick={confirmTransfer}>
+              下一步
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <label className="block">
+            <span className="label">对方学号</span>
+            <input
+              className="input"
+              inputMode="numeric"
+              maxLength={40}
+              value={transferStudentNo}
+              placeholder="例如 20231234"
+              onChange={(event) => setTransferStudentNo(event.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="label">转账金额（元）</span>
+            <input
+              className="input"
+              inputMode="decimal"
+              value={transferAmount}
+              placeholder="例如 20.00"
+              onChange={(event) => setTransferAmount(event.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="label">备注（可选）</span>
+            <input
+              className="input"
+              maxLength={120}
+              value={transferNote}
+              placeholder="让对方知道这笔钱是做什么的"
+              onChange={(event) => setTransferNote(event.target.value)}
+            />
+          </label>
+        </div>
+      </Dialog>
+
       <CountdownModal
         open={requirementOpen}
         title="商家备注要求"
@@ -1022,10 +1163,17 @@ export function PayPage(): ReactNode {
 
       <PaymentPasswordDialog
         open={passwordOpen}
-        onClose={() => setPasswordOpen(false)}
-        onSubmit={submitPay}
+        onClose={() => {
+          setPasswordOpen(false);
+          setPendingTransfer(null);
+        }}
+        onSubmit={pendingTransfer ? submitTransfer : submitPay}
         title="输入支付密码"
-        description={`向 ${merchant?.merchantName ?? "商家"} 支付 ¥${formatCents(payAmountCents)}`}
+        description={
+          pendingTransfer
+            ? `向学号 ${pendingTransfer.studentNo} 转账 ¥${formatCents(pendingTransfer.amountCents)}`
+            : `向 ${merchant?.merchantName ?? "商家"} 支付 ¥${formatCents(payAmountCents)}`
+        }
       />
 
       <BottomNav />
