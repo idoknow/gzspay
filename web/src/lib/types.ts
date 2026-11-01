@@ -83,6 +83,8 @@ export interface SessionResponse {
   me?: Me;
   onboardStep?: OnboardStep;
   isAdmin?: boolean;
+  /** 是否已配置校园墙 OAuth（未配置时只能使用邮箱验证等替代方式） */
+  campuxConfigured?: boolean;
 }
 
 /** 站点信息（GET /api/setup/status 中的 system） */

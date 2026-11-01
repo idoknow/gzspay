@@ -31,6 +31,7 @@ import {
   adminUserDetail,
   adminUsers,
   adminUsersGrowth,
+  adminUserLogins,
   forceUserLogout,
   handleAppeal,
   removeAdmin,
@@ -134,6 +135,15 @@ adminRouter.get(
   requireAdmin(),
   asyncHandler((_req, res) => {
     res.json(adminOnlineUsers());
+  }),
+);
+
+adminRouter.get(
+  "/users/logins",
+  requireAdmin(),
+  asyncHandler((req, res) => {
+    const limit = Number.parseInt(String(req.query.limit ?? "8"), 10);
+    res.json(adminUserLogins(Number.isFinite(limit) ? limit : 8));
   }),
 );
 

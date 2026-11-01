@@ -40,6 +40,8 @@ import type {
   AdminStats,
   AdminUser,
   AdminUserDetail,
+  AdminUserLogin,
+  AdminUserLoginsPayload,
   AmountBucket,
   Announcement,
   AnnouncementInput,
@@ -700,6 +702,32 @@ export async function getOnlineUsers(): Promise<OnlineUsersPayload> {
       firstNumber(source, ["onlineWindowMinutes", "windowMinutes"]),
       5,
     ),
+  };
+}
+
+/** 授权登录成功的人数与最近登录的用户（按最近登录时间倒序） */
+export async function getUserLogins(limit = 8): Promise<AdminUserLoginsPayload> {
+  const payload = await getJson<unknown>("/admin/users/logins", { limit });
+  const source = record(payload);
+  const recent = firstArray(source, ["recent", "items", "users", "logins", "data"]).map(
+    (raw): AdminUserLogin => {
+      const item = record(raw);
+      return {
+        id: textOr(firstText(item, ["id", "userId"]), ""),
+        displayName: textOr(
+          firstText(item, ["displayName", "name", "fullName"]),
+          "未知用户",
+        ),
+        avatarUrl: firstText(item, ["avatarUrl", "avatar"]),
+        studentNoMasked: firstText(item, ["studentNoMasked", "studentNo"]),
+        isMerchant: firstBoolean(item, ["isMerchant", "merchant"]) ?? false,
+        lastLoginAt: textOr(firstText(item, ["lastLoginAt", "lastSeenAt"]), ""),
+      };
+    },
+  );
+  return {
+    total: numberOr(firstNumber(source, ["total", "count"]), recent.length),
+    recent,
   };
 }
 

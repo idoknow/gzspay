@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { config, isCampuxConfigured } from "../config.js";
-import { queryOne } from "../db/index.js";
-import { writeLoginLog } from "../lib/audit.js";
+import { execute, isoAfter, nowIso, queryOne } from "../db/index.js";
+import { writeAudit, writeLoginLog } from "../lib/audit.js";
 import { completeAuthorization, createAuthorizationRequest } from "../lib/campux.js";
+import { randomToken } from "../lib/crypto.js";
 import { AppError, errors } from "../lib/errors.js";
 import { asyncHandler, attachUser } from "../lib/http.js";
 import { rateLimit } from "../lib/rate-limit.js";
@@ -20,6 +21,9 @@ import { loginOrRegister, toMe } from "../services/users.js";
 
 export const authRouter: Router = Router();
 
+/** 校园墙「再验证」通过后，验证凭证的有效期（秒） */
+const CAMPUX_VERIFICATION_TTL_SECONDS = 300;
+
 function adminRoleOf(userId: string): AdminRow | undefined {
   return queryOne<AdminRow>("SELECT * FROM admins WHERE user_id = ?", userId);
 }
@@ -27,7 +31,11 @@ function adminRoleOf(userId: string): AdminRow | undefined {
 authRouter.get("/session", attachUser, (req, res) => {
   const auth = req.auth;
   if (!auth) {
-    res.json({ authenticated: false, isAdmin: false });
+    res.json({
+      authenticated: false,
+      isAdmin: false,
+      campuxConfigured: isCampuxConfigured(),
+    });
     return;
   }
   res.json({
@@ -35,6 +43,7 @@ authRouter.get("/session", attachUser, (req, res) => {
     onboarded: auth.user.onboarded === 1,
     onboardStep: auth.user.onboard_step,
     isAdmin: adminRoleOf(auth.user.id) !== undefined,
+    campuxConfigured: isCampuxConfigured(),
     me: toMe(auth.user),
   });
 });
@@ -102,7 +111,64 @@ authRouter.get(
     const code = typeof req.query.code === "string" ? req.query.code : undefined;
     const state = typeof req.query.state === "string" ? req.query.state : undefined;
     try {
-      const { profile, redirectTo } = await completeAuthorization(code, state);
+      const { profile, redirectTo, purpose } = await completeAuthorization(code, state);
+
+      // 修改支付密码时的「再授权一次」：只验证身份，不切换登录态
+      if (purpose === "password_verify") {
+        const auth = req.auth;
+        if (!auth) {
+          res
+            .status(400)
+            .type("html")
+            .send(errorPage("验证失败", "登录已过期，请重新登录后再用校园墙验证"));
+          return;
+        }
+        if (auth.user.campux_sub !== profile.sub) {
+          writeAudit({
+            actorId: auth.user.id,
+            actorRole: "user",
+            action: "payment_password.campux_mismatch",
+            targetType: "user",
+            targetId: auth.user.id,
+            detail: "校园墙授权账号与当前登录账号不一致",
+            ip,
+          });
+          res
+            .status(403)
+            .type("html")
+            .send(
+              errorPage(
+                "验证失败",
+                "授权的校园墙账号与当前登录账号不一致，请用本人账号重新验证",
+              ),
+            );
+          return;
+        }
+        execute(
+          "UPDATE password_verifications SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
+          nowIso(),
+          auth.user.id,
+        );
+        execute(
+          "INSERT INTO password_verifications (id, user_id, method, expires_at, used_at, created_at) VALUES (?, ?, 'campux', ?, NULL, ?)",
+          randomToken(16),
+          auth.user.id,
+          isoAfter(CAMPUX_VERIFICATION_TTL_SECONDS),
+          nowIso(),
+        );
+        writeAudit({
+          actorId: auth.user.id,
+          actorRole: "user",
+          action: "payment_password.campux_verified",
+          targetType: "user",
+          targetId: auth.user.id,
+          detail: "校园墙授权验证通过",
+          ip,
+        });
+        res.redirect(302, `${config.appBaseUrl}/me/password?campux=1`);
+        return;
+      }
+
       const result = loginOrRegister(
         { sub: profile.sub, qq: profile.qq, username: profile.username, tenantId: profile.tenantId },
         ip,

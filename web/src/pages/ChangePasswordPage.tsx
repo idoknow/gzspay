@@ -1,12 +1,17 @@
-/** 修改支付密码：邮箱验证码（10 分钟有效、60s 重发、错 5 次锁定）→ 内置键盘两次输入新密码。 */
+/** 修改支付密码：邮箱验证码或校园墙再验证（两种方式任选）→ 内置键盘两次输入新密码。 */
 
-import { useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { BuiltInKeypad } from "../components/BuiltInKeypad";
 import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
-import { confirmPaymentPasswordReset, startPaymentPasswordReset, verifyPaymentPasswordReset } from "../lib/api";
+import {
+  claimPaymentPasswordResetByCampux,
+  confirmPaymentPasswordReset,
+  startPaymentPasswordReset,
+  verifyPaymentPasswordReset,
+} from "../lib/api";
 import { isSixDigitCode } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { useCountdown } from "../lib/hooks";
@@ -17,9 +22,13 @@ type Step = "send" | "verify" | "password";
 export function ChangePasswordPage(): ReactNode {
   const toast = useToast();
   const navigate = useNavigate();
-  const { me } = useAuth();
+  const { me, session } = useAuth();
+  const [searchParams] = useSearchParams();
+  const campuxVerified = searchParams.get("campux") === "1";
+  const campuxReady = session.campuxConfigured !== false;
   const [step, setStep] = useState<Step>("send");
   const [sending, setSending] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const [devCode, setDevCode] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -27,6 +36,33 @@ export function ChangePasswordPage(): ReactNode {
   const [phase, setPhase] = useState<"first" | "confirm">("first");
   const [firstPassword, setFirstPassword] = useState<string | null>(null);
   const countdown = useCountdown(60);
+  const claimed = useRef(false);
+
+  // 从校园墙授权回来：领取一次性重置凭证，直接进入设置新密码
+  useEffect(() => {
+    if (!campuxVerified || claimed.current) return;
+    claimed.current = true;
+    let active = true;
+    setClaiming(true);
+    claimPaymentPasswordResetByCampux()
+      .then((result) => {
+        if (!active) return;
+        setResetToken(result.resetToken);
+        setStep("password");
+        toast.success("校园墙验证通过，请设置新的支付密码");
+      })
+      .catch((cause: unknown) => {
+        if (active) toast.error(errorMessage(cause));
+      })
+      .finally(() => {
+        if (!active) return;
+        setClaiming(false);
+        navigate("/me/password", { replace: true });
+      });
+    return () => {
+      active = false;
+    };
+  }, [campuxVerified, navigate, toast]);
 
   const sendCode = async (): Promise<void> => {
     setSending(true);
@@ -111,16 +147,45 @@ export function ChangePasswordPage(): ReactNode {
           <p className="mt-2 text-[11px] text-muted">当前邮箱：{me?.emailMasked || "未绑定"}</p>
         </section>
 
-        {step === "send" ? (
+        {claiming ? (
+          <section className="card flex items-center justify-center gap-2 p-6 text-sm text-muted">
+            <Spinner size={18} />
+            正在确认校园墙验证结果…
+          </section>
+        ) : null}
+
+        {step === "send" && !claiming ? (
           <section className="card space-y-3 p-4">
-            <h2 className="text-sm font-semibold text-text">验证邮箱</h2>
+            <h2 className="text-sm font-semibold text-text">选择验证方式</h2>
             <p className="text-xs leading-relaxed text-muted">
-              支付密码用于创建订单与确认交易。修改前需要验证你的登录邮箱，验证码 10 分钟内有效。
+              支付密码用于创建订单与确认交易。修改前需要先验证身份，下面两种方式任选一种。
             </p>
             <button type="button" className="btn btn-primary btn-block" disabled={sending} onClick={() => void sendCode()}>
               {sending ? <Spinner size={16} /> : null}
-              发送验证码
+              发送邮箱验证码
             </button>
+            <p className="text-[11px] leading-relaxed text-muted">
+              验证码会发到 {me?.emailMasked || "你的登录邮箱"}，10 分钟内有效。
+            </p>
+            <div className="flex items-center gap-2 text-[11px] text-muted">
+              <span className="h-px flex-1 bg-line" />
+              或
+              <span className="h-px flex-1 bg-line" />
+            </div>
+            {campuxReady ? (
+              <>
+                <a className="btn btn-outline btn-block" href="/api/me/payment-password/reset/campux/start">
+                  用校园墙账号验证
+                </a>
+                <p className="text-[11px] leading-relaxed text-muted">
+                  会跳转到校园墙授权页，确认是本人账号后自动回到这里设置新密码。
+                </p>
+              </>
+            ) : (
+              <p className="text-[11px] leading-relaxed text-muted">
+                管理员尚未配置校园墙登录，暂时只能使用邮箱验证。
+              </p>
+            )}
           </section>
         ) : null}
 

@@ -2,12 +2,13 @@ import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { Router } from "express";
 import { z } from "zod";
-import { REPO_ROOT, config } from "../config.js";
+import { REPO_ROOT, config, isCampuxConfigured } from "../config.js";
 import { execute, isoAfter, nowIso, queryOne } from "../db/index.js";
 import { writeAudit } from "../lib/audit.js";
+import { createAuthorizationRequest } from "../lib/campux.js";
 import { buildCardQrContent, maskCardNo, randomToken, sha256 } from "../lib/crypto.js";
 import { issueEmailCode, consumeEmailCode, latestCodeEmail } from "../lib/email.js";
-import { errors } from "../lib/errors.js";
+import { AppError, errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
 import { rateLimit, userKey } from "../lib/rate-limit.js";
 import { sendMailInBackground, templates } from "../lib/mail.js";
@@ -241,6 +242,25 @@ meRouter.post(
   }),
 );
 
+/** 签发一次性的支付密码重置凭证（邮箱验证与校园墙验证共用） */
+function issueResetToken(userId: string): { resetToken: string; expiresAt: string } {
+  const token = randomToken(32);
+  const expiresAt = isoAfter(config.security.passwordResetTokenTtlMinutes * 60);
+  execute(
+    "UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
+    nowIso(),
+    userId,
+  );
+  execute(
+    "INSERT INTO password_reset_tokens (id, user_id, expires_at, used_at, created_at) VALUES (?, ?, ?, NULL, ?)",
+    sha256(token),
+    userId,
+    expiresAt,
+    nowIso(),
+  );
+  return { resetToken: token, expiresAt };
+}
+
 meRouter.post(
   "/payment-password/reset/start",
   asyncHandler(async (req, res) => {
@@ -256,6 +276,51 @@ meRouter.post(
   }),
 );
 
+/**
+ * 校园墙再验证：跳转到校园墙授权页。
+ * 回调（/api/auth/callback）确认授权账号与当前登录账号一致后写入验证凭证，
+ * 前端再回本页领取重置凭证，因此不需要把 token 放进 URL。
+ */
+meRouter.get(
+  "/payment-password/reset/campux/start",
+  rateLimit({
+    scope: "me.password.campux",
+    limit: 10,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "验证请求过于频繁，请稍后再试",
+  }),
+  (req, res) => {
+    if (!isCampuxConfigured()) {
+      throw new AppError(
+        503,
+        "CAMPUX_NOT_CONFIGURED",
+        "管理员尚未配置校园墙登录，暂时无法用校园墙验证",
+      );
+    }
+    const url = createAuthorizationRequest("/me/password", "password_verify");
+    res.redirect(302, url);
+  },
+);
+
+/** 领取校园墙验证通过后的重置凭证（5 分钟内有效、一次性） */
+meRouter.post(
+  "/payment-password/reset/campux/claim",
+  asyncHandler((req, res) => {
+    const user = req.auth!.user;
+    const row = queryOne<{ id: string }>(
+      `SELECT * FROM password_verifications
+       WHERE user_id = ? AND used_at IS NULL AND expires_at > ?
+       ORDER BY created_at DESC LIMIT 1`,
+      user.id,
+      nowIso(),
+    );
+    if (!row) throw errors.validation("校园墙验证已过期，请重新验证");
+    execute("UPDATE password_verifications SET used_at = ? WHERE id = ?", nowIso(), row.id);
+    res.json(issueResetToken(user.id));
+  }),
+);
+
 meRouter.post(
   "/payment-password/reset/verify",
   asyncHandler((req, res) => {
@@ -267,21 +332,7 @@ meRouter.post(
       code: body.code,
       ip: requestIp(req),
     });
-    const token = randomToken(32);
-    const expiresAt = isoAfter(config.security.passwordResetTokenTtlMinutes * 60);
-    execute(
-      "UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
-      nowIso(),
-      user.id,
-    );
-    execute(
-      "INSERT INTO password_reset_tokens (id, user_id, expires_at, used_at, created_at) VALUES (?, ?, ?, NULL, ?)",
-      sha256(token),
-      user.id,
-      expiresAt,
-      nowIso(),
-    );
-    res.json({ resetToken: token, expiresAt });
+    res.json(issueResetToken(user.id));
   }),
 );
 

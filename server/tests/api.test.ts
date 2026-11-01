@@ -582,6 +582,21 @@ describe("管理后台", () => {
     ).toBe(false);
   });
 
+  it("登录情况统计返回授权登录成功人数与最近登录用户", async () => {
+    const target = await login("login-log-target", "登录目标");
+
+    const payload = await adminRequest().get("/api/admin/users/logins").expect(200);
+    expect(typeof payload.body.total).toBe("number");
+    expect(payload.body.total).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(payload.body.recent)).toBe(true);
+    const row = payload.body.recent.find(
+      (item: { id: string }) => item.id === target.id,
+    );
+    expect(row?.displayName).toBe("登录目标");
+    expect(typeof row?.lastLoginAt).toBe("string");
+    expect(row?.lastLoginAt.length).toBeGreaterThan(0);
+  });
+
   it("总览与月度数据", async () => {
     const overview = await adminRequest().get("/api/admin/overview").expect(200);
     expect(overview.body.userCount).toBeGreaterThanOrEqual(3);
@@ -809,5 +824,69 @@ describe("错误提示", () => {
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("BAD_REQUEST");
     expect(String(response.body.error.message)).toContain("请求内容格式不正确");
+  });
+});
+
+describe("支付密码·校园墙再验证", () => {
+  it("会话里能读到校园墙是否已配置，未验证时不能领取重置凭证", async () => {
+    const { session } = await login("pwd-campux-claim", "再验证用户");
+    const sessionResponse = await agentWith(session).get("/api/auth/session").expect(200);
+    expect(typeof sessionResponse.body.campuxConfigured).toBe("boolean");
+
+    const anonymous = await request(app).get("/api/me/payment-password/reset/campux/start");
+    expect(anonymous.status).toBe(401);
+
+    const claim = await agentWith(session).post("/api/me/payment-password/reset/campux/claim");
+    expect(claim.status).toBe(400);
+    expect(claim.body.error.code).toBe("VALIDATION_FAILED");
+    expect(String(claim.body.error.message)).toContain("校园墙验证");
+  });
+
+  it("校园墙验证通过后可领取一次性凭证并修改支付密码", async () => {
+    const { session, id } = await login("pwd-campux-flow", "再验证流程");
+    await completeOnboarding(session, { cardNo: "2026999001", studentNo: "26999001" });
+
+    const now = new Date();
+    execute(
+      "INSERT INTO password_verifications (id, user_id, method, expires_at, used_at, created_at) VALUES (?, ?, 'campux', ?, NULL, ?)",
+      randomToken(16),
+      id,
+      new Date(now.getTime() + 5 * 60_000).toISOString(),
+      now.toISOString(),
+    );
+
+    const claimed = await agentWith(session)
+      .post("/api/me/payment-password/reset/campux/claim")
+      .expect(200);
+    expect(claimed.body.resetToken).toMatch(/^[A-Za-z0-9_-]{32,}$/);
+    const resetToken = String(claimed.body.resetToken);
+
+    // 验证记录是一次性的
+    const again = await agentWith(session).post("/api/me/payment-password/reset/campux/claim");
+    expect(again.status).toBe(400);
+
+    await agentWith(session)
+      .post("/api/me/payment-password/reset/confirm")
+      .send({ resetToken, password: "654321", confirm: "654321" })
+      .expect(200);
+
+    const verified = await agentWith(session)
+      .post("/api/me/payment-password/verify")
+      .send({ password: "654321" })
+      .expect(200);
+    expect(verified.body.ok).toBe(true);
+  });
+
+  it("未配置校园墙时发起验证给出明确错误或跳转授权页", async () => {
+    const { session } = await login("pwd-campux-start", "再验证发起");
+    const response = await agentWith(session)
+      .get("/api/me/payment-password/reset/campux/start")
+      .redirects(0);
+    expect([302, 503]).toContain(response.status);
+    if (response.status === 503) {
+      expect(response.body?.error?.code).toBe("CAMPUX_NOT_CONFIGURED");
+    } else {
+      expect(String(response.headers.location)).toContain("/oauth/authorize");
+    }
   });
 });

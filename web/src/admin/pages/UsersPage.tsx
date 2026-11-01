@@ -7,6 +7,7 @@ import {
   forceLogoutUser,
   getOnlineUsers,
   getUserDetail,
+  getUserLogins,
   getUsers,
   getUsersGrowth,
   resetUserCard,
@@ -58,6 +59,7 @@ export function UsersPage() {
   );
   const growth = useAsync<TrendBucket[]>(() => getUsersGrowth(12), []);
   const online = useAsync(() => getOnlineUsers(), []);
+  const logins = useAsync(() => getUserLogins(8), []);
 
   const rows = users.data?.items ?? [];
   const total = users.data?.total ?? 0;
@@ -67,6 +69,8 @@ export function UsersPage() {
   );
   const onlineUsers = online.data?.items ?? [];
   const onlineWindow = online.data?.onlineWindowMinutes ?? 5;
+  const loginTotal = logins.data?.total ?? 0;
+  const recentLogins = logins.data?.recent ?? [];
 
   const changeKeyword = (value: string) => {
     setKeyword(value);
@@ -107,6 +111,7 @@ export function UsersPage() {
               users.refresh();
               growth.refresh();
               online.refresh();
+              logins.refresh();
             }}
             disabled={users.loading || online.loading}
           >
@@ -140,12 +145,21 @@ export function UsersPage() {
           </Card>
 
           <Card title="用户概况">
-            <div className="admin-stat-grid" style={{ gridTemplateColumns: "1fr" }}>
+            <div
+              className="admin-stat-grid"
+              style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
+            >
               <StatCard
                 label="用户总数"
                 value={formatNumber(total)}
                 hint="校园墙注册用户"
                 tone="primary"
+              />
+              <StatCard
+                label="授权登录成功"
+                value={formatNumber(loginTotal)}
+                hint="至少成功登录过一次"
+                tone="accent"
               />
               <StatCard
                 label="近 12 个月新增"
@@ -251,6 +265,82 @@ export function UsersPage() {
                             强制下线
                           </Button>
                         </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        <Card
+          title="最近用户登录"
+          subtitle="最近成功通过校园墙授权登录的用户，按登录时间倒序"
+          extra={
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={logins.loading}
+              onClick={() => logins.refresh()}
+            >
+              刷新
+            </Button>
+          }
+          flush
+        >
+          {logins.error && !logins.data ? (
+            <div style={{ padding: 18 }}>
+              <ErrorState
+                message={errorMessage(logins.error)}
+                onRetry={() => logins.refresh()}
+              />
+            </div>
+          ) : logins.loading && !logins.data ? (
+            <div style={{ padding: 18 }}>
+              <TableSkeleton rows={4} cols={3} />
+            </div>
+          ) : recentLogins.length === 0 ? (
+            <div style={{ padding: 18 }}>
+              <EmptyState
+                title="暂无登录记录"
+                description="还没有用户成功通过校园墙授权登录。"
+              />
+            </div>
+          ) : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>用户</th>
+                    <th>学号</th>
+                    <th>最近登录</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentLogins.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <div className="admin-flex" style={{ gap: 10 }}>
+                          <div className="admin-avatar admin-avatar-sm" aria-hidden="true">
+                            {user.displayName.slice(0, 1)}
+                          </div>
+                          <div>
+                            <div className="admin-cell-primary">{user.displayName}</div>
+                            <div className="admin-cell-sub admin-text-xs">
+                              {user.isMerchant ? "商家" : "普通用户"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="admin-mono admin-text-sm">
+                        {user.studentNoMasked || "—"}
+                      </td>
+                      <td
+                        className="admin-text-sm admin-muted"
+                        title={user.lastLoginAt ? formatDateTime(user.lastLoginAt) : undefined}
+                      >
+                        {user.lastLoginAt ? formatRelative(user.lastLoginAt) : "—"}
                       </td>
                     </tr>
                   ))}

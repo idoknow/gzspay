@@ -22,6 +22,15 @@ interface OAuthStateRow {
   expires_at: string;
 }
 
+/**
+ * 授权用途：
+ * - user：登录 / 注册
+ * - password_verify：已登录用户重新授权一次，用来证明「本人操作」（如修改支付密码）
+ */
+export type AuthorizationPurpose = "user" | "password_verify";
+
+const AUTHORIZATION_PURPOSES: AuthorizationPurpose[] = ["user", "password_verify"];
+
 function authorizeEndpoint(): string {
   return `${config.campux.baseUrl}/oauth/authorize`;
 }
@@ -42,8 +51,14 @@ export function oauthRedirectUri(): string {
   return config.campux.redirectUri;
 }
 
-/** 生成 state + PKCE（S256），写入 oauth_states，10 分钟过期 */
-export function createAuthorizationRequest(redirectTo: string | null): string {
+/**
+ * 生成 state + PKCE（S256），写入 oauth_states，10 分钟过期。
+ * purpose 决定回调如何处理：登录（user）还是身份验证（password_verify）。
+ */
+export function createAuthorizationRequest(
+  redirectTo: string | null,
+  purpose: AuthorizationPurpose = "user",
+): string {
   if (!isCampuxConfigured()) {
     throw errors.validation("系统尚未配置校园墙登录，请联系管理员在管理后台完成初始化");
   }
@@ -56,7 +71,7 @@ export function createAuthorizationRequest(redirectTo: string | null): string {
     state,
     codeVerifier,
     sanitizeRedirect(redirectTo),
-    "user",
+    purpose,
     nowIso(),
     isoAfter(600),
   );
@@ -85,21 +100,23 @@ export function sanitizeRedirect(value: string | null): string | null {
 interface StateConsumption {
   codeVerifier: string;
   redirectTo: string | null;
+  purpose: AuthorizationPurpose;
 }
 
 /** 校验并消费 state（一次性） */
 export function consumeState(state: string | undefined): StateConsumption {
   if (!state) throw errors.validation("授权请求缺少 state，请重新登录");
-  const row = queryOne<OAuthStateRow>(
-    "SELECT * FROM oauth_states WHERE state = ? AND purpose = 'user'",
-    state,
-  );
+  const row = queryOne<OAuthStateRow>("SELECT * FROM oauth_states WHERE state = ?", state);
   execute("DELETE FROM oauth_states WHERE state = ?", state);
   if (!row) throw errors.validation("授权状态无效或已使用，请重新登录");
   if (row.expires_at <= nowIso()) {
     throw errors.validation("授权请求已过期，请重新登录");
   }
-  return { codeVerifier: row.code_verifier, redirectTo: row.redirect_to };
+  const purpose = AUTHORIZATION_PURPOSES.includes(row.purpose as AuthorizationPurpose)
+    ? (row.purpose as AuthorizationPurpose)
+    : null;
+  if (!purpose) throw errors.validation("授权请求无效，请重新发起");
+  return { codeVerifier: row.code_verifier, redirectTo: row.redirect_to, purpose };
 }
 
 interface TokenResponse {
@@ -189,11 +206,11 @@ function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 }
 
-/** 完整回调流程：校验 state → 换 token → userinfo → revoke → 返回用户画像 */
+/** 完整回调流程：校验 state → 换 token → userinfo → revoke → 返回用户画像与授权用途 */
 export async function completeAuthorization(
   code: string | undefined,
   state: string | undefined,
-): Promise<{ profile: CampuxProfile; redirectTo: string | null }> {
+): Promise<{ profile: CampuxProfile; redirectTo: string | null; purpose: AuthorizationPurpose }> {
   const consumed = consumeState(state);
   if (!code) throw errors.validation("授权回调缺少授权码，请重新登录");
   if (!isCampuxConfigured()) {
@@ -234,6 +251,7 @@ export async function completeAuthorization(
         tenantName,
       },
       redirectTo: consumed.redirectTo,
+      purpose: consumed.purpose,
     };
   } finally {
     // 登录完成后立即作废校园墙令牌，gzspay 不保存

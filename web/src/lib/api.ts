@@ -174,6 +174,16 @@ export function verifyPaymentPasswordReset(code: string): Promise<{ resetToken: 
   return api.post<{ resetToken: string }>("/me/payment-password/reset/verify", { code });
 }
 
+/**
+ * 校园墙再验证通过后领取重置凭证（服务端已用回调写入的验证记录，
+ * 这里只做一次性领取，避免把 token 放进跳转 URL）。
+ */
+export function claimPaymentPasswordResetByCampux(): Promise<{ resetToken: string; expiresAt: string }> {
+  return api.post<{ resetToken: string; expiresAt: string }>(
+    "/me/payment-password/reset/campux/claim",
+  );
+}
+
 export function confirmPaymentPasswordReset(payload: {
   resetToken: string;
   password: string;

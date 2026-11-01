@@ -1,4 +1,4 @@
-﻿# gzspay 接口契约
+# gzspay 接口契约
 
 本文档是前后端共同遵守的接口约定。后端实现见 `server/src/routes/`，前端客户端见 `web/src/lib/api.ts`。
 
@@ -84,9 +84,9 @@ interface Me {
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/api/auth/session` | 当前登录态：`{ authenticated, me?, onboardStep?, isAdmin }` |
+| `GET` | `/api/auth/session` | 当前登录态：`{ authenticated, me?, onboardStep?, isAdmin, campuxConfigured }`；`campuxConfigured` 表示是否已配置校园墙 OAuth |
 | `GET` | `/api/auth/login` | 302 跳转校园墙授权页（生成 state + PKCE） |
-| `GET` | `/api/auth/callback?code&state` | 校园墙回调，成功后 302 到 `APP_BASE_URL/`（新用户到 `/onboarding`，`redirect=/admin` 时到 `/admin`）；系统未初始化时第一个登录的账号自动成为超级管理员 |
+| `GET` | `/api/auth/callback?code&state` | 校园墙回调，成功后 302 到 `APP_BASE_URL/`（新用户到 `/onboarding`，`redirect=/admin` 时到 `/admin`）；系统未初始化时第一个登录的账号自动成为超级管理员。state 带 `purpose=password_verify` 时不切换登录态，只核对授权账号与当前登录账号一致后写入一次性验证记录，再跳回 `/me/password?campux=1` |
 | `POST` | `/api/auth/logout` | 退出登录，清 Cookie |
 
 未配置校园墙（`CAMPUX_BASE_URL` / `CAMPUX_CLIENT_ID` / `CAMPUX_CLIENT_SECRET` 缺一）时，`GET /api/auth/login` 返回 503 `CAMPUX_NOT_CONFIGURED`。
@@ -121,8 +121,12 @@ interface Me {
 | --- | --- | --- | --- |
 | `POST` | `/api/me/payment-password/reset/start` | — | 向绑定邮箱发验证码 `{ sent, devCode? }` |
 | `POST` | `/api/me/payment-password/reset/verify` | `{ code }` | 校验验证码，返回 `{ resetToken }`（10 分钟有效） |
+| `GET` | `/api/me/payment-password/reset/campux/start` | — | 校园墙再验证：302 跳转到校园墙授权页（未配置时返回 `503 CAMPUX_NOT_CONFIGURED`）。回调会核对授权账号与当前登录账号一致，写入一次性验证记录后跳回 `/me/password?campux=1` |
+| `POST` | `/api/me/payment-password/reset/campux/claim` | — | 领取校园墙验证通过后的凭证，返回 `{ resetToken, expiresAt }`（5 分钟内一次性） |
 | `POST` | `/api/me/payment-password/reset/confirm` | `{ resetToken, password, confirm }` | 设置新密码；成功后发送提醒邮件，动态码全部失效 |
 | `POST` | `/api/me/payment-password/verify` | `{ password }` | 仅用于「修改敏感信息前」二次确认，返回 `{ ok: true }` |
+
+> 修改支付密码可任选邮箱验证码或校园墙再验证；两者最终都签发同样的 `resetToken`，再由 `reset/confirm` 设置新密码。
 
 > 支付密码校验统一走 `verifyPaymentPassword`：连续错 5 次锁定 30 分钟并邮件提醒，进行风控日志记录。
 
@@ -345,6 +349,7 @@ interface Announcement {
 | `GET` | `/api/admin/users?query&page&pageSize` | 用户列表：`{ items: AdminUser[], total, page, pageSize }`，按姓名/学号/邮箱搜索 |
 | `GET` | `/api/admin/users/growth?months=12` | `{ buckets: [{ key, label, count }] }` |
 | `GET` | `/api/admin/users/online` | 当前在线：`{ items: OnlineUser[], total, onlineWindowMinutes }`；在线 = 会话未过期且最近 5 分钟内有请求（`OnlineUser` 含 `id/displayName/avatarUrl/studentNoMasked/isMerchant/ip/userAgent/lastSeenAt/sessionCount`） |
+| `GET` | `/api/admin/users/logins?limit=8` | 授权登录情况：`{ total, recent: [{ id, displayName, avatarUrl, studentNoMasked, isMerchant, lastLoginAt }] }`；`total` 为至少成功登录过一次的用户数，`recent` 按最近登录时间倒序 |
 | `GET` | `/api/admin/users/:id` | `{ user: AdminUserDetail, orderCount, totalAmountCents, recentOrders }` |
 | `POST` | `/api/admin/users/:id/freeze` / `unfreeze` | 冻结/解冻（super/ops） |
 | `POST` | `/api/admin/users/:id/reset-card` | 重置绑卡（super/ops） |

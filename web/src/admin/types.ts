@@ -144,6 +144,22 @@ export interface OnlineUsersPayload {
   onlineWindowMinutes: number;
 }
 
+/** 授权登录成功过的用户（最近登录情况） */
+export interface AdminUserLogin {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  studentNoMasked: string | null;
+  isMerchant: boolean;
+  lastLoginAt: string;
+}
+
+/** GET /admin/users/logins */
+export interface AdminUserLoginsPayload {
+  total: number;
+  recent: AdminUserLogin[];
+}
+
 /* ---------------------------------------------------------------- 管理员 */
 
 /** 管理员管理列表行 */

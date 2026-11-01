@@ -403,6 +403,48 @@ export function adminUsersGrowth(months = 12) {
 /** 判定「在线」的活跃窗口（分钟）：会话未过期且最近这么多分钟内有请求。 */
 export const ONLINE_WINDOW_MINUTES = 5;
 
+export interface AdminUserLoginDto {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  studentNoMasked: string | null;
+  isMerchant: boolean;
+  lastLoginAt: string;
+}
+
+interface AdminLoginRow extends UserRow {
+  is_merchant: number;
+}
+
+/** 校园墙授权登录成功过的用户数，以及最近成功登录的用户（按最近登录时间倒序）。 */
+export function adminUserLogins(limit = 8) {
+  const total =
+    queryOne<{ total: number }>(
+      "SELECT COUNT(*) AS total FROM users WHERE last_login_at IS NOT NULL",
+    )?.total ?? 0;
+  const size = Math.min(Math.max(limit, 1), 50);
+  const rows = queryAll<AdminLoginRow>(
+    `SELECT u.*,
+      (SELECT COUNT(*) FROM merchants m WHERE m.user_id = u.id) AS is_merchant
+     FROM users u
+     WHERE u.last_login_at IS NOT NULL
+     ORDER BY u.last_login_at DESC
+     LIMIT ?`,
+    size,
+  );
+  return {
+    total,
+    recent: rows.map<AdminUserLoginDto>((row) => ({
+      id: row.id,
+      displayName: nameOf(row),
+      avatarUrl: row.avatar_url,
+      studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
+      isMerchant: row.is_merchant > 0,
+      lastLoginAt: String(row.last_login_at ?? ""),
+    })),
+  };
+}
+
 export interface AdminOnlineUserDto {
   id: string;
   displayName: string;

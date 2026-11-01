@@ -82,6 +82,17 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   created_at TEXT NOT NULL
 );
 
+-- 支付密码重置的身份验证凭证：校园墙授权验证通过后签发，5 分钟有效、一次性
+CREATE TABLE IF NOT EXISTS password_verifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  method TEXT NOT NULL,                       -- campux
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_password_verifications_user ON password_verifications(user_id, created_at);
+
 -- 管理员
 CREATE TABLE IF NOT EXISTS admins (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
