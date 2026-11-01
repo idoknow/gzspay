@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
+import { InlineQrScanner } from "../components/InlineQrScanner";
 import { PageHeader } from "../components/PageHeader";
 import { InlineError, Spinner } from "../components/Loading";
 import { Logo } from "../components/Logo";
 import { QrImage } from "../components/QrImage";
-import { QrScanner } from "../components/QrScanner";
 import { useToast } from "../components/Toast";
 import { createDynamicCode } from "../lib/api";
 import { formatCountdown } from "../lib/format";
@@ -87,6 +87,7 @@ export function DynamicCodePage(): ReactNode {
             <Logo size={34} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-text">动态收付款码</p>
+              <p className="mt-0.5 text-[11px] text-muted">可收款，也可付款</p>
             </div>
             <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-success" />
@@ -137,39 +138,54 @@ export function DynamicCodePage(): ReactNode {
           <div className="divider my-4" />
           <InlineError message={error} />
           <ul className="space-y-1.5 text-xs leading-relaxed text-muted">
-            <li>· 请让商家扫描此码向你发起收款，核对金额无误后再输入支付密码。</li>
+            <li>· 收款：他人扫此码可向你付款（收款方需已开通商家收款）。</li>
+            <li>· 付款：商家扫此码可向你发起收款，核对金额无误后在你自己的手机上输入支付密码。</li>
             <li>· 付款人密码只在自己手机上输入，不要把密码告诉任何人。</li>
             <li>· 资金通过第三方收款码流转，gzspay 不代收代付。</li>
           </ul>
         </section>
 
-        <button type="button" className="card flex w-full items-center gap-3 p-4 text-left" onClick={() => setScannerOpen(true)}>
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3M3 12h18"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-text">扫一扫</span>
-            <span className="mt-0.5 block text-xs text-muted">扫描他人的动态码或校园卡</span>
-          </span>
-          <span className="text-muted">›</span>
-        </button>
+        {scannerOpen ? (
+          <section className="card overflow-hidden p-0">
+            <InlineQrScanner
+              active={scannerOpen}
+              hint="将对方的收付款码或校园卡二维码放入框内，识别成功会自动继续"
+              onResult={handleScanned}
+            />
+            <div className="p-4">
+              <button
+                type="button"
+                className="btn btn-outline btn-block"
+                onClick={() => setScannerOpen(false)}
+              >
+                停止扫码
+              </button>
+            </div>
+          </section>
+        ) : (
+          <button
+            type="button"
+            className="card flex w-full items-center gap-3 p-4 text-left"
+            onClick={() => setScannerOpen(true)}
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3M3 12h18"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-text">扫一扫</span>
+              <span className="mt-0.5 block text-xs text-muted">扫对方的收付款码或校园卡，直接付款给对方</span>
+            </span>
+            <span className="text-muted">›</span>
+          </button>
+        )}
       </main>
-
-      <QrScanner
-        open={scannerOpen}
-        title="扫一扫"
-        manualLabel="动态码内容"
-        manualPlaceholder="例如 gzspay:dynamic:abc123"
-        onResult={handleScanned}
-        onClose={() => setScannerOpen(false)}
-      />
 
       <BottomNav />
     </div>
