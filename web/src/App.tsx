@@ -3,35 +3,56 @@
  *（守卫 / 底部导航在页面内 / 全局收款请求弹窗 / 懒加载管理后台）。
  */
 
-import { createContext, lazy, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { LoadingBlock, PageLoading } from "./components/Loading";
 import { PaymentRequestDialog } from "./components/PaymentRequestDialog";
 import { getSetupStatus } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/session";
 import type { SessionResponse, SetupStatus } from "./lib/types";
-import { AboutPage } from "./pages/AboutPage";
-import { AnnouncementDetailPage } from "./pages/AnnouncementDetailPage";
-import { AnnouncementsPage } from "./pages/AnnouncementsPage";
 import { BootPage } from "./pages/BootPage";
-import { ChangePasswordPage } from "./pages/ChangePasswordPage";
-import { DevicesPage } from "./pages/DevicesPage";
-import { DynamicCodePage } from "./pages/DynamicCodePage";
-import { GuidePage } from "./pages/GuidePage";
 import { LoginPage } from "./pages/LoginPage";
-import { MePage } from "./pages/MePage";
-import { MerchantPage } from "./pages/MerchantPage";
-import { MerchantRegisterPage } from "./pages/MerchantRegisterPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
-import { OnboardingPage } from "./pages/OnboardingPage";
-import { OrderDetailPage } from "./pages/OrderDetailPage";
-import { PayPage } from "./pages/PayPage";
-import { ProductsPage } from "./pages/ProductsPage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { StatsPage } from "./pages/StatsPage";
 import { SystemNotReadyPage } from "./pages/SystemNotReadyPage";
-import { TradesPage } from "./pages/TradesPage";
+
+/**
+ * 页面按路由懒加载：首屏只加载启动、登录与错误兜底页，
+ * 交易统计、扫码、商家等较重的页面进入对应路由时再下载。
+ */
+function lazyPage(load: () => Promise<Record<string, unknown>>, exportName: string): ComponentType {
+  return lazy(async () => {
+    const module = await load();
+    const component = module[exportName] as ComponentType | undefined;
+    if (!component) {
+      throw new Error(`页面模块缺少导出：${exportName}`);
+    }
+    return { default: component };
+  });
+}
+
+const AboutPage = lazyPage(() => import("./pages/AboutPage"), "AboutPage");
+const AnnouncementDetailPage = lazyPage(() => import("./pages/AnnouncementDetailPage"), "AnnouncementDetailPage");
+const AnnouncementsPage = lazyPage(() => import("./pages/AnnouncementsPage"), "AnnouncementsPage");
+const ChangePasswordPage = lazyPage(() => import("./pages/ChangePasswordPage"), "ChangePasswordPage");
+const DevicesPage = lazyPage(() => import("./pages/DevicesPage"), "DevicesPage");
+const DynamicCodePage = lazyPage(() => import("./pages/DynamicCodePage"), "DynamicCodePage");
+const GuidePage = lazyPage(() => import("./pages/GuidePage"), "GuidePage");
+const MePage = lazyPage(() => import("./pages/MePage"), "MePage");
+const MerchantPage = lazyPage(() => import("./pages/MerchantPage"), "MerchantPage");
+const MerchantRegisterPage = lazyPage(() => import("./pages/MerchantRegisterPage"), "MerchantRegisterPage");
+const OnboardingPage = lazyPage(() => import("./pages/OnboardingPage"), "OnboardingPage");
+const OrderDetailPage = lazyPage(() => import("./pages/OrderDetailPage"), "OrderDetailPage");
+const PayPage = lazyPage(() => import("./pages/PayPage"), "PayPage");
+const ProductsPage = lazyPage(() => import("./pages/ProductsPage"), "ProductsPage");
+const ProfilePage = lazyPage(() => import("./pages/ProfilePage"), "ProfilePage");
+const SettingsPage = lazyPage(() => import("./pages/SettingsPage"), "SettingsPage");
+const StatsPage = lazyPage(() => import("./pages/StatsPage"), "StatsPage");
+const TradesPage = lazyPage(() => import("./pages/TradesPage"), "TradesPage");
+
+/** 懒加载页面的统一加载态 */
+function PageSuspense({ children }: { children: ReactNode }): ReactNode {
+  return <Suspense fallback={<PageLoading />}>{children}</Suspense>;
+}
 
 /** 管理后台由另一位负责人实现，懒加载避免进入手机端主包 */
 const AdminApp = lazy(() => import("./admin/AdminApp.js"));
@@ -69,7 +90,9 @@ function BusinessLayout(): ReactNode {
   }
   return (
     <>
-      <Outlet />
+      <PageSuspense>
+        <Outlet />
+      </PageSuspense>
       <PaymentRequestDialog />
     </>
   );
@@ -121,12 +144,21 @@ function AdminRoute(): ReactNode {
 const router = createBrowserRouter([
   { path: "/", element: <HomeRoute /> },
   { path: "/login", element: <LoginPage /> },
-  { path: "/guide", element: <GuidePage /> },
+  {
+    path: "/guide",
+    element: (
+      <PageSuspense>
+        <GuidePage />
+      </PageSuspense>
+    ),
+  },
   {
     path: "/onboarding",
     element: (
       <OnboardingGate>
-        <OnboardingPage />
+        <PageSuspense>
+          <OnboardingPage />
+        </PageSuspense>
       </OnboardingGate>
     ),
   },
