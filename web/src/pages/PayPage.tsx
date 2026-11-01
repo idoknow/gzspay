@@ -13,7 +13,7 @@ import { Logo } from "../components/Logo";
 import { MoneyText } from "../components/MoneyText";
 import { PaymentPasswordDialog } from "../components/PaymentPasswordDialog";
 import { ProductPicker, selectedToItems, sumProductCents } from "../components/ProductPicker";
-import { QrScanner } from "../components/QrScanner";
+import { InlineQrScanner } from "../components/InlineQrScanner";
 import { useToast } from "../components/Toast";
 import {
   createOrder,
@@ -571,8 +571,50 @@ export function PayPage(): ReactNode {
 
   const scanPanel = (kind: Mode): ReactNode => {
     if (kind === "collect" && !me?.isMerchant) return collectRegisterPanel;
-    return (
-    <div className="space-y-4">
+
+    /** 扫码中：摄像头画面直接嵌在页面里，中间留出取景框 */
+    const scanningCard = (
+      <section className="card overflow-hidden p-0">
+        <div className="relative">
+          <InlineQrScanner
+            active={scannerOpen}
+            hint={
+              kind === "pay"
+                ? "将商家校园卡二维码放入框内，识别成功会自动继续"
+                : "将客户校园卡二维码放入框内，识别成功会自动继续"
+            }
+            onResult={(raw) => {
+              void handleScanned(raw).catch((cause: unknown) => handleScanError(cause));
+            }}
+          />
+          {scanning ? (
+            <div className="absolute inset-0 grid place-items-center bg-black/50">
+              <span className="flex items-center gap-2 text-sm font-medium text-white">
+                <Spinner size={16} /> 正在识别…
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <div className="space-y-2 p-4">
+          <button type="button" className="btn btn-outline btn-block" onClick={() => setScannerOpen(false)}>
+            停止扫码
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-block"
+            disabled={scanning}
+            onClick={() => {
+              setScannerOpen(false);
+              setManualOpen(true);
+            }}
+          >
+            手动输入校园卡号
+          </button>
+        </div>
+      </section>
+    );
+
+    const introCard = (
       <section className="card overflow-hidden p-0">
         <div className="bg-surface-2 px-4 py-8 text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-surface text-brand shadow-sm">
@@ -595,24 +637,29 @@ export function PayPage(): ReactNode {
             onClick={() => setScannerOpen(true)}
           >
             {scanning ? <Spinner size={16} /> : <ScanIcon size={20} />}
-            {scanning ? "识别中…" : "打开摄像头扫码"}
+            {scanning ? "识别中…" : "开始扫码"}
           </button>
           <button type="button" className="btn btn-outline btn-block" disabled={scanning} onClick={() => setManualOpen(true)}>
             手动输入校园卡号
           </button>
         </div>
       </section>
-      <button type="button" className="card flex w-full items-center gap-3 p-4 text-left" onClick={() => navigate("/dynamic-code")}>
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent">
-          <CardQrIcon size={24} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-text">我的收付款码</span>
-          <span className="mt-0.5 block text-xs text-muted">出示动态收款码，对方扫码即可付款</span>
-        </span>
-        <span className="text-muted">›</span>
-      </button>
-    </div>
+    );
+
+    return (
+      <div className="space-y-4">
+        {scannerOpen ? scanningCard : introCard}
+        <button type="button" className="card flex w-full items-center gap-3 p-4 text-left" onClick={() => navigate("/dynamic-code")}>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+            <CardQrIcon size={24} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-text">我的收付款码</span>
+            <span className="mt-0.5 block text-xs text-muted">出示动态收款码，对方扫码即可付款</span>
+          </span>
+          <span className="text-muted">›</span>
+        </button>
+      </div>
     );
   };
 
@@ -932,18 +979,6 @@ export function PayPage(): ReactNode {
           </>
         )}
       </main>
-
-      <QrScanner
-        open={scannerOpen}
-        title={mode === "pay" ? "扫描商家校园卡" : "扫描客户校园卡"}
-        hint="将校园卡二维码放入取景框内，即可自动识别"
-        manualLabel={mode === "pay" ? "商家校园卡号" : "客户校园卡号"}
-        manualPlaceholder="例如 2023123456"
-        onResult={(raw) => {
-          void handleScanned(raw).catch((cause: unknown) => handleScanError(cause));
-        }}
-        onClose={() => setScannerOpen(false)}
-      />
 
       <Dialog
         open={manualOpen}
