@@ -6,6 +6,7 @@ import { writeSystemError } from "./audit.js";
 import { AppError, errors } from "./errors.js";
 import { readSession } from "./session.js";
 import { isCampuxReady, isSystemReady } from "./runtime-config.js";
+import { validationError } from "./validate.js";
 import type { AdminRole, AdminRow, AuthContext, SessionRow } from "./types.js";
 
 /** 包装异步路由，把异常交给错误中间件 */
@@ -216,6 +217,14 @@ export function notFoundHandler(_req: Request, res: Response): void {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "接口不存在" } });
 }
 
+/** 读取中间件抛出的 HTTP 状态码（如 express.json 的 JSON 解析错误、请求体过大） */
+function errorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const record = error as { status?: unknown; statusCode?: unknown };
+  const value = record.status ?? record.statusCode;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 export function errorHandler(
   error: unknown,
   req: Request,
@@ -223,22 +232,36 @@ export function errorHandler(
   _next: NextFunction,
 ): void {
   if (error instanceof ZodError) {
-    const issues = error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-    }));
-    res.status(400).json({
+    // 统一转成中文提示；生产环境不返回字段路径等内部细节
+    const validation = validationError(error.issues);
+    res.status(validation.status).json({
       error: {
-        code: "VALIDATION_FAILED",
-        message: issues[0]?.message ?? "参数不合法",
-        details: { issues },
+        code: validation.code,
+        message: validation.message,
+        ...(validation.details !== undefined ? { details: validation.details } : {}),
       },
     });
     return;
   }
   if (error instanceof AppError) {
     res.status(error.status).json({
-      error: { code: error.code, message: error.message, details: error.details },
+      error: {
+        code: error.code,
+        message: error.message,
+        // 细节（剩余次数、字段路径等）只在非生产环境返回
+        ...(!config.isProduction && error.details !== undefined ? { details: error.details } : {}),
+      },
+    });
+    return;
+  }
+  const status = errorStatus(error);
+  if (status !== null && status >= 400 && status < 500) {
+    // express.json 等中间件抛出的 4xx（JSON 格式错误、请求体过大等）
+    res.status(status).json({
+      error: {
+        code: "BAD_REQUEST",
+        message: status === 413 ? "上传的内容过大" : "请求内容格式不正确，请刷新后重试",
+      },
     });
     return;
   }

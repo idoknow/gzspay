@@ -26,7 +26,8 @@
 | `UNAUTHENTICATED` | 401 | 未登录或会话过期 |
 | `FORBIDDEN` | 403 | 无权限 |
 | `CSRF_REJECTED` | 403 | 缺少请求头或来源不合法 |
-| `VALIDATION_FAILED` | 400 | 参数校验失败（含 `details`） |
+| `VALIDATION_FAILED` | 400 | 参数校验失败（`message` 为可直接展示的中文提示；开发/测试环境额外返回 `details.issues`，生产环境不返回字段路径） |
+| `BAD_REQUEST` | 400 | 请求体不是合法 JSON、请求体过大等，`message` 为中文提示 |
 | `NOT_FOUND` | 404 | 资源不存在 |
 | `CONFLICT` | 409 | 唯一性冲突（学号/卡号/邮箱） |
 | `PAYMENT_PASSWORD_WRONG` | 400 | 支付密码错误（含剩余次数 `details.remaining`） |

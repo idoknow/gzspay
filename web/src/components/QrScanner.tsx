@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock, useWatchLayout } from "../lib/hooks";
+import { errorText } from "../lib/http";
 import {
   cameraErrorMessage,
   decodeQrFromImageFile,
@@ -135,7 +136,7 @@ export function QrScanner({
       handledRef.current = true;
       onResult(raw);
     } catch (reason: unknown) {
-      setNotice(reason instanceof Error ? reason.message : "图片识别失败，请重试");
+      setNotice(errorText(reason, "图片识别失败，请换一张更清晰的照片重试"));
     }
   };
 

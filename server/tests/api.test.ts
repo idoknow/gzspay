@@ -790,3 +790,24 @@ describe("安全防护", () => {
     expect(response.body.error.message).toContain("PNG 或 JPG");
   });
 });
+describe("错误提示", () => {
+  it("参数校验失败返回中文提示，不暴露字段名与英文校验文案", async () => {
+    const { session } = await login("error-tips", "提示用户");
+    const response = await agentWith(session).post("/api/orders").send({}).expect(400);
+    expect(response.body.error.code).toBe("VALIDATION_FAILED");
+    const message = String(response.body.error.message);
+    expect(message).toMatch(/[\u4e00-\u9fa5]/);
+    expect(message).not.toMatch(/Required|Expected|received|merchantUserId|paymentPassword/);
+  });
+
+  it("请求体不是合法 JSON 时给出可读提示", async () => {
+    const { session } = await login("error-json", "提示解析");
+    const response = await agentWith(session)
+      .post("/api/orders")
+      .set("Content-Type", "application/json")
+      .send('{"merchantUserId":');
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("BAD_REQUEST");
+    expect(String(response.body.error.message)).toContain("请求内容格式不正确");
+  });
+});
