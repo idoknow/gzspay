@@ -1,11 +1,12 @@
 /** 关于：版本号、更新日志、隐私协议与服务条款。 */
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { PageHeader } from "../components/PageHeader";
 import { getAbout } from "../lib/api";
+import { cn } from "../lib/format";
 import { useAsync } from "../lib/hooks";
 import { Markdown } from "../lib/markdown";
 
@@ -40,11 +41,46 @@ function ExternalIcon(): ReactNode {
   );
 }
 
+function ChevronIcon({ open }: { open: boolean }): ReactNode {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={cn("shrink-0 text-muted transition-transform duration-200", open && "rotate-180")}
+    >
+      <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function AboutPage(): ReactNode {
   const { data, loading, error, reload } = useAsync(() => getAbout(), []);
   const [doc, setDoc] = useState<DocKey>(null);
+  const [openEntries, setOpenEntries] = useState<string[]>([]);
 
   const version = data?.version ?? "";
+
+  // 默认只展开最新一个版本，其余收起
+  useEffect(() => {
+    const first = data?.changelog[0];
+    setOpenEntries(first ? [`${first.version}-${first.date}`] : []);
+  }, [data]);
+
+  const allEntriesOpen = data ? data.changelog.length > 0 && openEntries.length === data.changelog.length : false;
+
+  function toggleEntry(id: string): void {
+    setOpenEntries((previous) =>
+      previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id],
+    );
+  }
+
+  function toggleAllEntries(): void {
+    if (!data) return;
+    setOpenEntries(allEntriesOpen ? [] : data.changelog.map((entry) => `${entry.version}-${entry.date}`));
+  }
 
   return (
     <div className="bg-app min-h-[100dvh]">
@@ -65,14 +101,27 @@ export function AboutPage(): ReactNode {
         </section>
 
         <section className="card p-4">
-          <h2 className="text-sm font-semibold text-text">更新日志</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-text">更新日志</h2>
+            {data && data.changelog.length > 0 ? (
+              <button
+                type="button"
+                className="text-[11px] font-medium text-brand transition active:opacity-70"
+                onClick={toggleAllEntries}
+              >
+                {allEntriesOpen ? "全部收起" : "全部展开"}
+              </button>
+            ) : null}
+          </div>
           {loading ? (
             <LoadingBlock text="加载中…" />
           ) : error ? (
             <ErrorBlock message={error} onRetry={reload} compact />
           ) : data && data.changelog.length > 0 ? (
-            <ul className="mt-2 space-y-3">
+            <ul className="mt-2 space-y-2">
               {data.changelog.map((entry) => {
+                const id = `${entry.version}-${entry.date}`;
+                const open = openEntries.includes(id);
                 const unreleased = entry.version === "未发布";
                 // 未发布的记录按「新增 / 变更 / 修复」分组展示，组内最新写的排在最前
                 const groups =
@@ -83,33 +132,42 @@ export function AboutPage(): ReactNode {
                       }))
                     : [{ title: "", items: entry.items }];
                 return (
-                  <li key={`${entry.version}-${entry.date}`}>
-                    <div className="flex items-center gap-2">
+                  <li key={id} className="overflow-hidden rounded-2xl border border-line bg-surface-2/50">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition active:bg-surface-2"
+                      aria-expanded={open}
+                      onClick={() => toggleEntry(id)}
+                    >
                       <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand">
                         {unreleased ? entry.version : `v${entry.version}`}
                       </span>
                       {entry.date ? <span className="text-[11px] text-muted">{entry.date}</span> : null}
-                    </div>
-                    <div className="mt-1.5 space-y-2">
-                      {groups.map((group) => (
-                        <div key={group.title || entry.version}>
-                          {group.title ? (
-                            <p className="text-[11px] font-medium text-muted">{group.title}</p>
-                          ) : null}
-                          <ul className="mt-1 space-y-1 pl-1">
-                            {group.items.map((item, index) => (
-                              <li
-                                key={`${group.title}-${index}`}
-                                className="flex gap-1.5 text-xs leading-relaxed text-text"
-                              >
-                                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted" />
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
+                      <span className="ml-auto text-[11px] text-muted">{entry.items.length} 条</span>
+                      <ChevronIcon open={open} />
+                    </button>
+                    {open ? (
+                      <div className="space-y-2 px-3 pb-3">
+                        {groups.map((group) => (
+                          <div key={group.title || entry.version}>
+                            {group.title ? (
+                              <p className="text-[11px] font-medium text-muted">{group.title}</p>
+                            ) : null}
+                            <ul className="mt-1 space-y-1 pl-1">
+                              {group.items.map((item, index) => (
+                                <li
+                                  key={`${group.title}-${index}`}
+                                  className="flex gap-1.5 text-xs leading-relaxed text-text"
+                                >
+                                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted" />
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}
