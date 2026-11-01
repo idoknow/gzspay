@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EyeIcon } from "../components/EyeIcon";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
@@ -192,6 +193,8 @@ export function MePage(): ReactNode {
   const watch = useWatchLayout();
   const { me, logout } = useAuth();
   const [showCardNo, setShowCardNo] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const accountMenu: MenuItem[] = [
     { label: "个人信息", description: "姓名、学号、邮箱、校园卡", path: "/me/profile", icon: <UserIcon /> },
@@ -204,10 +207,12 @@ export function MePage(): ReactNode {
   ];
 
   const handleLogout = async (): Promise<void> => {
+    setLoggingOut(true);
     try {
       await logout();
     } catch (cause) {
       toast.error("退出登录失败，请重试");
+      setLoggingOut(false);
       void cause;
     }
   };
@@ -306,7 +311,7 @@ export function MePage(): ReactNode {
         <button
           type="button"
           className="card-interactive flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3.5 text-sm font-semibold text-danger shadow-[var(--shadow-xs)] active:bg-danger/5 watch:rounded-xl watch:py-3"
-          onClick={() => void handleLogout()}
+          onClick={() => setLogoutOpen(true)}
         >
           <LogoutIcon />
           退出登录
@@ -314,6 +319,23 @@ export function MePage(): ReactNode {
       </main>
 
       <BottomNav />
+
+      <ConfirmDialog
+        open={logoutOpen}
+        title="退出登录"
+        description={
+          me?.displayName
+            ? `退出后需要重新用校园墙账号登录才能继续使用。当前账号：${me.displayName}。`
+            : "退出后需要重新用校园墙账号登录才能继续使用。"
+        }
+        confirmText="退出登录"
+        danger
+        loading={loggingOut}
+        onConfirm={() => void handleLogout()}
+        onClose={() => {
+          if (!loggingOut) setLogoutOpen(false);
+        }}
+      />
     </div>
   );
 }
