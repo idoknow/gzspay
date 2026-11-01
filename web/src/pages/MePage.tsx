@@ -1,4 +1,4 @@
-/** 我的：头部个人信息 + 我的收付款码快捷入口 + 功能列表。 */
+/** 我的：个人信息头图 + 三个快捷入口 + 分组功能列表。 */
 
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,18 +12,40 @@ import { formatFriendlyTime } from "../lib/format";
 import { useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 
+type Tone = "neutral" | "brand" | "accent";
+
 interface MenuItem {
   label: string;
   description?: string;
   path: string;
   icon: ReactNode;
+  tone?: Tone;
 }
 
-function MenuIcon({ children }: { children: ReactNode }): ReactNode {
+const TONE_CLASS: Record<Tone, string> = {
+  neutral: "bg-surface-2 text-text ring-line/70",
+  brand: "bg-brand-soft text-brand ring-brand/20",
+  accent: "bg-accent-soft text-warning ring-accent/30",
+};
+
+function MenuIcon({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }): ReactNode {
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-surface-2 text-text ring-1 ring-line/70 watch:h-8 watch:w-8 watch:rounded-xl">
+    <span
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 watch:h-8 watch:w-8 watch:rounded-xl ${TONE_CLASS[tone]}`}
+    >
       {children}
     </span>
+  );
+}
+
+function QrIcon(): ReactNode {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="14" y="3" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="3" y="14" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M14 14h2.5v2.5H14zM18.5 18.5H21V21h-2.5z" fill="currentColor" />
+    </svg>
   );
 }
 
@@ -91,11 +113,76 @@ function InfoIcon(): ReactNode {
   );
 }
 
+function LogoutIcon(): ReactNode {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M14 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7M17 8.5 20.5 12 17 15.5M10.5 12h10"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function ChevronRightIcon(): ReactNode {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** 快捷入口磁贴：图标 + 主标题 + 副标题 */
+function QuickTile({
+  icon,
+  label,
+  hint,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  hint: string;
+  onClick: () => void;
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      className="card-interactive flex flex-col items-start gap-2 rounded-2xl border border-line bg-surface p-3 text-left active:bg-surface-2 watch:gap-1.5 watch:rounded-xl watch:p-2.5"
+      onClick={onClick}
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-2 text-text ring-1 ring-line/60 watch:h-8 watch:w-8">
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] font-semibold text-text watch:text-[12px]">{label}</span>
+        <span className="mt-0.5 block truncate text-[11px] text-muted watch:text-[10px]">{hint}</span>
+      </span>
+    </button>
+  );
+}
+
+function MenuRow({ item, divider }: { item: MenuItem; divider: boolean }): ReactNode {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      className={`group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2 watch:gap-2.5 watch:px-3 watch:py-3 ${
+        divider ? "border-t border-line/60" : ""
+      }`}
+      onClick={() => navigate(item.path)}
+    >
+      <MenuIcon tone={item.tone}>{item.icon}</MenuIcon>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-text">{item.label}</span>
+        {item.description ? <span className="mt-0.5 block truncate text-xs text-muted">{item.description}</span> : null}
+      </span>
+      <span className="text-muted/50 transition-transform group-active:translate-x-0.5">
+        <ChevronRightIcon />
+      </span>
+    </button>
   );
 }
 
@@ -106,11 +193,12 @@ export function MePage(): ReactNode {
   const { me, logout } = useAuth();
   const [showCardNo, setShowCardNo] = useState(false);
 
-  const menu: MenuItem[] = [
-    { label: "交易统计", description: "收支汇总与趋势", path: "/me/stats", icon: <ChartIcon /> },
-    { label: "商家", description: me?.isMerchant ? "商家中心与商品" : "注册成为商家", path: "/merchant", icon: <ShopIcon /> },
+  const accountMenu: MenuItem[] = [
     { label: "个人信息", description: "姓名、学号、邮箱、校园卡", path: "/me/profile", icon: <UserIcon /> },
-    { label: "修改密码", path: "/me/password", icon: <LockIcon /> },
+    { label: "修改密码", description: "支付密码与登录安全", path: "/me/password", icon: <LockIcon /> },
+  ];
+
+  const appMenu: MenuItem[] = [
     { label: "设置", description: "外观与邮件通知", path: "/me/settings", icon: <SettingsIcon /> },
     { label: "关于", description: "版本、更新日志与协议", path: "/me/about", icon: <InfoIcon /> },
   ];
@@ -128,27 +216,10 @@ export function MePage(): ReactNode {
     <div className="bg-app min-h-[100dvh]">
       <PageHeader
         title="我的"
-        right={
-          <>
-            <AnnouncementBell />
-            <button
-              type="button"
-              className="btn btn-sm btn-outline gap-1.5"
-              onClick={() => navigate("/dynamic-code")}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="3" y="3" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
-                <rect x="14" y="3" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
-                <rect x="3" y="14" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M14 14h2.5v2.5H14zM18.5 18.5H21V21h-2.5z" fill="currentColor" />
-              </svg>
-              我的收付款码
-            </button>
-          </>
-        }
+        right={<AnnouncementBell />}
       />
 
-      <main className="page page-with-nav space-y-4 pt-4">
+      <main className="page page-with-nav space-y-4 pt-4 watch:space-y-3">
         {me ? (
           <section className="hero-gradient relative overflow-hidden rounded-3xl p-5 watch:rounded-2xl watch:p-3.5">
             <div
@@ -167,30 +238,30 @@ export function MePage(): ReactNode {
                 className="ring-1 ring-[color:var(--hero-ring)] shadow-[0_10px_24px_-14px_rgba(0,0,0,0.55)]"
               />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h1 className="truncate text-lg font-bold text-[color:var(--hero-fg)] watch:text-[15px]">
-                    {me.displayName}
-                  </h1>
+                <h1 className="truncate text-lg font-bold text-[color:var(--hero-fg)] watch:text-[15px]">
+                  {me.displayName}
+                </h1>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 watch:mt-1.5 watch:gap-1">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)] watch:px-2 watch:py-0.5 watch:text-[10px]">
+                    学号 {me.studentNo || "未填写"}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)] watch:px-2 watch:py-0.5 watch:text-[10px]">
+                    卡号 {me.cardNoMasked ? (showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked) : "未绑定"}
+                    {me.cardNoMasked ? (
+                      <button
+                        type="button"
+                        className="-mr-0.5 grid h-5 w-5 place-items-center rounded-full text-[color:var(--hero-fg)] transition active:scale-90"
+                        aria-label={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
+                        aria-pressed={showCardNo}
+                        title={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
+                        onClick={() => setShowCardNo((value) => !value)}
+                      >
+                        <EyeIcon off={showCardNo} size={13} />
+                      </button>
+                    ) : null}
+                  </span>
                 </div>
-                <p className="mt-1 text-xs text-[color:var(--hero-fg-soft)]">学号 {me.studentNo || "未填写"}</p>
-                {me.cardNoMasked ? (
-                  <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[color:var(--hero-fg-soft)]">
-                    <span>卡号 {showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked}</span>
-                    <button
-                      type="button"
-                      className="grid h-6 w-6 place-items-center rounded-full text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)] transition active:scale-90 watch:h-5 watch:w-5"
-                      aria-label={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
-                      aria-pressed={showCardNo}
-                      title={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
-                      onClick={() => setShowCardNo((value) => !value)}
-                    >
-                      <EyeIcon off={showCardNo} size={13} />
-                    </button>
-                  </div>
-                ) : (
-                  <p className="mt-0.5 text-[11px] text-[color:var(--hero-fg-soft)]">卡号 未绑定</p>
-                )}
-                <p className="mt-0.5 text-[11px] text-[color:var(--hero-fg-faint)]">
+                <p className="mt-2 text-[11px] text-[color:var(--hero-fg-faint)] watch:mt-1.5 watch:text-[10px]">
                   加入于 {formatFriendlyTime(me.createdAt)}
                 </p>
               </div>
@@ -203,36 +274,43 @@ export function MePage(): ReactNode {
           </section>
         ) : null}
 
-        <section className="card overflow-hidden p-0">
-          {menu.map((item, index) => (
-            <button
-              key={item.path}
-              type="button"
-              className={`group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2 watch:gap-2.5 watch:px-3 watch:py-2.5 ${
-                index > 0 ? "border-t border-line/70" : ""
-              }`}
-              onClick={() => navigate(item.path)}
-            >
-              <MenuIcon>{item.icon}</MenuIcon>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-text">{item.label}</span>
-                {item.description ? <span className="mt-0.5 block text-xs text-muted">{item.description}</span> : null}
-              </span>
-              <span className="text-muted/60 transition-transform group-active:translate-x-0.5">
-                <ChevronRightIcon />
-              </span>
-            </button>
-          ))}
+        <section className="grid grid-cols-3 gap-2.5 watch:gap-2">
+          <QuickTile icon={<QrIcon />} label="收付款码" hint="动态二维码" onClick={() => navigate("/dynamic-code")} />
+          <QuickTile icon={<ChartIcon />} label="交易统计" hint="收支与趋势" onClick={() => navigate("/me/stats")} />
+          <QuickTile
+            icon={<ShopIcon />}
+            label={me?.isMerchant ? "商家中心" : "成为商家"}
+            hint={me?.isMerchant ? "收款与商品" : "开通收款"}
+            onClick={() => navigate("/merchant")}
+          />
+        </section>
+
+        <section>
+          <h2 className="section-title">账户</h2>
+          <div className="card overflow-hidden p-0">
+            {accountMenu.map((item, index) => (
+              <MenuRow key={item.path} item={item} divider={index > 0} />
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="section-title">应用</h2>
+          <div className="card overflow-hidden p-0">
+            {appMenu.map((item, index) => (
+              <MenuRow key={item.path} item={item} divider={index > 0} />
+            ))}
+          </div>
         </section>
 
         <button
           type="button"
-          className="btn btn-block border border-line bg-surface text-[15px] font-semibold text-danger shadow-[var(--shadow-xs)]"
+          className="card-interactive flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3.5 text-sm font-semibold text-danger shadow-[var(--shadow-xs)] active:bg-danger/5 watch:rounded-xl watch:py-3"
           onClick={() => void handleLogout()}
         >
+          <LogoutIcon />
           退出登录
         </button>
-
       </main>
 
       <BottomNav />
