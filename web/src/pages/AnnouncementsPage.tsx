@@ -2,7 +2,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { AnnouncementTags } from "../components/AnnouncementTags";
+import { AnnouncementTags, PinIcon } from "../components/AnnouncementTags";
 import { BottomNav } from "../components/BottomNav";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
@@ -47,13 +47,25 @@ function wasUpdated(item: Announcement): boolean {
   return updated !== published;
 }
 
-function AnnouncementCard({ item, onClick }: { item: Announcement; onClick: () => void }): ReactNode {
+function AnnouncementCard({
+  item,
+  onClick,
+  showPinnedTag = true,
+}: {
+  item: Announcement;
+  onClick: () => void;
+  /** 置顶分组里的卡片不再重复显示「置顶」标签，避免与分组标题重复 */
+  showPinnedTag?: boolean;
+}): ReactNode {
   const summary = plainSummary(item.content);
   return (
     <button
       type="button"
       onClick={onClick}
-      className="card card-interactive block w-full px-4 py-3.5 text-left watch:rounded-2xl watch:px-3 watch:py-2.5"
+      className={cn(
+        "card card-interactive block w-full px-4 py-3.5 text-left watch:rounded-2xl watch:px-3 watch:py-2.5",
+        item.pinned && "card-pinned",
+      )}
     >
       <div className="flex items-start gap-2.5 watch:gap-2">
         {/* 未读实心圆点；已读留白保持左侧对齐 */}
@@ -70,7 +82,7 @@ function AnnouncementCard({ item, onClick }: { item: Announcement; onClick: () =
             >
               {item.title}
             </span>
-            <AnnouncementTags pinned={item.pinned} level={item.level} />
+            <AnnouncementTags pinned={showPinnedTag && item.pinned} level={item.level} />
           </span>
           {summary ? (
             <span className="mt-1 line-clamp-2 block text-[12.5px] leading-relaxed text-muted watch:mt-0.5 watch:text-[11.5px]">
@@ -91,21 +103,29 @@ function AnnouncementGroup({
   title,
   items,
   onOpen,
+  pinned = false,
 }: {
   title: string;
   items: Announcement[];
   onOpen: (id: string) => void;
+  pinned?: boolean;
 }): ReactNode {
   if (items.length === 0) return null;
   return (
     <section>
-      <h2 className="section-title">
+      <h2 className={cn("section-title", pinned && "section-title-pinned")}>
         {title}
         <span className="font-normal text-muted/70">{items.length} 条</span>
+        {pinned ? <PinIcon className="h-3.5 w-3.5 text-warning watch:h-3 watch:w-3" /> : null}
       </h2>
       <div className="space-y-2.5 watch:space-y-2">
         {items.map((item) => (
-          <AnnouncementCard key={item.id} item={item} onClick={() => onOpen(item.id)} />
+          <AnnouncementCard
+            key={item.id}
+            item={item}
+            onClick={() => onOpen(item.id)}
+            showPinnedTag={!pinned}
+          />
         ))}
       </div>
     </section>
@@ -116,12 +136,16 @@ export function AnnouncementsPage(): ReactNode {
   const navigate = useNavigate();
   const { data, loading, error, reload } = useAsync(() => getAnnouncements(), []);
 
-  const { unread, read, total, unreadCount } = useMemo(() => {
+  const { pinned, unread, read, total, pinnedCount, unreadCount } = useMemo(() => {
     const items = sortAnnouncements(data?.items ?? []);
+    const pinnedItems = items.filter((item) => item.pinned);
+    const others = items.filter((item) => !item.pinned);
     return {
-      unread: items.filter((item) => !item.read),
-      read: items.filter((item) => item.read),
+      pinned: pinnedItems,
+      unread: others.filter((item) => !item.read),
+      read: others.filter((item) => item.read),
       total: items.length,
+      pinnedCount: pinnedItems.length,
       // 未读条数以服务端为准，缺失时退回本地分组长度
       unreadCount: data?.unreadCount ?? items.filter((item) => !item.read).length,
     };
@@ -146,9 +170,11 @@ export function AnnouncementsPage(): ReactNode {
           <>
             <p className="px-1 text-xs text-muted watch:text-[11px]">
               共 {total} 条
+              {pinnedCount > 0 ? ` · ${pinnedCount} 条置顶` : ""}
               {unreadCount > 0 ? ` · ${unreadCount} 条未读` : " · 全部已读"}
             </p>
 
+            <AnnouncementGroup title="置顶" items={pinned} onOpen={openDetail} pinned />
             <AnnouncementGroup title="未读" items={unread} onOpen={openDetail} />
             <AnnouncementGroup title="已读" items={read} onOpen={openDetail} />
 

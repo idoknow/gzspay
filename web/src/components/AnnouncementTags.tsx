@@ -11,6 +11,25 @@ const LEVEL_CLASS: Record<AnnouncementLevel, string> = {
   warning: "bg-danger-soft text-danger",
 };
 
+/** 大头针图标：置顶标签与置顶分组标题共用 */
+export function PinIcon({ className }: { className?: string }): ReactNode {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 21c3.6-3.4 6-6.6 6-9.7A6 6 0 0 0 6 11.3C6 14.4 8.4 17.6 12 21Z" />
+      <circle cx="12" cy="11" r="2.2" />
+    </svg>
+  );
+}
+
 function Tag({ children, className }: { children: ReactNode; className?: string }): ReactNode {
   return (
     <span
@@ -36,7 +55,12 @@ export function AnnouncementTags({ pinned, level, className }: AnnouncementTagsP
   if (!pinned && !showLevel) return null;
   return (
     <span className={cn("inline-flex shrink-0 items-center gap-1", className)}>
-      {pinned ? <Tag className="bg-brand-soft text-brand">置顶</Tag> : null}
+      {pinned ? (
+        <Tag className="announcement-pin-tag gap-1 pr-2">
+          <PinIcon className="h-2.5 w-2.5 watch:h-2 watch:w-2" />
+          置顶
+        </Tag>
+      ) : null}
       {showLevel ? <Tag className={LEVEL_CLASS[level]}>{ANNOUNCEMENT_LEVEL_LABELS[level]}</Tag> : null}
     </span>
   );

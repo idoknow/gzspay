@@ -304,6 +304,35 @@ img {
     background: var(--text);
     opacity: 0.5;
   }
+  /* 置顶分组标题：暖黄竖条 + 深色文字，比普通分组更醒目 */
+  .section-title-pinned {
+    color: var(--text);
+  }
+  .section-title-pinned::before {
+    background: var(--accent-gradient);
+    opacity: 1;
+  }
+  /* 置顶公告卡片：暖黄描边 + 顶部淡渐变底，与普通公告一眼区分 */
+  .card-pinned {
+    border-color: color-mix(in srgb, var(--accent) 46%, var(--line));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 13%, var(--surface)) 0%,
+      var(--surface) 68%
+    );
+    box-shadow:
+      var(--shadow-card),
+      inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .card-pinned:active {
+    box-shadow: var(--shadow-xs);
+  }
+  /* 置顶标签：暖黄渐变胶囊 + 深黄文字 */
+  .announcement-pin-tag {
+    background: var(--accent-gradient);
+    color: #43320a;
+    box-shadow: 0 4px 10px -6px rgba(240, 178, 31, 0.85);
+  }
   .row {
     @apply flex items-center gap-3;
   }
