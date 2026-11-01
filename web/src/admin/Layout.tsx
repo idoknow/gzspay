@@ -59,6 +59,17 @@ const NAV_ITEMS: NavItem[] = [
 
 const NAV_GROUPS = ["数据概览", "业务管理", "系统运维", "权限与配置"];
 
+/** 桌面端侧边栏收缩状态（记住上次选择） */
+const SIDEBAR_STORAGE_KEY = "gzspay.admin.sidebar";
+
+function readCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "collapsed";
+  } catch {
+    return false;
+  }
+}
+
 export interface AdminLayoutProps {
   themeMode: ThemeMode;
   onThemeChange: (mode: ThemeMode) => void;
@@ -70,6 +81,19 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
   const location = useLocation();
   /** 手机/平板上的抽屉式导航开关（桌面端始终展示侧栏） */
   const [navOpen, setNavOpen] = useState(false);
+  /** 桌面端侧边栏是否收起为图标栏 */
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        SIDEBAR_STORAGE_KEY,
+        collapsed ? "collapsed" : "expanded",
+      );
+    } catch {
+      // 隐私模式下写入失败不影响使用
+    }
+  }, [collapsed]);
 
   // 切换页面后自动收起抽屉
   useEffect(() => {
@@ -111,7 +135,7 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
   };
 
   return (
-    <div className="admin-shell">
+    <div className={cx("admin-shell", collapsed && "is-collapsed")}>
       <aside className={cx("admin-sidebar", navOpen && "is-open")}>
         <div className="admin-sidebar-brand">
           <div className="admin-brand-mark" aria-hidden="true" />
@@ -201,6 +225,34 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
 
       <div className="admin-main">
         <header className="admin-topbar">
+          <button
+            type="button"
+            className="admin-topbar-collapse"
+            aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
+            aria-pressed={collapsed}
+            title={collapsed ? "展开侧边栏" : "收起侧边栏"}
+            onClick={() => setCollapsed((value) => !value)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect
+                x="3"
+                y="4.5"
+                width="18"
+                height="15"
+                rx="2.6"
+                stroke="currentColor"
+                strokeWidth="1.7"
+              />
+              <path d="M9.6 4.5v15" stroke="currentColor" strokeWidth="1.7" />
+              <path
+                d="m15.6 9.6-2.4 2.4 2.4 2.4"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
           <button
             type="button"
             className="admin-topbar-menu"

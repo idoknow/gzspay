@@ -175,6 +175,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
+  transition: width 0.22s ease, flex-basis 0.22s ease;
 }
 
 .admin-sidebar-brand {
@@ -3299,3 +3300,73 @@
   }
 }
 
+
+/* ------------------------------------------------ 桌面端侧边栏收缩 */
+
+.admin-topbar-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  margin-right: 2px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--admin-text-secondary);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.admin-topbar-collapse:hover {
+  background: var(--admin-bg-hover);
+  color: var(--admin-text);
+}
+
+.admin-topbar-collapse svg {
+  transition: transform 0.22s ease;
+}
+
+.admin-shell.is-collapsed .admin-topbar-collapse svg {
+  transform: scaleX(-1);
+}
+
+/* 宽度小于 1080px 时侧栏本身已是图标栏，不需要手工收缩按钮 */
+@media (max-width: 1080px) {
+  .admin-topbar-collapse {
+    display: none;
+  }
+}
+
+@media (min-width: 1081px) {
+  .admin-shell.is-collapsed .admin-sidebar {
+    width: 76px;
+    flex-basis: 76px;
+  }
+
+  .admin-shell.is-collapsed .admin-brand-text,
+  .admin-shell.is-collapsed .admin-nav-label,
+  .admin-shell.is-collapsed .admin-nav-group-title,
+  .admin-shell.is-collapsed .admin-sidebar-footer {
+    display: none;
+  }
+
+  .admin-shell.is-collapsed .admin-sidebar-brand {
+    justify-content: center;
+    padding: 18px 8px;
+  }
+
+  .admin-shell.is-collapsed .admin-nav {
+    padding: 4px 10px 18px;
+  }
+
+  .admin-shell.is-collapsed .admin-nav-item {
+    justify-content: center;
+    padding: 11px 0;
+  }
+
+  .admin-shell.is-collapsed .admin-nav-item.is-active::before {
+    left: -10px;
+  }
+}
