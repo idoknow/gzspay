@@ -63,10 +63,16 @@ export function LoginPage(): ReactNode {
   return (
     <div className="bg-app flex min-h-[100dvh] flex-col px-6 pb-[max(env(safe-area-inset-bottom),24px)] pt-[max(env(safe-area-inset-top),40px)]">
       <div className="flex flex-1 flex-col items-center justify-center">
-        <LogoMark size={96} animated />
-        <Wordmark size="xl" animated className="mt-5" />
-        <Tagline animated className="mt-3" />
-        <p className="mt-2 text-sm text-muted">桂中校园收付款</p>
+        <div className="relative flex flex-col items-center">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-8 h-44 w-44 rounded-full bg-brand/25 blur-3xl"
+          />
+          <LogoMark size={96} animated />
+          <Wordmark size="xl" animated className="mt-5" />
+          <Tagline animated className="mt-3" />
+          <p className="mt-2 text-sm text-muted">桂中校园收付款</p>
+        </div>
 
         <div className="mt-10 w-full max-w-[360px] space-y-3">
           {authError ? (

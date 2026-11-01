@@ -133,16 +133,23 @@ export function TradesPage(): ReactNode {
       </header>
 
       <main className="page page-with-nav pt-4">
-        <div className="flex rounded-full bg-surface-2 p-1">
+        <div className="segmented" role="tablist" aria-label="订单方向">
+          <span
+            aria-hidden="true"
+            className="segmented-thumb left-1"
+            style={{
+              width: "calc(50% - 4px)",
+              transform: scope === "pay" ? "translateX(0%)" : "translateX(100%)",
+            }}
+          />
           {(Object.keys(SCOPE_LABELS) as Scope[]).map((item) => (
             <button
               key={item}
               type="button"
+              role="tab"
+              aria-selected={scope === item}
               onClick={() => changeScope(item)}
-              className={cn(
-                "flex-1 rounded-full py-2 text-sm font-semibold transition",
-                scope === item ? "bg-surface text-brand shadow-sm" : "text-muted",
-              )}
+              className={cn("segmented-item", scope === item && "segmented-item-active")}
             >
               {SCOPE_LABELS[item]}
             </button>
@@ -172,7 +179,7 @@ export function TradesPage(): ReactNode {
                 <div
                   role="menu"
                   aria-label="订单状态筛选"
-                  className="absolute top-full left-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-line bg-surface p-1 shadow-lg"
+                  className="absolute top-full left-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-line bg-surface p-1 shadow-[var(--shadow-float)]"
                 >
                   {STATUS_OPTIONS.map((option) => {
                     const active = option.value === status;
@@ -229,8 +236,14 @@ export function TradesPage(): ReactNode {
           />
         ) : (
           <div className="space-y-3">
-            {orders.map((order) => (
-              <OrderCard key={order.id} order={order} onClick={() => navigate(`/orders/${order.id}`)} />
+            {orders.map((order, index) => (
+              <div
+                key={order.id}
+                className="animate-slide-up"
+                style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
+              >
+                <OrderCard order={order} onClick={() => navigate(`/orders/${order.id}`)} />
+              </div>
             ))}
             {hasMore ? (
               <button

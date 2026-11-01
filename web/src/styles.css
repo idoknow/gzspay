@@ -38,6 +38,13 @@
   --warning-soft: #fff4dd;
   --shadow: 0 12px 32px -18px rgba(11, 27, 77, 0.35);
   --shadow-strong: 0 18px 44px -18px rgba(11, 27, 77, 0.42);
+  /* 界面美化补充的分层阴影与品牌渐变 */
+  --shadow-xs: 0 1px 2px rgba(11, 27, 77, 0.06);
+  --shadow-card: 0 1px 2px rgba(11, 27, 77, 0.05), 0 16px 36px -26px rgba(11, 27, 77, 0.5);
+  --shadow-float: 0 10px 30px -12px rgba(11, 27, 77, 0.32);
+  --brand-gradient: linear-gradient(135deg, #5b9bff 0%, #1e6bff 52%, #1552d6 100%);
+  --brand-glow: 0 14px 30px -14px rgba(30, 107, 255, 0.55);
+  --accent-gradient: linear-gradient(135deg, #ffd968 0%, #ffc933 55%, #f0b21f 100%);
 }
 
 html[data-theme="dark"] {
@@ -64,6 +71,12 @@ html[data-theme="dark"] {
   --warning-soft: #382b0f;
   --shadow: 0 12px 32px -18px rgba(0, 0, 0, 0.7);
   --shadow-strong: 0 18px 44px -18px rgba(0, 0, 0, 0.8);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45), 0 20px 40px -30px rgba(0, 0, 0, 0.9);
+  --shadow-float: 0 12px 32px -14px rgba(0, 0, 0, 0.75);
+  --brand-gradient: linear-gradient(135deg, #6fa5ff 0%, #4d8dff 52%, #2f6bff 100%);
+  --brand-glow: 0 14px 30px -14px rgba(77, 141, 255, 0.5);
+  --accent-gradient: linear-gradient(135deg, #ffe08a 0%, #ffcf57 55%, #ffbe3c 100%);
 }
 
 @theme inline {
@@ -119,6 +132,16 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--brand) 24%, transparent);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 72%, transparent);
+  outline-offset: 2px;
+}
+
 button,
 input,
 textarea,
@@ -145,14 +168,21 @@ img {
     min-height: 48px;
   }
   .btn-primary {
-    @apply bg-brand text-white;
-    box-shadow: 0 12px 26px -14px var(--brand);
+    @apply text-white;
+    background: var(--brand-gradient);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.24),
+      var(--brand-glow);
+  }
+  .btn-primary:hover {
+    filter: saturate(1.04) brightness(1.03);
   }
   .btn-secondary {
-    @apply bg-surface-2 text-text;
+    @apply border border-line bg-surface-2 text-text;
   }
   .btn-outline {
     @apply border border-line bg-surface text-text;
+    box-shadow: var(--shadow-xs);
   }
   .btn-accent {
     @apply bg-accent text-[#4a3300];
@@ -173,7 +203,24 @@ img {
   }
   .card {
     @apply rounded-3xl border border-line bg-surface;
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-card);
+  }
+  /* 可点击卡片：按下时轻微回弹，替代生硬的颜色跳变 */
+  .card-interactive {
+    transition:
+      transform 0.16s cubic-bezier(0.22, 0.7, 0.3, 1),
+      box-shadow 0.18s ease,
+      background-color 0.18s ease;
+  }
+  .card-interactive:active {
+    transform: scale(0.985);
+    box-shadow: var(--shadow-xs);
+  }
+  /* 品牌渐变卡面（个人资料头部等） */
+  .hero-gradient {
+    background: var(--brand-gradient);
+    box-shadow: var(--brand-glow);
+    color: #fff;
   }
   .card-flat {
     @apply rounded-2xl border border-line bg-surface;
@@ -194,14 +241,43 @@ img {
     @apply mb-2 block text-sm font-medium text-muted;
   }
   .chip {
-    @apply inline-flex select-none items-center justify-center rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm text-muted transition;
+    @apply inline-flex select-none items-center justify-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm text-muted transition;
     min-height: 34px;
+    box-shadow: var(--shadow-xs);
   }
   .chip-active {
-    @apply border-brand bg-brand text-white;
+    @apply border-transparent text-white;
+    background: var(--brand-gradient);
+    box-shadow: var(--brand-glow);
+  }
+  /* 分段控件（滑动胶囊）：容器 .segmented，滑块 .segmented-thumb，选项 .segmented-item */
+  .segmented {
+    @apply relative flex rounded-full border border-line bg-surface-2 p-1;
+    box-shadow: inset 0 1px 2px rgba(11, 27, 77, 0.07);
+  }
+  .segmented-thumb {
+    @apply absolute bottom-1 top-1 rounded-full bg-surface;
+    box-shadow: var(--shadow-xs);
+    transition:
+      transform 0.26s cubic-bezier(0.22, 0.7, 0.3, 1),
+      width 0.26s ease;
+  }
+  .segmented-item {
+    @apply relative z-10 flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-[13px] font-semibold text-muted transition-colors;
+    min-height: 36px;
+  }
+  .segmented-item-active {
+    color: var(--brand);
   }
   .section-title {
-    @apply mb-2 px-1 text-[13px] font-semibold tracking-wide text-muted;
+    @apply mb-2 flex items-center gap-2 px-1 text-[13px] font-semibold tracking-wide text-muted;
+  }
+  .section-title::before {
+    content: "";
+    width: 3px;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--brand-gradient);
   }
   .row {
     @apply flex items-center gap-3;
@@ -219,10 +295,10 @@ img {
     @apply mx-auto w-full max-w-[520px] px-4;
   }
   .page-with-nav {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px));
   }
   .page-with-footer {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px));
   }
   .hide-scrollbar {
     scrollbar-width: none;
@@ -234,8 +310,8 @@ img {
     @apply flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3.5 text-left transition active:bg-surface-2;
   }
   .glass {
-    background: color-mix(in srgb, var(--bg) 82%, transparent);
-    backdrop-filter: saturate(180%) blur(14px);
+    background: color-mix(in srgb, var(--bg) 76%, transparent);
+    backdrop-filter: saturate(180%) blur(18px);
   }
   .fixed-bottom {
     bottom: 0;
@@ -245,8 +321,13 @@ img {
     background:
       radial-gradient(
         1200px 420px at 50% -160px,
-        color-mix(in srgb, var(--brand) 16%, transparent),
+        color-mix(in srgb, var(--brand) 17%, transparent),
         transparent 70%
+      ),
+      radial-gradient(
+        760px 320px at 100% 104%,
+        color-mix(in srgb, var(--accent) 12%, transparent),
+        transparent 72%
       ),
       var(--bg);
   }

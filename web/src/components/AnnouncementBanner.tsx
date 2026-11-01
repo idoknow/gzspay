@@ -65,8 +65,11 @@ export function AnnouncementBanner(): ReactNode {
 
   return (
     <>
-      <div className="mb-3 flex items-start gap-3 rounded-2xl bg-accent-soft px-3.5 py-3">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-white">
+      <div className="mb-3 flex items-start gap-3 rounded-2xl bg-accent-soft px-3.5 py-3 shadow-[var(--shadow-xs)] ring-1 ring-accent/30">
+        <span
+          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#4a3300]"
+          style={{ background: "var(--accent-gradient)" }}
+        >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 10v4l5 1 5 4V5L9 9l-5 1Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
             <path d="M17 9.5a4 4 0 0 1 0 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />

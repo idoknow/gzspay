@@ -505,15 +505,22 @@ export function PayPage(): ReactNode {
     <header className="sticky top-0 z-30 safe-top glass border-b border-line">
       <div className="mx-auto flex w-full max-w-[520px] items-center justify-between gap-3 px-4 py-3">
         <Logo size={30} wordmark />
-        <div className="flex rounded-full bg-surface-2 p-1">
+        <div className="segmented w-[168px]" role="tablist" aria-label="收付款模式">
+          <span
+            aria-hidden="true"
+            className="segmented-thumb left-1"
+            style={{
+              width: "calc(50% - 4px)",
+              transform: mode === "pay" ? "translateX(0%)" : "translateX(100%)",
+            }}
+          />
           {(["pay", "collect"] as const).map((item) => (
             <button
               key={item}
               type="button"
-              className={cn(
-                "min-w-[76px] rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
-                mode === item ? "bg-surface text-brand shadow-sm" : "text-muted",
-              )}
+              role="tab"
+              aria-selected={mode === item}
+              className={cn("segmented-item", mode === item && "segmented-item-active")}
               onClick={() => switchMode(item)}
             >
               {item === "pay" ? "付款" : "收款"}

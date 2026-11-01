@@ -88,6 +88,14 @@ function InfoIcon(): ReactNode {
   );
 }
 
+function ChevronRightIcon(): ReactNode {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function MePage(): ReactNode {
   const navigate = useNavigate();
   const toast = useToast();
@@ -135,36 +143,48 @@ export function MePage(): ReactNode {
 
       <main className="page page-with-nav space-y-4 pt-4">
         {me ? (
-          <section className="card p-5">
-            <div className="flex items-center gap-4">
-              <Avatar name={me.displayName} avatarUrl={me.avatarUrl} size={62} />
+          <section className="hero-gradient relative overflow-hidden rounded-3xl p-5">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-black/10 blur-2xl"
+            />
+            <div className="relative flex items-center gap-4">
+              <span className="rounded-full bg-white/20 p-[3px] ring-1 ring-white/35">
+                <Avatar name={me.displayName} avatarUrl={me.avatarUrl} size={60} />
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="truncate text-lg font-bold text-text">{me.displayName}</h1>
+                  <h1 className="truncate text-lg font-bold text-white">{me.displayName}</h1>
                   {me.isMerchant ? (
-                    <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-warning">
+                    <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-white/30">
                       商家
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-xs text-muted">学号 {me.studentNo || "未填写"}</p>
+                <p className="mt-1 text-xs text-white/75">学号 {me.studentNo || "未填写"}</p>
                 {me.cardNoMasked ? (
                   <button
                     type="button"
-                    className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted"
+                    className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/75"
                     onClick={() => setShowCardNo((value) => !value)}
                   >
                     <span>卡号 {showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked}</span>
-                    <span className="text-brand">{showCardNo ? "隐藏" : "显示"}</span>
+                    <span className="font-semibold text-white underline decoration-white/40 underline-offset-2">
+                      {showCardNo ? "隐藏" : "显示"}
+                    </span>
                   </button>
                 ) : (
-                  <p className="mt-0.5 text-[11px] text-muted">卡号 未绑定</p>
+                  <p className="mt-0.5 text-[11px] text-white/75">卡号 未绑定</p>
                 )}
-                <p className="mt-0.5 text-[11px] text-muted">加入于 {formatFriendlyTime(me.createdAt)}</p>
+                <p className="mt-0.5 text-[11px] text-white/60">加入于 {formatFriendlyTime(me.createdAt)}</p>
               </div>
             </div>
             {me.frozen ? (
-              <p className="mt-4 rounded-xl bg-danger-soft px-3 py-2 text-xs leading-relaxed text-danger">
+              <p className="relative mt-4 rounded-xl bg-white/15 px-3 py-2 text-xs leading-relaxed text-white ring-1 ring-white/25">
                 账号已被限制，如有疑问请通过「关于」中的联系方式联系我们。
               </p>
             ) : null}
@@ -176,8 +196,8 @@ export function MePage(): ReactNode {
             <button
               key={item.path}
               type="button"
-              className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-surface-2 ${
-                index > 0 ? "border-t border-line" : ""
+              className={`group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2 ${
+                index > 0 ? "border-t border-line/70" : ""
               }`}
               onClick={() => navigate(item.path)}
             >
@@ -186,12 +206,18 @@ export function MePage(): ReactNode {
                 <span className="block text-sm font-medium text-text">{item.label}</span>
                 {item.description ? <span className="mt-0.5 block text-xs text-muted">{item.description}</span> : null}
               </span>
-              <span className="text-muted">›</span>
+              <span className="text-muted/60 transition-transform group-active:translate-x-0.5">
+                <ChevronRightIcon />
+              </span>
             </button>
           ))}
         </section>
 
-        <button type="button" className="btn btn-ghost btn-block text-muted" onClick={() => void handleLogout()}>
+        <button
+          type="button"
+          className="btn btn-block border border-line bg-surface text-[15px] font-semibold text-danger shadow-[var(--shadow-xs)]"
+          onClick={() => void handleLogout()}
+        >
           退出登录
         </button>
 

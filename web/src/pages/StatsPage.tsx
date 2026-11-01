@@ -125,14 +125,27 @@ export function StatsPage(): ReactNode {
 
       <main className="page space-y-4 pb-10 pt-4">
         <section className="card p-3">
-          <div className="grid grid-cols-4 gap-1 rounded-2xl bg-surface-2 p-1">
+          <div className="segmented" role="tablist" aria-label="统计区间">
+            <span
+              aria-hidden="true"
+              className="segmented-thumb left-1"
+              style={{
+                width: "calc(25% - 2px)",
+                transform: `translateX(${Math.max(
+                  0,
+                  PRESETS.findIndex((item) => item.key === preset),
+                ) * 100}%)`,
+              }}
+            />
             {PRESETS.map((item) => (
               <button
                 key={item.key}
                 type="button"
+                role="tab"
+                aria-selected={preset === item.key}
                 className={cn(
-                  "rounded-xl px-2 py-2 text-[13px] font-medium transition-colors",
-                  preset === item.key ? "bg-surface text-brand shadow-sm" : "text-muted",
+                  "segmented-item text-[12.5px]",
+                  preset === item.key && "segmented-item-active",
                 )}
                 onClick={() => setPreset(item.key)}
               >

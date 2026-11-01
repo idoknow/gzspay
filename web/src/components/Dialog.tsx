@@ -66,9 +66,9 @@ export function Dialog({
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
         className={cn(
-          "animate-slide-up w-full max-w-[440px] bg-surface text-text shadow-2xl",
+          "animate-slide-up w-full max-w-[440px] border border-line bg-surface text-text shadow-[var(--shadow-float)]",
           variant === "sheet"
-            ? "rounded-t-[26px] px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3"
+            ? "rounded-t-[26px] border-b-0 px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3"
             : "rounded-[26px] px-5 py-5",
           className,
         )}
