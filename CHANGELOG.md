@@ -33,6 +33,7 @@
 
 ### 变更
 
+- 交易列表支持关键词搜索：顶部新增搜索框（输入后 300ms 防抖），可匹配订单号、标题、备注与对方姓名快照，切换待付款 / 待收款或待处理 / 已结算时结果一起生效；搜索中显示「找到 N 笔订单」，没有结果时提示换个关键词并可直接清除；`GET /api/orders` 新增 `q` 参数（最长 50 字，`%` / `_` 通配符会被转义，避免误匹配全部订单）。
 - 依赖升级并清理安全告警：`nodemailer` 升到 10.3.1、`zod` 升到 4.6.7（校验错误提示适配 zod 4 的 issue 类型）；服务端不再使用 `jimp`，改用 `pngjs` / `jpeg-js` 解码收款码图片（保留文件头校验与像素上限），`npm audit --omit=dev` 由 30 个 high 降为 0。
 - 修改支付密码支持两种验证方式任选其一：除了向绑定邮箱发验证码，也可以跳转校园墙再授权一次（授权账号必须与当前登录账号一致，凭证 5 分钟一次性、不把令牌放进跳转链接），通过后自动回到页面设置新密码；新增 `GET /api/me/payment-password/reset/campux/start` 与 `POST /api/me/payment-password/reset/campux/claim`。
 - 安全加固配套改动：主题引导脚本从 `web/index.html` 的内联 `<script>` 抽到 `web/public/theme-boot.js`（配合 CSP `script-src 'self'`）；登录失败错误页对提示文案做 HTML 转义；新增安全相关测试（安全响应头与 `no-store`、登录限流 429、图片文件头校验、生产配置自检）。

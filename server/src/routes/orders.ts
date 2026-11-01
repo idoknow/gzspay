@@ -197,7 +197,8 @@ ordersRouter.get(
       ? (statusValue as OrderStatusFilter)
       : "all";
     const { page, pageSize } = pagination(toInt(query.page, 1), toInt(query.pageSize, 20));
-    res.json(listOrders(req.auth!.user, { scope, status, page, pageSize }));
+    const keyword = typeof query.q === "string" ? query.q.trim().slice(0, 50) : "";
+    res.json(listOrders(req.auth!.user, { scope, status, keyword: keyword || undefined, page, pageSize }));
   }),
 );
 

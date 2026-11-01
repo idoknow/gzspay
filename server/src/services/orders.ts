@@ -674,6 +674,8 @@ export type OrderStatusFilter = "pending" | "paid" | "closed" | "settled" | "all
 export interface ListOrdersQuery {
   scope: "pay" | "receive";
   status?: OrderStatusFilter;
+  /** 关键词：匹配订单号、标题、备注与对方姓名 */
+  keyword?: string;
   page: number;
   pageSize: number;
 }
@@ -696,6 +698,15 @@ export function listOrders(
     const values = STATUS_FILTER_VALUES[query.status];
     where.push(`status IN (${values.map(() => "?").join(",")})`);
     params.push(...values);
+  }
+  const keyword = (query.keyword ?? "").trim();
+  if (keyword) {
+    // LIKE 通配符转义，避免用户输入 % / _ 时把全部订单都匹配出来
+    const like = `%${keyword.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+    where.push(
+      `(order_no LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\' OR merchant_name_snapshot LIKE ? ESCAPE '\\' OR payer_name_snapshot LIKE ? ESCAPE '\\' OR COALESCE(reserved_note, '') LIKE ? ESCAPE '\\' OR COALESCE(actual_note, '') LIKE ? ESCAPE '\\')`,
+    );
+    params.push(like, like, like, like, like, like);
   }
   const whereSql = where.join(" AND ");
   const total =

@@ -308,6 +308,43 @@ describe("商家与订单", () => {
     expect(receive.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
   });
 
+  it("交易列表支持按关键词搜索订单号、标题、备注与对方姓名", async () => {
+    const detail = await agentWith(payerSession).get(`/api/orders/${orderId}`).expect(200);
+
+    // 备注（reserved_note）
+    const byNote = await agentWith(payerSession)
+      .get(`/api/orders?scope=pay&q=${encodeURIComponent("张三 0001")}`)
+      .expect(200);
+    expect(byNote.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
+
+    // 订单号
+    const byOrderNo = await agentWith(payerSession)
+      .get(`/api/orders?scope=pay&q=${encodeURIComponent(detail.body.orderNo)}`)
+      .expect(200);
+    expect(byOrderNo.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
+
+    // 标题
+    const byTitle = await agentWith(payerSession)
+      .get(`/api/orders?scope=pay&q=${encodeURIComponent(detail.body.title)}`)
+      .expect(200);
+    expect(byTitle.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
+
+    // 对方姓名（商家视角匹配付款人姓名快照）
+    const byPayerName = await agentWith(merchantSession)
+      .get(`/api/orders?scope=receive&q=${encodeURIComponent(detail.body.payerNameSnapshot)}`)
+      .expect(200);
+    expect(byPayerName.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
+
+    // LIKE 通配符会被转义，不会把全部订单都匹配出来
+    const wildcard = await agentWith(payerSession).get("/api/orders?scope=pay&q=%25").expect(200);
+    expect(wildcard.body.total).toBe(0);
+
+    const missing = await agentWith(payerSession)
+      .get(`/api/orders?scope=pay&q=${encodeURIComponent("不存在的关键词")}`)
+      .expect(200);
+    expect(missing.body.total).toBe(0);
+  });
+
   it("按学号转账后出现在付款方待付款与收款方待收款列表", async () => {
     const created = await agentWith(payerSession)
       .post("/api/orders/transfer")

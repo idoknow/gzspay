@@ -1,4 +1,4 @@
-/** 交易页：待付款 / 待收款 + 状态筛选（待处理 / 已结算，点按钮弹出菜单）+ 订单列表 + 公告红点 + 空态。 */
+/** 交易页：待付款 / 待收款 + 关键词搜索 + 状态筛选（待处理 / 已结算，点按钮弹出菜单）+ 订单列表 + 公告红点 + 空态。 */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,7 +12,7 @@ import { OrderCard } from "../components/OrderCard";
 import { listOrders, subscribeEvents } from "../lib/api";
 import { errorMessage } from "../lib/http";
 import { cn } from "../lib/format";
-import { useWatchLayout } from "../lib/hooks";
+import { useDebouncedValue, useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 import type { Order } from "../lib/types";
 
@@ -63,6 +63,23 @@ function CheckIcon({ className }: { className?: string }): ReactNode {
   );
 }
 
+function SearchIcon({ className }: { className?: string }): ReactNode {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M16 16l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseIcon({ className }: { className?: string }): ReactNode {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function TradesPage(): ReactNode {
   const navigate = useNavigate();
   const watch = useWatchLayout();
@@ -76,12 +93,14 @@ export function TradesPage(): ReactNode {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const keyword = useDebouncedValue(search.trim(), 300);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
-    listOrders({ scope, status, page, pageSize: PAGE_SIZE })
+    listOrders({ scope, status, q: keyword || undefined, page, pageSize: PAGE_SIZE })
       .then((result) => {
         if (!active) return;
         setOrders((previous) => (page === 1 ? result.items : [...previous, ...result.items]));
@@ -97,7 +116,14 @@ export function TradesPage(): ReactNode {
     return () => {
       active = false;
     };
-  }, [scope, status, page, reloadKey]);
+  }, [scope, status, page, reloadKey, keyword]);
+
+  // 关键词变化时回到第一页并清空当前列表
+  useEffect(() => {
+    setOrders([]);
+    setTotal(0);
+    setPage(1);
+  }, [keyword]);
 
   // 服务端事件：订单状态变化后刷新列表（回到第一页）
   useEffect(() => {
@@ -169,7 +195,28 @@ export function TradesPage(): ReactNode {
         </div>
 
         <div className="mt-4 flex items-center gap-2 watch:mt-2.5">
-          <div className="relative">
+          <div className="relative min-w-0 flex-1">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted watch:left-2.5" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="搜索标题、订单号、备注或对方姓名"
+              aria-label="搜索订单"
+              className="input h-[34px] w-full rounded-full pr-9 pl-9 text-sm watch:h-[30px] watch:pr-8 watch:pl-8 watch:text-[12px]"
+            />
+            {search ? (
+              <button
+                type="button"
+                aria-label="清除搜索"
+                onClick={() => setSearch("")}
+                className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-full p-1 text-muted transition hover:text-text"
+              >
+                <CloseIcon />
+              </button>
+            ) : null}
+          </div>
+          <div className="relative shrink-0">
             <button
               type="button"
               aria-haspopup="menu"
@@ -232,6 +279,12 @@ export function TradesPage(): ReactNode {
           </div>
         </div>
 
+        {keyword ? (
+          <p className="mt-3 text-[11px] text-muted watch:mt-2 watch:text-[10px]">
+            {loading && orders.length === 0 ? "正在搜索…" : `「${keyword}」找到 ${total} 笔订单`}
+          </p>
+        ) : null}
+
         <div className="mt-4 watch:mt-3">
           {error && orders.length === 0 ? (
             <ErrorBlock
@@ -241,17 +294,29 @@ export function TradesPage(): ReactNode {
               }}
             />
           ) : loading && orders.length === 0 ? (
-            <LoadingBlock text="正在加载订单…" />
+            <LoadingBlock text={keyword ? "正在搜索订单…" : "正在加载订单…"} />
           ) : orders.length === 0 ? (
-            <EmptyState
-              title={EMPTY_TEXT[scope][status]}
-              description="扫码付款或让对方向你发起收款，订单会出现在这里"
-              action={
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate("/pay")}>
-                  去收付款
-                </button>
-              }
-            />
+            keyword ? (
+              <EmptyState
+                title="没有找到相关订单"
+                description={`没有匹配「${keyword}」的订单，换个关键词试试`}
+                action={
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSearch("")}>
+                    清除搜索
+                  </button>
+                }
+              />
+            ) : (
+              <EmptyState
+                title={EMPTY_TEXT[scope][status]}
+                description="扫码付款或让对方向你发起收款，订单会出现在这里"
+                action={
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate("/pay")}>
+                    去收付款
+                  </button>
+                }
+              />
+            )
           ) : (
             <div className="space-y-3 watch:space-y-2">
               {orders.map((order, index) => (

@@ -416,6 +416,8 @@ export async function transferOrder(payload: TransferOrderPayload): Promise<Orde
 export function listOrders(query: {
   scope: "pay" | "receive";
   status: "pending" | "paid" | "closed" | "settled" | "all";
+  /** 关键词：匹配订单号、标题、备注与对方姓名 */
+  q?: string;
   page?: number;
   pageSize?: number;
 }): Promise<OrderListResponse> {
