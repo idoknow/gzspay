@@ -285,8 +285,8 @@ interface SSEOrderUpdate {
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/api/stats/summary?from&to&includePending` | `{ expenseCents, incomeCents, netCents, orderCount }` |
-| `GET` | `/api/stats/timeseries?from&to&granularity=day|month&includePending` | `{ buckets: [{ key, expenseCents, incomeCents }] }` |
+| `GET` | `/api/stats/summary?from&to&includePending` | `{ expenseCents, incomeCents, netCents, orderCount, expenseCount, incomeCount, avgOrderCents, maxOrderCents, previous: { expenseCents, incomeCents, orderCount }, channels: [{ channel, label, count, amountCents }], hours: [{ hour, count, amountCents }] }`（`previous` 为等长上一区间用于环比；`hours` 为 0–23 时、服务器本地时间） |
+| `GET` | `/api/stats/timeseries?from&to&granularity=day|month&includePending` | `{ buckets: [{ key, expenseCents, incomeCents, expenseCount, incomeCount }] }` |
 | `GET` | `/api/stats/export?from&to&includePending` | CSV 文件（`text/csv; charset=utf-8`，带 BOM） |
 
 ## 9. 公告
@@ -353,7 +353,7 @@ interface Announcement {
 | `POST` | `/api/admin/orders/:id/flag` | `{ note }` 标记异常（super/ops） |
 | `GET` | `/api/admin/appeals?status&page&pageSize` | 申诉列表；`status=pending|resolved|rejected`（DB 内部 `open/closed/flagged` 映射） |
 | `POST` | `/api/admin/appeals/:id/handle` | `{ status: "resolved"|"rejected", note }`（super/ops） |
-| `GET` | `/api/admin/stats` | `AdminStats`：趋势、商家排行、支付方式占比、转化漏斗、平均确认时长（分钟） |
+| `GET` | `/api/admin/stats` | `AdminStats`：趋势、商家排行、支付方式占比、转化漏斗、平均确认时长（分钟）、金额区间分布 `amountDistribution: [{ key, label, count, amountCents }]`、时段分布 `hourly: [{ hour, count, amountCents }]`、状态数量 `statusCounts: [{ status, label, count }]` |
 | `GET` | `/api/admin/system/status` | `SystemStatus`：服务、邮件成功率、校园墙连通性、存储、队列、`alerts` |
 | `GET` | `/api/admin/announcements` | `{ items: AdminAnnouncement[] }`：`AdminAnnouncement` = `Announcement` 去掉 `read`，另含 `readCount`（已读人数）、`totalUsers`（用户总数）、`edited`（创建后是否修改过） |
 | `POST` | `/api/admin/announcements` | `{ title, content, level?, pinned?, publishedAt? }` → `{ ok: true, id }`；`publishedAt` 缺省为创建时间（super/ops） |

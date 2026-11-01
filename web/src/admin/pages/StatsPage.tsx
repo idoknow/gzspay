@@ -1,9 +1,17 @@
 /**
- * 数据统计：交易额与订单数趋势、商家排行、支付方式占比、订单转化漏斗与平均确认时长。
+ * 数据统计：交易额与订单数趋势、金额区间分布、交易时段分布、商家排行、
+ * 支付方式占比、订单转化漏斗与平均确认时长。
+ * 图表支持点击图例隐藏/显示系列、点击柱子 / 折线点 / 环形扇区查看该点明细。
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { getStats } from "../api";
-import { DonutChart, DualAxisTrendChart, FunnelBars } from "../components/charts";
+import {
+  AmountDistributionChart,
+  DonutChart,
+  DualAxisTrendChart,
+  FunnelBars,
+  HourlyChart,
+} from "../components/charts";
 import {
   Badge,
   Card,
@@ -31,6 +39,16 @@ export function StatsPage() {
     () => getStats(),
     [],
   );
+  /** 趋势图选中的时间点 */
+  const [trendKey, setTrendKey] = useState<string | null>(null);
+  /** 金额区间图选中的区间 */
+  const [amountKey, setAmountKey] = useState<string | null>(null);
+  /** 时段图选中的小时 */
+  const [selectedHour, setSelectedHour] = useState<number | null>(null);
+  /** 支付方式环形图选中的扇区下标 */
+  const [paymentIndex, setPaymentIndex] = useState<number | null>(null);
+  /** 订单状态环形图选中的扇区下标 */
+  const [statusIndex, setStatusIndex] = useState<number | null>(null);
 
   const maxMerchantAmount = useMemo(
     () =>
@@ -40,6 +58,32 @@ export function StatsPage() {
       ),
     [data],
   );
+
+  const paymentTotal = useMemo(
+    () =>
+      (data?.paymentMethods ?? []).reduce(
+        (sum, method) => sum + method.count,
+        0,
+      ),
+    [data],
+  );
+
+  const selectedPayment =
+    paymentIndex !== null && data?.paymentMethods[paymentIndex]
+      ? data.paymentMethods[paymentIndex]
+      : null;
+
+  const statusCounts = data?.statusCounts ?? [];
+
+  const statusTotal = useMemo(
+    () => statusCounts.reduce((sum, item) => sum + item.count, 0),
+    [statusCounts],
+  );
+
+  const selectedStatus =
+    statusIndex !== null && statusCounts[statusIndex]
+      ? statusCounts[statusIndex]
+      : null;
 
   return (
     <>
@@ -71,7 +115,10 @@ export function StatsPage() {
         <div className="admin-stack">
           <StatsSummary stats={data} />
 
-          <Card title="交易额与订单数趋势" subtitle="柱状为交易额，折线为订单数">
+          <Card
+            title="交易额与订单数趋势"
+            subtitle="柱状为交易额，折线为订单数；点击图例可隐藏系列，点击柱子或圆点查看该点明细"
+          >
             <DualAxisTrendChart
               points={data.trend.map((bucket) => ({
                 key: bucket.key,
@@ -79,9 +126,86 @@ export function StatsPage() {
                 value: bucket.amountCents,
                 secondary: bucket.orderCount,
               }))}
+              onSelect={(point) => setTrendKey(point.key)}
+              selectedKey={trendKey}
+              onClearSelect={() => setTrendKey(null)}
               emptyText="暂无趋势数据"
             />
           </Card>
+
+          <div className="admin-grid-3">
+            <Card
+              title="金额区间分布"
+              subtitle="按成交订单金额分档汇总，点击区间查看单数与金额"
+            >
+              <AmountDistributionChart
+                items={data.amountDistribution ?? []}
+                onSelect={(item) => setAmountKey(item.key)}
+                selectedKey={amountKey}
+                onClearSelect={() => setAmountKey(null)}
+              />
+            </Card>
+
+            <Card
+              title="交易时段分布"
+              subtitle="按小时汇总交易额，点击柱体查看该时段明细"
+            >
+              <HourlyChart
+                items={data.hourly ?? []}
+                onSelect={(item) => setSelectedHour(item.hour)}
+                selectedHour={selectedHour}
+                onClearSelect={() => setSelectedHour(null)}
+              />
+            </Card>
+
+            <Card
+              title="订单状态分布"
+              subtitle="按订单状态统计；点击扇区或图例查看、隐藏状态"
+            >
+              {statusCounts.length === 0 || statusTotal === 0 ? (
+                <EmptyState
+                  title="暂无状态数据"
+                  description="还没有产生订单记录。"
+                />
+              ) : (
+                <div className="admin-donut-wrap">
+                  {selectedStatus ? (
+                    <SelectedDetail
+                      title={`已选：${selectedStatus.label || selectedStatus.status}`}
+                      rows={[
+                        {
+                          label: "订单数",
+                          value: `${formatNumber(selectedStatus.count)} 单`,
+                        },
+                        {
+                          label: "占比",
+                          value:
+                            statusTotal > 0
+                              ? formatPercent(
+                                  (selectedStatus.count / statusTotal) * 100,
+                                )
+                              : "—",
+                        },
+                      ]}
+                      onClose={() => setStatusIndex(null)}
+                    />
+                  ) : null}
+                  <DonutChart
+                    slices={statusCounts.map((item) => ({
+                      label: item.label || item.status,
+                      value: item.count,
+                      hint: `${formatNumber(item.count)} 单`,
+                    }))}
+                    centerLabel="订单总数"
+                    centerValue={formatNumber(statusTotal)}
+                    onSelect={(_slice, index) => setStatusIndex(index)}
+                    selectedIndex={statusIndex}
+                    emptyText="暂无状态数据"
+                  />
+                </div>
+              )}
+            </Card>
+          </div>
 
           <div className="admin-grid-2">
             <Card
@@ -127,50 +251,50 @@ export function StatsPage() {
               )}
             </Card>
 
-            <Card title="支付方式占比" subtitle="按订单数统计">
+            <Card
+              title="支付方式占比"
+              subtitle="按订单数统计；点击扇区或图例查看、隐藏支付方式"
+            >
               {(data.paymentMethods ?? []).length === 0 ? (
                 <EmptyState title="暂无支付数据" description="还没有已支付订单。" />
               ) : (
                 <div className="admin-donut-wrap">
+                  {selectedPayment ? (
+                    <SelectedDetail
+                      title={`已选：${selectedPayment.label || selectedPayment.method}`}
+                      rows={[
+                        {
+                          label: "订单数",
+                          value: `${formatNumber(selectedPayment.count)} 单`,
+                        },
+                        {
+                          label: "交易额",
+                          value: formatCents(selectedPayment.amountCents),
+                        },
+                        {
+                          label: "占比",
+                          value:
+                            paymentTotal > 0
+                              ? formatPercent(
+                                  (selectedPayment.count / paymentTotal) * 100,
+                                )
+                              : "—",
+                        },
+                      ]}
+                      onClose={() => setPaymentIndex(null)}
+                    />
+                  ) : null}
                   <DonutChart
                     slices={data.paymentMethods.map((method) => ({
                       label: method.label || method.method,
                       value: method.count,
+                      hint: `${formatNumber(method.count)} 单 · ${formatCents(method.amountCents)}`,
                     }))}
                     centerLabel="支付订单"
-                    centerValue={formatNumber(
-                      data.paymentMethods.reduce(
-                        (sum, method) => sum + method.count,
-                        0,
-                      ),
-                    )}
+                    centerValue={formatNumber(paymentTotal)}
+                    onSelect={(_slice, index) => setPaymentIndex(index)}
+                    selectedIndex={paymentIndex}
                   />
-                  <div className="admin-donut-legend">
-                    {data.paymentMethods.map((method) => {
-                      const totalCount = data.paymentMethods.reduce(
-                        (sum, item) => sum + item.count,
-                        0,
-                      );
-                      return (
-                        <div className="admin-donut-legend-row" key={method.method}>
-                          <div>
-                            <div className="admin-strong">
-                              {method.label || method.method}
-                            </div>
-                            <div className="admin-text-xs admin-muted">
-                              {formatNumber(method.count)} 单 ·{" "}
-                              {formatCents(method.amountCents)}
-                            </div>
-                          </div>
-                          <span className="admin-strong">
-                            {totalCount > 0
-                              ? formatPercent((method.count / totalCount) * 100)
-                              : "—"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               )}
             </Card>
@@ -232,6 +356,45 @@ export function StatsPage() {
         <EmptyState title="暂无统计数据" description="后台尚未产生可统计的数据。" />
       )}
     </>
+  );
+}
+
+/**
+ * 图表选中项明细卡：环形图（支付方式 / 订单状态）共用。
+ * 展示「已选」标题 + 若干指标，可关闭。
+ */
+function SelectedDetail({
+  title,
+  rows,
+  onClose,
+}: {
+  title: string;
+  rows: { label: string; value: string }[];
+  onClose: () => void;
+}) {
+  return (
+    <div className="admin-chart-detail" role="status" aria-live="polite">
+      <div className="admin-chart-detail-head">
+        <span className="admin-chart-detail-title">{title}</span>
+        <button
+          type="button"
+          className="admin-chart-detail-close"
+          onClick={onClose}
+          aria-label="关闭图表明细"
+          title="关闭明细"
+        >
+          ×
+        </button>
+      </div>
+      <div className="admin-chart-detail-grid">
+        {rows.map((row) => (
+          <div className="admin-chart-detail-item" key={row.label}>
+            <span className="admin-chart-detail-label">{row.label}</span>
+            <span className="admin-chart-detail-value">{row.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

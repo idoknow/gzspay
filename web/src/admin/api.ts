@@ -4,7 +4,12 @@
  * 路径均相对 /api（由 web/src/lib/http.ts 的 request 拼接）。
  */
 import { ApiError, request } from "../lib/http";
-import { formatMonthLabel, payChannelLabel, trendLabel } from "./format";
+import {
+  formatMonthLabel,
+  orderStatusLabel,
+  payChannelLabel,
+  trendLabel,
+} from "./format";
 import {
   firstArray,
   firstBoolean,
@@ -35,12 +40,14 @@ import type {
   AdminStats,
   AdminUser,
   AdminUserDetail,
+  AmountBucket,
   Announcement,
   AnnouncementInput,
   AnnouncementLevel,
   AppealStatus,
   DailyBucket,
   FunnelStep,
+  HourBucket,
   LogFilters,
   LogType,
   MailStatus,
@@ -61,6 +68,7 @@ import type {
   SetupCurrentUser,
   SetupFinishResult,
   SetupStatus,
+  StatusCount,
   StorageStatus,
   SystemAlert,
   SystemStatus,
@@ -1027,6 +1035,88 @@ function mapFunnel(value: unknown): FunnelStep[] {
   }));
 }
 
+/** 金额区间的兜底文案（后端未返回 label 时使用） */
+const AMOUNT_BUCKET_FALLBACKS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: "lt10", label: "¥10 以下" },
+  { key: "10to50", label: "¥10–50" },
+  { key: "50to100", label: "¥50–100" },
+  { key: "100to500", label: "¥100–500" },
+  { key: "gte500", label: "¥500 以上" },
+];
+
+const HOUR_SLOT_COUNT = 24;
+
+/** 金额区间分布；字段缺失时回落空数组 */
+function mapAmountDistribution(value: unknown): AmountBucket[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((raw, index) => {
+    const source = record(raw);
+    const fallback = AMOUNT_BUCKET_FALLBACKS[index];
+    return {
+      key: textOr(
+        firstText(source, ["key", "bucket"]),
+        fallback?.key ?? `bucket-${index}`,
+      ),
+      label: textOr(
+        firstText(source, ["label", "name"]),
+        fallback?.label ?? `区间 ${index + 1}`,
+      ),
+      count: numberOr(
+        firstNumber(source, ["count", "orderCount", "orders"]),
+        0,
+      ),
+      amountCents: mapAmountCents(source, ["amountCents", "amount", "totalCents"]),
+    };
+  });
+}
+
+/** 24 小时时段分布：按 hour 归并到固定 0–23 槽位；字段缺失时回落空数组 */
+function mapHourly(value: unknown): HourBucket[] {
+  if (!Array.isArray(value) || value.length === 0) return [];
+  const slots: HourBucket[] = Array.from(
+    { length: HOUR_SLOT_COUNT },
+    (_, hour) => ({ hour, count: 0, amountCents: 0 }),
+  );
+  for (const raw of value) {
+    const source = record(raw);
+    const hourRaw = firstNumber(source, ["hour", "h", "hourOfDay"]);
+    if (hourRaw === null) continue;
+    const hour = Math.trunc(hourRaw);
+    const slot = slots[hour];
+    if (!slot) continue;
+    slot.count += numberOr(
+      firstNumber(source, ["count", "orderCount", "orders"]),
+      0,
+    );
+    slot.amountCents += mapAmountCents(source, [
+      "amountCents",
+      "amount",
+      "totalCents",
+    ]);
+  }
+  return slots;
+}
+
+/** 各订单状态数量；字段缺失时回落空数组 */
+function mapStatusCounts(value: unknown): StatusCount[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((raw, index) => {
+    const source = record(raw);
+    const status = textOr(
+      firstText(source, ["status", "key", "state"]),
+      `status-${index}`,
+    );
+    return {
+      status,
+      label: textOr(firstText(source, ["label", "name"]), orderStatusLabel(status)),
+      count: numberOr(
+        firstNumber(source, ["count", "orderCount", "orders"]),
+        0,
+      ),
+    };
+  });
+}
+
 /** GET /admin/stats */
 export async function getStats(): Promise<AdminStats> {
   const payload = await getJson<unknown>("/admin/stats");
@@ -1059,6 +1149,30 @@ export async function getStats(): Promise<AdminStats> {
     funnel: mapFunnel(source.funnel ?? source.conversion),
     avgConfirmMinutes:
       avgFromMinutes ?? (avgFromSeconds !== null ? avgFromSeconds / 60 : 0),
+    amountDistribution: mapAmountDistribution(
+      firstArray(source, [
+        "amountDistribution",
+        "amountBuckets",
+        "amountRanges",
+        "distribution",
+      ]),
+    ),
+    hourly: mapHourly(
+      firstArray(source, [
+        "hourly",
+        "hours",
+        "hourlyDistribution",
+        "hourDistribution",
+      ]),
+    ),
+    statusCounts: mapStatusCounts(
+      firstArray(source, [
+        "statusCounts",
+        "orderStatusCounts",
+        "statusDistribution",
+        "statuses",
+      ]),
+    ),
   };
 }
 

@@ -1,8 +1,13 @@
-/** 交易统计：本周/本月/本年，汇总 + 柱状对比 + 累计趋势；支持导出 CSV / Excel / 图片 / PDF。 */
+/**
+ * 交易统计：本周 / 本月 / 本年。
+ * 汇总（含笔数、平均、最大与环比）+ 收支对比 + 订单数趋势 + 累计趋势 + 收款方式占比 + 交易时段分布；
+ * 图表图例可点按隐藏系列、点按数据点查看明细；支持导出 CSV / Excel / 图片 / PDF。
+ */
 
 import { useMemo, useState, type ReactNode } from "react";
-import { ChartBar } from "../components/ChartBar";
-import { ChartLine } from "../components/ChartLine";
+import { ChartBars } from "../components/ChartBars";
+import { ChartCumulative } from "../components/ChartCumulative";
+import { ChartDonut } from "../components/ChartDonut";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock, Spinner } from "../components/Loading";
 import { MoneyText } from "../components/MoneyText";
@@ -29,7 +34,7 @@ import { errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
 import { buildImagePdf } from "../lib/pdf";
 import { canvasToJpegBytes, canvasToPngBlob, renderStatsReport } from "../lib/statsReport";
-import type { StatsBucket, StatsSummary, StatsTimeseries } from "../lib/types";
+import type { PayChannel, StatsBucket, StatsSummary, StatsTimeseries } from "../lib/types";
 import { buildXlsx, type XlsxCell } from "../lib/xlsx";
 
 type Preset = "week" | "month" | "year";
@@ -39,6 +44,14 @@ const PRESETS: { key: Preset; label: string }[] = [
   { key: "month", label: "本月" },
   { key: "year", label: "本年" },
 ];
+
+const COLOR_EXPENSE = "var(--brand)";
+const COLOR_INCOME = "var(--accent)";
+const CHANNEL_COLORS: Record<PayChannel, string> = {
+  alipay: "var(--brand)",
+  wechat: "var(--success)",
+  qq: "var(--warning)",
+};
 
 interface Range {
   from: string;
@@ -86,6 +99,49 @@ function toBuffer(bytes: Uint8Array): ArrayBuffer {
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
   return buffer;
+}
+
+/** 刻度用的紧凑金额：12,345 → 1.2万 */
+function compactCents(cents: number): string {
+  const yuan = cents / 100;
+  if (Math.abs(yuan) >= 10000) {
+    const value = yuan / 10000;
+    return `¥${value >= 10 ? Math.round(value) : value.toFixed(1)}万`;
+  }
+  if (Math.abs(yuan) >= 1000) return `¥${Math.round(yuan)}`;
+  return `¥${Math.round(yuan)}`;
+}
+
+interface Delta {
+  /** 百分比；上一区间为 0 时无法计算 */
+  percent: number | null;
+  direction: "up" | "down" | "flat";
+}
+
+function deltaOf(current: number, previous: number): Delta {
+  if (previous === 0) {
+    return { percent: null, direction: current === 0 ? "flat" : "up" };
+  }
+  const percent = ((current - previous) / Math.abs(previous)) * 100;
+  const direction = percent > 0.05 ? "up" : percent < -0.05 ? "down" : "flat";
+  return { percent, direction };
+}
+
+function DeltaBadge({ delta }: { delta: Delta }): ReactNode {
+  if (delta.percent === null) {
+    return <span className="text-[11px] text-muted">上期无数据</span>;
+  }
+  const percentText = `${delta.percent > 0 ? "+" : ""}${delta.percent.toFixed(1)}%`;
+  return (
+    <span
+      className={cn(
+        "text-[11px] font-medium",
+        delta.direction === "up" ? "text-warning" : delta.direction === "down" ? "text-success" : "text-muted",
+      )}
+    >
+      {delta.direction === "up" ? "↑" : delta.direction === "down" ? "↓" : "→"} {percentText}
+    </span>
+  );
 }
 
 export function StatsPage(): ReactNode {
@@ -153,21 +209,38 @@ export function StatsPage(): ReactNode {
         Number(centsToYuan(summary.netCents)),
         summary.orderCount,
       ],
+      [],
+      ["指标", "数值"],
+      ["支出笔数", summary.expenseCount],
+      ["收入笔数", summary.incomeCount],
+      ["平均每笔（元）", Number(centsToYuan(summary.avgOrderCents))],
+      ["最大单笔（元）", Number(centsToYuan(summary.maxOrderCents))],
+      [
+        "上一区间支出（元）",
+        Number(centsToYuan(summary.previous?.expenseCents ?? 0)),
+      ],
+      [
+        "上一区间收入（元）",
+        Number(centsToYuan(summary.previous?.incomeCents ?? 0)),
+      ],
+      ["上一区间订单数", summary.previous?.orderCount ?? 0],
     ];
     const detailRows: XlsxCell[][] = [
       ["统计区间", rangeLabel],
       [],
-      ["时间", "支出（元）", "收入（元）"],
+      ["时间", "支出（元）", "支出笔数", "收入（元）", "收入笔数"],
       ...(data?.timeseries.buckets ?? []).map((bucket) => [
         bucket.key,
         Number(centsToYuan(bucket.expenseCents)),
+        bucket.expenseCount ?? 0,
         Number(centsToYuan(bucket.incomeCents)),
+        bucket.incomeCount ?? 0,
       ]),
     ];
     void runExport("xlsx", async () => {
       const bytes = buildXlsx([
-        { name: "汇总", rows: summaryRows, boldRows: [0, 5], columnWidths: [18, 18, 14, 10] },
-        { name: "明细", rows: detailRows, boldRows: [2], columnWidths: [16, 14, 14] },
+        { name: "汇总", rows: summaryRows, boldRows: [0, 5, 8], columnWidths: [22, 20, 16, 12] },
+        { name: "明细", rows: detailRows, boldRows: [2], columnWidths: [16, 14, 12, 14, 12] },
       ]);
       downloadBlob(
         new Blob([toBuffer(bytes)], {
@@ -221,6 +294,11 @@ export function StatsPage(): ReactNode {
   };
 
   const buckets: StatsBucket[] = data?.timeseries.buckets ?? [];
+  const bucketLabels = buckets.map((bucket) => bucket.key);
+  const summary = data?.summary;
+  const channels = summary?.channels ?? [];
+  const hours = summary?.hours ?? [];
+  const hasChannelAmount = channels.some((item) => item.amountCents > 0);
 
   return (
     <div className="bg-app min-h-[100dvh]">
@@ -274,42 +352,205 @@ export function StatsPage(): ReactNode {
           <LoadingBlock text="正在统计…" />
         ) : error && !data ? (
           <ErrorBlock message={error} onRetry={reload} />
-        ) : data ? (
+        ) : summary ? (
           <>
             <section className="card p-4">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-2xl bg-surface-2 px-2 py-3">
                   <p className="text-[11px] text-muted">支出</p>
-                  <MoneyText cents={data.summary.expenseCents} size="md" className="mt-1" />
+                  <MoneyText cents={summary.expenseCents} size="md" className="mt-1" />
                 </div>
                 <div className="rounded-2xl bg-surface-2 px-2 py-3">
                   <p className="text-[11px] text-muted">收入</p>
-                  <MoneyText cents={data.summary.incomeCents} size="md" className="mt-1" />
+                  <MoneyText cents={summary.incomeCents} size="md" className="mt-1" />
                 </div>
                 <div
                   className={cn(
                     "rounded-2xl px-2 py-3",
-                    data.summary.netCents >= 0 ? "bg-success-soft" : "bg-danger-soft",
+                    summary.netCents >= 0 ? "bg-success-soft" : "bg-danger-soft",
                   )}
                 >
                   <p className="text-[11px] text-muted">净额</p>
-                  <MoneyText cents={data.summary.netCents} size="md" signed className="mt-1" />
+                  <MoneyText cents={summary.netCents} size="md" signed className="mt-1" />
                 </div>
               </div>
-              <p className="mt-2 text-center text-[11px] text-muted">共 {data.summary.orderCount} 笔订单</p>
+
+              <div className="mt-2.5 grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { label: "支出笔数", value: `${summary.expenseCount} 笔` },
+                    { label: "收入笔数", value: `${summary.incomeCount} 笔` },
+                    { label: "平均每笔", value: `¥${formatCents(summary.avgOrderCents)}` },
+                    { label: "最大单笔", value: `¥${formatCents(summary.maxOrderCents)}` },
+                  ] as const
+                ).map((item) => (
+                  <div key={item.label} className="rounded-xl border border-line/60 px-2.5 py-1.5">
+                    <p className="text-[10.5px] text-muted">{item.label}</p>
+                    <p className="mt-0.5 text-[12.5px] font-medium text-text">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-2 text-center text-[11px] text-muted">共 {summary.orderCount} 笔订单</p>
+            </section>
+
+            <section className="card p-4">
+              <h2 className="text-sm font-semibold text-text">较上一区间</h2>
+              <p className="mt-0.5 text-[11px] text-muted">与等长的上一区间相比</p>
+              <div className="mt-2.5 space-y-2">
+                {(
+                  [
+                    {
+                      label: "支出",
+                      current: summary.expenseCents,
+                      previous: summary.previous?.expenseCents ?? 0,
+                    },
+                    {
+                      label: "收入",
+                      current: summary.incomeCents,
+                      previous: summary.previous?.incomeCents ?? 0,
+                    },
+                    {
+                      label: "订单数",
+                      current: summary.orderCount,
+                      previous: summary.previous?.orderCount ?? 0,
+                    },
+                  ] as const
+                ).map((item) => (
+                  <div key={item.label} className="flex items-center justify-between text-[12px]">
+                    <span className="text-muted">{item.label}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-text">
+                        {item.label === "订单数" ? `${item.current} 笔` : `¥${formatCents(item.current)}`}
+                      </span>
+                      <DeltaBadge delta={deltaOf(item.current, item.previous)} />
+                    </span>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className="card p-4">
               <h2 className="text-sm font-semibold text-text">收支对比</h2>
               <div className="mt-2">
-                <ChartBar buckets={buckets} />
+                <ChartBars
+                  labels={bucketLabels}
+                  series={[
+                    { key: "expense", label: "支出", color: COLOR_EXPENSE, values: buckets.map((b) => b.expenseCents) },
+                    { key: "income", label: "收入", color: COLOR_INCOME, values: buckets.map((b) => b.incomeCents) },
+                  ]}
+                  formatValue={compactCents}
+                  extraRows={[
+                    {
+                      label: "净额",
+                      values: buckets.map((b) => b.incomeCents - b.expenseCents),
+                      format: (value) => `¥${formatCents(value)}`,
+                    },
+                  ]}
+                  ariaLabel="收支对比柱状图"
+                />
+              </div>
+            </section>
+
+            <section className="card p-4">
+              <h2 className="text-sm font-semibold text-text">订单笔数趋势</h2>
+              <div className="mt-2">
+                <ChartBars
+                  labels={bucketLabels}
+                  series={[
+                    {
+                      key: "expenseCount",
+                      label: "支出笔数",
+                      color: COLOR_EXPENSE,
+                      values: buckets.map((b) => b.expenseCount ?? 0),
+                    },
+                    {
+                      key: "incomeCount",
+                      label: "收入笔数",
+                      color: COLOR_INCOME,
+                      values: buckets.map((b) => b.incomeCount ?? 0),
+                    },
+                  ]}
+                  formatValue={(value) => `${Math.round(value)}`}
+                  extraRows={[
+                    {
+                      label: "支出金额",
+                      values: buckets.map((b) => b.expenseCents),
+                      format: (value) => `¥${formatCents(value)}`,
+                    },
+                    {
+                      label: "收入金额",
+                      values: buckets.map((b) => b.incomeCents),
+                      format: (value) => `¥${formatCents(value)}`,
+                    },
+                  ]}
+                  ariaLabel="订单笔数趋势柱状图"
+                />
               </div>
             </section>
 
             <section className="card p-4">
               <h2 className="text-sm font-semibold text-text">累计趋势</h2>
               <div className="mt-2">
-                <ChartLine buckets={buckets} />
+                <ChartCumulative
+                  labels={bucketLabels}
+                  series={[
+                    { key: "expense", label: "支出", color: COLOR_EXPENSE, values: buckets.map((b) => b.expenseCents) },
+                    { key: "income", label: "收入", color: COLOR_INCOME, values: buckets.map((b) => b.incomeCents) },
+                  ]}
+                  formatValue={compactCents}
+                  ariaLabel="累计趋势折线图"
+                />
+              </div>
+            </section>
+
+            <section className="card p-4">
+              <h2 className="text-sm font-semibold text-text">收款方式</h2>
+              <p className="mt-0.5 text-[11px] text-muted">按已支付订单的金额占比</p>
+              <div className="mt-2">
+                {hasChannelAmount ? (
+                  <ChartDonut
+                    items={channels.map((item) => ({
+                      key: item.channel,
+                      label: item.label,
+                      color: CHANNEL_COLORS[item.channel] ?? "var(--muted)",
+                      value: item.amountCents,
+                      note: `${item.count} 笔`,
+                    }))}
+                    formatValue={(value) => `¥${formatCents(value)}`}
+                    centerLabel="收款合计"
+                    ariaLabel="收款方式占比环形图"
+                  />
+                ) : (
+                  <p className="py-6 text-center text-xs text-muted">该区间暂无已支付订单</p>
+                )}
+              </div>
+            </section>
+
+            <section className="card p-4">
+              <h2 className="text-sm font-semibold text-text">交易时段</h2>
+              <p className="mt-0.5 text-[11px] text-muted">按小时统计，点按柱子查看该时段金额</p>
+              <div className="mt-2">
+                <ChartBars
+                  labels={hours.map((item) => `${item.hour}时`)}
+                  series={[
+                    {
+                      key: "count",
+                      label: "订单数",
+                      color: COLOR_EXPENSE,
+                      values: hours.map((item) => item.count),
+                    },
+                  ]}
+                  formatValue={(value) => `${Math.round(value)}`}
+                  extraRows={[
+                    {
+                      label: "金额",
+                      values: hours.map((item) => item.amountCents),
+                      format: (value) => `¥${formatCents(value)}`,
+                    },
+                  ]}
+                  ariaLabel="交易时段分布柱状图"
+                />
               </div>
             </section>
 

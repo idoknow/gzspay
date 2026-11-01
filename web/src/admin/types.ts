@@ -243,6 +243,34 @@ export interface FunnelStep {
   count: number;
 }
 
+/**
+ * 金额区间分布桶。
+ * key 取值：lt10 / 10to50 / 50to100 / 100to500 / gte500。
+ */
+export interface AmountBucket {
+  key: string;
+  label: string;
+  /** 该区间订单数 */
+  count: number;
+  /** 该区间交易额（分） */
+  amountCents: number;
+}
+
+/** 时段分布桶（0–23 时，服务器本地时间） */
+export interface HourBucket {
+  hour: number;
+  count: number;
+  amountCents: number;
+}
+
+/** 订单状态数量（各状态在全量订单中的占比基数） */
+export interface StatusCount {
+  /** 订单状态，如 pending_payment / paid / completed / cancelled */
+  status: string;
+  label: string;
+  count: number;
+}
+
 /** GET /admin/stats */
 export interface AdminStats {
   trend: TrendBucket[];
@@ -250,6 +278,12 @@ export interface AdminStats {
   paymentMethods: PaymentMethodStat[];
   funnel: FunnelStep[];
   avgConfirmMinutes: number;
+  /** 金额区间分布（已完成订单） */
+  amountDistribution: AmountBucket[];
+  /** 24 小时时段分布，hour 固定 0–23 */
+  hourly: HourBucket[];
+  /** 各订单状态数量 */
+  statusCounts: StatusCount[];
 }
 
 /* -------------------------------------------------------------- 系统状态 */

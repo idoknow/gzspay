@@ -826,12 +826,73 @@ export function adminStats() {
      FROM orders WHERE completed_at IS NOT NULL AND paid_at IS NOT NULL`,
   );
 
+  // 金额区间分布（已完成订单）
+  const AMOUNT_BUCKETS = [
+    { key: "lt10", label: "¥10 以下" },
+    { key: "10to50", label: "¥10–50" },
+    { key: "50to100", label: "¥50–100" },
+    { key: "100to500", label: "¥100–500" },
+    { key: "gte500", label: "¥500 以上" },
+  ] as const;
+  const distributionRows = queryAll<{ bucket: string; count: number; amount: number | null }>(
+    `SELECT CASE
+              WHEN amount_cents < 1000 THEN 'lt10'
+              WHEN amount_cents < 5000 THEN '10to50'
+              WHEN amount_cents < 10000 THEN '50to100'
+              WHEN amount_cents < 50000 THEN '100to500'
+              ELSE 'gte500'
+            END AS bucket,
+            COUNT(*) AS count,
+            COALESCE(SUM(amount_cents), 0) AS amount
+     FROM orders WHERE status = 'completed'
+     GROUP BY bucket`,
+  );
+  const distributionMap = new Map(distributionRows.map((row) => [row.bucket, row]));
+  const amountDistribution = AMOUNT_BUCKETS.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.label,
+    count: distributionMap.get(bucket.key)?.count ?? 0,
+    amountCents: distributionMap.get(bucket.key)?.amount ?? 0,
+  }));
+
+  // 时段分布（服务器本地时间，0–23 时）
+  const hourRows = queryAll<{ created_at: string; amount_cents: number }>(
+    "SELECT created_at, amount_cents FROM orders WHERE status = 'completed'",
+  );
+  const hourly = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    count: 0,
+    amountCents: 0,
+  }));
+  for (const row of hourRows) {
+    const item = hourly[new Date(row.created_at).getHours()];
+    if (!item) continue;
+    item.count += 1;
+    item.amountCents += row.amount_cents;
+  }
+
+  // 各状态订单数量
+  const STATUS_LABELS: Record<string, string> = {
+    pending_payment: "待付款",
+    paid: "已支付",
+    completed: "已完成",
+    cancelled: "已取消",
+  };
+  const statusCounts = Object.entries(STATUS_LABELS).map(([status, label]) => ({
+    status,
+    label,
+    count: funnelMap.get(status as OrderStatus) ?? 0,
+  }));
+
   return {
     trend,
     merchantRanking,
     paymentMethods,
     funnel,
     avgConfirmMinutes: Math.round(avgRow?.avg ?? 0),
+    amountDistribution,
+    hourly,
+    statusCounts,
   };
 }
 

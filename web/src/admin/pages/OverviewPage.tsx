@@ -1,6 +1,7 @@
 /**
  * 总览：核心指标卡片 + 近 12 个月交易趋势 + 最近订单 + 待处理事项。
  */
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { getOverview } from "../api";
 import { DualAxisTrendChart } from "../components/charts";
@@ -32,6 +33,8 @@ export function OverviewPage() {
     () => getOverview(),
     [],
   );
+  /** 趋势图选中的月份（点击柱子或折线圆点查看该月明细） */
+  const [trendKey, setTrendKey] = useState<string | null>(null);
 
   return (
     <>
@@ -97,7 +100,7 @@ export function OverviewPage() {
           <div className="admin-grid-main-aside">
             <Card
               title="近 12 个月交易趋势"
-              subtitle="柱状为交易额，折线为订单数"
+              subtitle="柱状为交易额，折线为订单数；点击图例可隐藏系列，点击柱子或圆点查看该月明细"
               extra={
                 <Link className="admin-btn admin-btn-link admin-btn-sm" to="/admin/monthly">
                   查看每月交易额
@@ -111,6 +114,9 @@ export function OverviewPage() {
                   value: bucket.amountCents,
                   secondary: bucket.orderCount,
                 }))}
+                onSelect={(point) => setTrendKey(point.key)}
+                selectedKey={trendKey}
+                onClearSelect={() => setTrendKey(null)}
                 emptyText="暂无交易数据"
               />
             </Card>

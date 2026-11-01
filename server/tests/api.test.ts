@@ -333,11 +333,34 @@ describe("商家与订单", () => {
       .expect(403);
     expect(response.body.error.code).toBe("FORBIDDEN");
   });
-  it("付款人的交易统计包含这笔支出", async () => {
+  it("付款人的交易统计包含这笔支出与明细字段", async () => {
     const summary = await agentWith(payerSession).get("/api/stats/summary").expect(200);
     expect(summary.body.expenseCents).toBe(1200);
+    expect(summary.body.expenseCount).toBeGreaterThanOrEqual(1);
+    expect(summary.body.avgOrderCents).toBeGreaterThan(0);
+    expect(summary.body.maxOrderCents).toBeGreaterThanOrEqual(1200);
+    expect(summary.body.previous).toEqual({
+      expenseCents: expect.any(Number),
+      incomeCents: expect.any(Number),
+      orderCount: expect.any(Number),
+    });
+    expect(summary.body.channels.map((item: { channel: string }) => item.channel)).toEqual([
+      "alipay",
+      "wechat",
+      "qq",
+    ]);
+    const alipay = summary.body.channels.find((item: { channel: string }) => item.channel === "alipay");
+    expect(alipay.count).toBeGreaterThanOrEqual(1);
+    expect(alipay.amountCents).toBeGreaterThanOrEqual(1200);
+    expect(summary.body.hours).toHaveLength(24);
     const timeseries = await agentWith(payerSession).get("/api/stats/timeseries?granularity=day").expect(200);
     expect(timeseries.body.buckets.length).toBeGreaterThan(0);
+    expect(timeseries.body.buckets[0]).toEqual(
+      expect.objectContaining({
+        expenseCount: expect.any(Number),
+        incomeCount: expect.any(Number),
+      }),
+    );
   });
 
   it("订单二维码与保存收款码接口返回 PNG", async () => {

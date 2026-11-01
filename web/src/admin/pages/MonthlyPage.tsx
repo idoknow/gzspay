@@ -36,6 +36,8 @@ const YEAR_OPTIONS = [
 export function MonthlyPage() {
   const [year, setYear] = useState(CURRENT_YEAR);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  /** 每日趋势图中选中的日期（点击柱子或折线圆点查看该日明细） */
+  const [dayKey, setDayKey] = useState<string | null>(null);
 
   const { data, loading, error, refresh } = useAsync<MonthlyData>(
     () => getMonthly(year),
@@ -82,6 +84,11 @@ export function MonthlyPage() {
     activeMonth.days.length === 0 &&
     fallbackDays.loading &&
     fallbackDays.data === null;
+
+  // 切换月份时清除已选中的日期
+  useEffect(() => {
+    setDayKey(null);
+  }, [activeMonth?.key]);
 
   const summary = useMemo(() => {
     const amount = months.reduce((sum, month) => sum + month.amountCents, 0);
@@ -186,9 +193,11 @@ export function MonthlyPage() {
                 key: month.key,
                 label: month.label || formatMonthLabel(month.key),
                 value: month.amountCents,
+                secondary: month.orderCount,
               }))}
               onSelect={(point) => setSelectedKey(point.key)}
               selectedKey={activeMonth?.key}
+              onClearSelect={() => setSelectedKey(null)}
               emptyText="暂无月度数据"
               ariaLabel={`${year} 年每月交易额`}
             />
@@ -201,7 +210,7 @@ export function MonthlyPage() {
                   ? `${formatMonthLabel(activeMonth.key)}每日交易趋势`
                   : "每日交易趋势"
               }
-              subtitle="柱状为交易额，折线为订单数；点击左侧月份可切换"
+              subtitle="柱状为交易额，折线为订单数；点击图例可隐藏系列，点击柱子或圆点查看该日明细"
             >
               {daysLoading ? (
                 <TableSkeleton rows={4} cols={3} />
@@ -213,6 +222,9 @@ export function MonthlyPage() {
                     value: day.amountCents,
                     secondary: day.orderCount,
                   }))}
+                  onSelect={(point) => setDayKey(point.key)}
+                  selectedKey={dayKey}
+                  onClearSelect={() => setDayKey(null)}
                   emptyText="该月暂无每日明细"
                 />
               )}

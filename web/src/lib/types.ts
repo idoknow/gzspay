@@ -317,18 +317,54 @@ export interface OrderUpdateEvent {
   status?: OrderStatus;
 }
 
-/** 统计 */
+/** 统计：上一等长区间（用于环比） */
+export interface StatsPrevious {
+  expenseCents: number;
+  incomeCents: number;
+  orderCount: number;
+}
+
+/** 统计：收款方式分布 */
+export interface StatsChannelStat {
+  channel: PayChannel;
+  label: string;
+  count: number;
+  amountCents: number;
+}
+
+/** 统计：0–23 时交易分布（服务器本地时间） */
+export interface StatsHourStat {
+  hour: number;
+  count: number;
+  amountCents: number;
+}
+
 export interface StatsSummary {
   expenseCents: number;
   incomeCents: number;
   netCents: number;
   orderCount: number;
+  /** 支出 / 收入笔数 */
+  expenseCount: number;
+  incomeCount: number;
+  /** 平均每笔金额 */
+  avgOrderCents: number;
+  /** 最大单笔金额 */
+  maxOrderCents: number;
+  /** 上一个等长区间，用于环比 */
+  previous: StatsPrevious;
+  /** 已支付订单的收款方式分布 */
+  channels: StatsChannelStat[];
+  /** 0–23 时交易分布 */
+  hours: StatsHourStat[];
 }
 
 export interface StatsBucket {
   key: string;
   expenseCents: number;
   incomeCents: number;
+  expenseCount: number;
+  incomeCount: number;
 }
 
 export interface StatsTimeseries {

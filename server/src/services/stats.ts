@@ -2,7 +2,7 @@ import { nowIso, queryAll, queryOne } from "../db/index.js";
 import { toCsv } from "../lib/audit.js";
 import { errors } from "../lib/errors.js";
 import type { Channel, OrderRow, UserRow } from "../lib/types.js";
-import { CHANNEL_LABELS } from "../lib/types.js";
+import { CHANNELS, CHANNEL_LABELS } from "../lib/types.js";
 
 export interface DateRange {
   from: string;
@@ -26,8 +26,67 @@ export function parseRange(fromValue?: string, toValue?: string): DateRange {
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
+/** 与给定区间等长的上一个相邻区间（用于环比） */
+export function previousRange(range: DateRange): DateRange {
+  const from = new Date(range.from).getTime();
+  const to = new Date(range.to).getTime();
+  const span = Math.max(to - from, 0);
+  const previousTo = from - 1;
+  const previousFrom = Math.max(0, previousTo - span);
+  if (previousTo <= 0) return { from: new Date(0).toISOString(), to: new Date(0).toISOString() };
+  return { from: new Date(previousFrom).toISOString(), to: new Date(previousTo).toISOString() };
+}
+
 function statusesFor(includePending: boolean): string[] {
   return includePending ? ["completed", "paid"] : ["completed"];
+}
+
+interface AmountTotals {
+  total: number;
+  count: number;
+  max: number;
+}
+
+function amountTotals(
+  userId: string,
+  range: DateRange,
+  statuses: string[],
+  role: "payer" | "merchant",
+): AmountTotals {
+  const placeholders = statuses.map(() => "?").join(",");
+  const column = role === "payer" ? "payer_id" : "merchant_id";
+  const row = queryOne<{ total: number | null; count: number; max: number | null }>(
+    `SELECT SUM(amount_cents) AS total, COUNT(*) AS count, MAX(amount_cents) AS max FROM orders
+     WHERE ${column} = ? AND created_at >= ? AND created_at <= ? AND status IN (${placeholders})`,
+    userId,
+    range.from,
+    range.to,
+    ...(statuses as never[]),
+  );
+  return {
+    total: row?.total ?? 0,
+    count: row?.count ?? 0,
+    max: row?.max ?? 0,
+  };
+}
+
+export interface PreviousStats {
+  expenseCents: number;
+  incomeCents: number;
+  orderCount: number;
+}
+
+export interface ChannelStat {
+  channel: Channel;
+  label: string;
+  count: number;
+  amountCents: number;
+}
+
+export interface HourStat {
+  hour: number;
+  count: number;
+  amountCents: number;
 }
 
 export interface StatsSummary {
@@ -35,31 +94,108 @@ export interface StatsSummary {
   incomeCents: number;
   netCents: number;
   orderCount: number;
+  /** 支出 / 收入笔数 */
+  expenseCount: number;
+  incomeCount: number;
+  /** 平均每笔金额（支出 + 收入合计） */
+  avgOrderCents: number;
+  /** 区间内最大单笔金额 */
+  maxOrderCents: number;
+  /** 上一个等长区间的汇总，用于环比 */
+  previous: PreviousStats;
+  /** 已支付订单的收款方式分布 */
+  channels: ChannelStat[];
+  /** 0–23 时（服务器本地时间）的交易分布 */
+  hours: HourStat[];
+}
+
+/** 已支付订单按收款方式聚合 */
+function channelDistribution(
+  userId: string,
+  range: DateRange,
+  statuses: string[],
+): ChannelStat[] {
+  const placeholders = statuses.map(() => "?").join(",");
+  const rows = queryAll<{ channel: string | null; count: number; amount: number | null }>(
+    `SELECT pay_channel AS channel, COUNT(*) AS count, SUM(amount_cents) AS amount FROM orders
+     WHERE created_at >= ? AND created_at <= ? AND status IN (${placeholders})
+       AND pay_channel IS NOT NULL AND (payer_id = ? OR merchant_id = ?)
+     GROUP BY pay_channel`,
+    range.from,
+    range.to,
+    ...(statuses as never[]),
+    userId,
+    userId,
+  );
+  const map = new Map(rows.map((row) => [row.channel ?? "", row]));
+  return CHANNELS.map((channel) => {
+    const row = map.get(channel);
+    return {
+      channel,
+      label: CHANNEL_LABELS[channel],
+      count: row?.count ?? 0,
+      amountCents: row?.amount ?? 0,
+    };
+  });
+}
+
+/** 按小时聚合（服务器本地时区） */
+function hourDistribution(
+  userId: string,
+  range: DateRange,
+  statuses: string[],
+): HourStat[] {
+  const placeholders = statuses.map(() => "?").join(",");
+  const hours: HourStat[] = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    count: 0,
+    amountCents: 0,
+  }));
+  const rows = queryAll<{ created_at: string; amount_cents: number }>(
+    `SELECT created_at, amount_cents FROM orders
+     WHERE created_at >= ? AND created_at <= ? AND status IN (${placeholders})
+       AND (payer_id = ? OR merchant_id = ?)`,
+    range.from,
+    range.to,
+    ...(statuses as never[]),
+    userId,
+    userId,
+  );
+  for (const row of rows) {
+    const hour = new Date(row.created_at).getHours();
+    const bucket = hours[hour];
+    if (!bucket) continue;
+    bucket.count += 1;
+    bucket.amountCents += row.amount_cents;
+  }
+  return hours;
 }
 
 export function statsSummary(user: UserRow, range: DateRange, includePending: boolean): StatsSummary {
   const statuses = statusesFor(includePending);
-  const placeholders = statuses.map(() => "?").join(",");
-  const params = [range.from, range.to, ...statuses];
-  const expense = queryOne<{ total: number | null; count: number }>(
-    `SELECT SUM(amount_cents) AS total, COUNT(*) AS count FROM orders
-     WHERE payer_id = ? AND created_at >= ? AND created_at <= ? AND status IN (${placeholders})`,
-    user.id,
-    ...(params as never[]),
-  );
-  const income = queryOne<{ total: number | null; count: number }>(
-    `SELECT SUM(amount_cents) AS total, COUNT(*) AS count FROM orders
-     WHERE merchant_id = ? AND created_at >= ? AND created_at <= ? AND status IN (${placeholders})`,
-    user.id,
-    ...(params as never[]),
-  );
-  const expenseCents = expense?.total ?? 0;
-  const incomeCents = income?.total ?? 0;
+  const expense = amountTotals(user.id, range, statuses, "payer");
+  const income = amountTotals(user.id, range, statuses, "merchant");
+  const before = previousRange(range);
+  const previousExpense = amountTotals(user.id, before, statuses, "payer");
+  const previousIncome = amountTotals(user.id, before, statuses, "merchant");
+  const orderCount = expense.count + income.count;
+  const totalCents = expense.total + income.total;
   return {
-    expenseCents,
-    incomeCents,
-    netCents: incomeCents - expenseCents,
-    orderCount: (expense?.count ?? 0) + (income?.count ?? 0),
+    expenseCents: expense.total,
+    incomeCents: income.total,
+    netCents: income.total - expense.total,
+    orderCount,
+    expenseCount: expense.count,
+    incomeCount: income.count,
+    avgOrderCents: orderCount > 0 ? Math.round(totalCents / orderCount) : 0,
+    maxOrderCents: Math.max(expense.max, income.max),
+    previous: {
+      expenseCents: previousExpense.total,
+      incomeCents: previousIncome.total,
+      orderCount: previousExpense.count + previousIncome.count,
+    },
+    channels: channelDistribution(user.id, range, statuses),
+    hours: hourDistribution(user.id, range, statuses),
   };
 }
 
@@ -67,6 +203,8 @@ export interface TimeseriesBucket {
   key: string;
   expenseCents: number;
   incomeCents: number;
+  expenseCount: number;
+  incomeCount: number;
 }
 
 function bucketKey(date: Date, granularity: "day" | "month"): string {
@@ -105,7 +243,7 @@ export function statsTimeseries(
   const placeholders = statuses.map(() => "?").join(",");
   const buckets = new Map<string, TimeseriesBucket>();
   for (const key of enumerateKeys(range, granularity)) {
-    buckets.set(key, { key, expenseCents: 0, incomeCents: 0 });
+    buckets.set(key, { key, expenseCents: 0, incomeCents: 0, expenseCount: 0, incomeCount: 0 });
   }
   const rows = queryAll<{ created_at: string; amount_cents: number; payer_id: string; merchant_id: string }>(
     `SELECT created_at, amount_cents, payer_id, merchant_id FROM orders
@@ -121,8 +259,14 @@ export function statsTimeseries(
     const key = bucketKey(new Date(row.created_at), granularity);
     const bucket = buckets.get(key);
     if (!bucket) continue;
-    if (row.payer_id === user.id) bucket.expenseCents += row.amount_cents;
-    if (row.merchant_id === user.id) bucket.incomeCents += row.amount_cents;
+    if (row.payer_id === user.id) {
+      bucket.expenseCents += row.amount_cents;
+      bucket.expenseCount += 1;
+    }
+    if (row.merchant_id === user.id) {
+      bucket.incomeCents += row.amount_cents;
+      bucket.incomeCount += 1;
+    }
   }
   return [...buckets.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
