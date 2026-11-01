@@ -54,7 +54,7 @@ export function ProductPicker({ products, selected, onChange, disabled = false }
             key={product.id}
             className={cn(
               "flex items-center gap-3 rounded-2xl border p-3 transition",
-              quantity > 0 ? "border-brand bg-brand-soft/60" : "border-line bg-surface",
+              quantity > 0 ? "border-text/80 bg-surface-2" : "border-line bg-surface",
             )}
           >
             {product.imageUrl ? (

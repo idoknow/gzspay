@@ -23,28 +23,36 @@
   --accent-strong: #f0b21f;
   --accent-soft: #fff6d9;
 
-  --bg: #f2f7ff;
+  --bg: #f5f5f2;
   --surface: #ffffff;
-  --surface-2: #eaf1ff;
-  --surface-3: #dde7fb;
-  --text: #0b1b4d;
-  --muted: #4a5a8c;
-  --line: #e1e9fa;
+  --surface-2: #f0f0ec;
+  --surface-3: #e5e5df;
+  --text: #171a20;
+  --muted: #6b6f7a;
+  --line: #e6e6e0;
   --danger: #e5484d;
   --danger-soft: #fdeaea;
   --success: #12a150;
   --success-soft: #e5f8ed;
   --warning: #c77700;
   --warning-soft: #fff4dd;
-  --shadow: 0 12px 32px -18px rgba(11, 27, 77, 0.35);
-  --shadow-strong: 0 18px 44px -18px rgba(11, 27, 77, 0.42);
+  --shadow: 0 12px 32px -18px rgba(23, 26, 32, 0.22);
+  --shadow-strong: 0 18px 44px -18px rgba(23, 26, 32, 0.3);
   /* 界面美化补充的分层阴影与品牌渐变 */
-  --shadow-xs: 0 1px 2px rgba(11, 27, 77, 0.06);
-  --shadow-card: 0 1px 2px rgba(11, 27, 77, 0.05), 0 16px 36px -26px rgba(11, 27, 77, 0.5);
-  --shadow-float: 0 10px 30px -12px rgba(11, 27, 77, 0.32);
+  --shadow-xs: 0 1px 2px rgba(23, 26, 32, 0.05);
+  --shadow-card: 0 1px 2px rgba(23, 26, 32, 0.05), 0 16px 34px -26px rgba(23, 26, 32, 0.35);
+  --shadow-float: 0 10px 28px -12px rgba(23, 26, 32, 0.24);
   --brand-gradient: linear-gradient(135deg, #5b9bff 0%, #1e6bff 52%, #1552d6 100%);
   --brand-glow: 0 14px 30px -14px rgba(30, 107, 255, 0.55);
   --accent-gradient: linear-gradient(135deg, #ffd968 0%, #ffc933 55%, #f0b21f 100%);
+  /* 个人中心头图：暖黄渐变卡面（不用蓝色做主色） */
+  --hero-bg: linear-gradient(135deg, #fff8e3 0%, #ffedba 52%, #ffdf85 100%);
+  --hero-fg: #40320a;
+  --hero-fg-soft: rgba(64, 50, 10, 0.78);
+  --hero-fg-faint: rgba(64, 50, 10, 0.6);
+  --hero-chip: rgba(255, 255, 255, 0.55);
+  --hero-ring: rgba(64, 50, 10, 0.12);
+  --hero-glow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 18px 36px -26px rgba(168, 124, 8, 0.55);
 }
 
 html[data-theme="dark"] {
@@ -56,13 +64,13 @@ html[data-theme="dark"] {
   --accent-strong: #ffbe3c;
   --accent-soft: #3a2f10;
 
-  --bg: #0a1020;
-  --surface: #111a2c;
-  --surface-2: #16213a;
-  --surface-3: #1e2c4a;
-  --text: #eef3ff;
-  --muted: #98a5c0;
-  --line: #22304e;
+  --bg: #101114;
+  --surface: #191b20;
+  --surface-2: #20232a;
+  --surface-3: #292d36;
+  --text: #f2f3f5;
+  --muted: #9aa0ac;
+  --line: #2a2e36;
   --danger: #ff6b6f;
   --danger-soft: #3a1a1d;
   --success: #3ecf8e;
@@ -77,6 +85,13 @@ html[data-theme="dark"] {
   --brand-gradient: linear-gradient(135deg, #6fa5ff 0%, #4d8dff 52%, #2f6bff 100%);
   --brand-glow: 0 14px 30px -14px rgba(77, 141, 255, 0.5);
   --accent-gradient: linear-gradient(135deg, #ffe08a 0%, #ffcf57 55%, #ffbe3c 100%);
+  --hero-bg: linear-gradient(135deg, #3b2f10 0%, #4b3a12 52%, #5d4715 100%);
+  --hero-fg: #ffe9b0;
+  --hero-fg-soft: rgba(255, 233, 176, 0.8);
+  --hero-fg-faint: rgba(255, 233, 176, 0.6);
+  --hero-chip: rgba(255, 255, 255, 0.14);
+  --hero-ring: rgba(255, 233, 176, 0.16);
+  --hero-glow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 36px -26px rgba(0, 0, 0, 0.85);
 }
 
 @theme inline {
@@ -218,9 +233,9 @@ img {
   }
   /* 品牌渐变卡面（个人资料头部等） */
   .hero-gradient {
-    background: var(--brand-gradient);
-    box-shadow: var(--brand-glow);
-    color: #fff;
+    background: var(--hero-bg);
+    box-shadow: var(--hero-glow);
+    color: var(--hero-fg);
   }
   .card-flat {
     @apply rounded-2xl border border-line bg-surface;
@@ -246,14 +261,15 @@ img {
     box-shadow: var(--shadow-xs);
   }
   .chip-active {
-    @apply border-transparent text-white;
-    background: var(--brand-gradient);
-    box-shadow: var(--brand-glow);
+    @apply border-transparent;
+    background: var(--text);
+    color: var(--surface);
+    box-shadow: 0 10px 22px -14px rgba(0, 0, 0, 0.55);
   }
   /* 分段控件（滑动胶囊）：容器 .segmented，滑块 .segmented-thumb，选项 .segmented-item */
   .segmented {
     @apply relative flex rounded-full border border-line bg-surface-2 p-1;
-    box-shadow: inset 0 1px 2px rgba(11, 27, 77, 0.07);
+    box-shadow: inset 0 1px 2px rgba(23, 26, 32, 0.06);
   }
   .segmented-thumb {
     @apply absolute bottom-1 top-1 rounded-full bg-surface;
@@ -267,7 +283,7 @@ img {
     min-height: 36px;
   }
   .segmented-item-active {
-    color: var(--brand);
+    color: var(--text);
   }
   .section-title {
     @apply mb-2 flex items-center gap-2 px-1 text-[13px] font-semibold tracking-wide text-muted;
@@ -277,7 +293,8 @@ img {
     width: 3px;
     height: 12px;
     border-radius: 999px;
-    background: var(--brand-gradient);
+    background: var(--text);
+    opacity: 0.5;
   }
   .row {
     @apply flex items-center gap-3;
@@ -320,14 +337,14 @@ img {
   .bg-app {
     background:
       radial-gradient(
-        1200px 420px at 50% -160px,
-        color-mix(in srgb, var(--brand) 17%, transparent),
-        transparent 70%
+        1000px 400px at 50% -150px,
+        color-mix(in srgb, var(--accent) 22%, transparent),
+        transparent 72%
       ),
       radial-gradient(
-        760px 320px at 100% 104%,
-        color-mix(in srgb, var(--accent) 12%, transparent),
-        transparent 72%
+        760px 340px at 100% 104%,
+        color-mix(in srgb, var(--brand) 7%, transparent),
+        transparent 76%
       ),
       var(--bg);
   }

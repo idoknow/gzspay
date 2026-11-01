@@ -83,4 +83,4 @@ scripts/  开发启动、端到端冒烟、品牌资产生成（scripts/brand）
 
 ## 许可证
 
-见 [LICENSE](./LICENSE)。
+见 [LICENSE](./LICENSE)（GNU AGPL-3.0）。本项目由 **idoknow 组织** 维护，版权归 idoknow 组织所有。

@@ -192,14 +192,12 @@ export function TradesPage(): ReactNode {
                         onClick={() => changeStatus(option.value)}
                         className={cn(
                           "flex w-full items-start justify-between gap-2 rounded-xl px-3 py-2 text-left transition",
-                          active ? "bg-brand-soft text-brand" : "text-text hover:bg-surface-2",
+                          active ? "bg-surface-2 text-text" : "text-text hover:bg-surface-2",
                         )}
                       >
                         <span>
                           <span className="block text-sm font-semibold">{option.label}</span>
-                          <span className={cn("block text-[11px]", active ? "text-brand" : "text-muted")}>
-                            {option.hint}
-                          </span>
+                          <span className="block text-[11px] text-muted">{option.hint}</span>
                         </span>
                         {active ? <CheckIcon /> : null}
                       </button>

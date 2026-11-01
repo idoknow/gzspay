@@ -1,4 +1,4 @@
-/** 主题：浅色 / 深色 / 自动（跟随系统）。通过 <html data-theme> + CSS 变量即时生效。 */
+﻿/** 主题：浅色 / 深色 / 自动（跟随系统）。通过 <html data-theme> + CSS 变量即时生效。 */
 
 export type ThemeMode = "light" | "dark" | "auto";
 
@@ -33,7 +33,7 @@ export function resolveTheme(mode: ThemeMode): "light" | "dark" {
 function applyResolved(theme: "light" | "dark"): void {
   document.documentElement.dataset.theme = theme;
   const meta = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
-  const color = theme === "dark" ? "#0a1020" : "#f2f7ff";
+  const color = theme === "dark" ? "#101114" : "#f5f5f2";
   for (const tag of meta) {
     tag.content = color;
   }

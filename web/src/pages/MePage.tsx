@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { AppFooter } from "../components/AppFooter";
 import { BottomNav } from "../components/BottomNav";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
@@ -18,7 +19,7 @@ interface MenuItem {
 
 function MenuIcon({ children }: { children: ReactNode }): ReactNode {
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-surface-2 text-text ring-1 ring-line/70">
       {children}
     </span>
   );
@@ -146,45 +147,47 @@ export function MePage(): ReactNode {
           <section className="hero-gradient relative overflow-hidden rounded-3xl p-5">
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-white/15 blur-2xl"
+              className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-white/45 blur-2xl"
             />
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-black/10 blur-2xl"
+              className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/25 blur-2xl"
             />
             <div className="relative flex items-center gap-4">
-              <span className="rounded-full bg-white/20 p-[3px] ring-1 ring-white/35">
+              <span className="rounded-[22px] bg-white/55 p-[3px] ring-1 ring-[color:var(--hero-ring)]">
                 <Avatar name={me.displayName} avatarUrl={me.avatarUrl} size={60} />
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="truncate text-lg font-bold text-white">{me.displayName}</h1>
+                  <h1 className="truncate text-lg font-bold text-[color:var(--hero-fg)]">{me.displayName}</h1>
                   {me.isMerchant ? (
-                    <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-white/30">
+                    <span className="shrink-0 rounded-full bg-[color:var(--hero-chip)] px-2 py-0.5 text-[10px] font-semibold text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)]">
                       商家
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-xs text-white/75">学号 {me.studentNo || "未填写"}</p>
+                <p className="mt-1 text-xs text-[color:var(--hero-fg-soft)]">学号 {me.studentNo || "未填写"}</p>
                 {me.cardNoMasked ? (
                   <button
                     type="button"
-                    className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/75"
+                    className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[color:var(--hero-fg-soft)]"
                     onClick={() => setShowCardNo((value) => !value)}
                   >
                     <span>卡号 {showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked}</span>
-                    <span className="font-semibold text-white underline decoration-white/40 underline-offset-2">
+                    <span className="font-semibold text-[color:var(--hero-fg)] underline decoration-[color:var(--hero-ring)] underline-offset-2">
                       {showCardNo ? "隐藏" : "显示"}
                     </span>
                   </button>
                 ) : (
-                  <p className="mt-0.5 text-[11px] text-white/75">卡号 未绑定</p>
+                  <p className="mt-0.5 text-[11px] text-[color:var(--hero-fg-soft)]">卡号 未绑定</p>
                 )}
-                <p className="mt-0.5 text-[11px] text-white/60">加入于 {formatFriendlyTime(me.createdAt)}</p>
+                <p className="mt-0.5 text-[11px] text-[color:var(--hero-fg-faint)]">
+                  加入于 {formatFriendlyTime(me.createdAt)}
+                </p>
               </div>
             </div>
             {me.frozen ? (
-              <p className="relative mt-4 rounded-xl bg-white/15 px-3 py-2 text-xs leading-relaxed text-white ring-1 ring-white/25">
+              <p className="relative mt-4 rounded-xl bg-[color:var(--hero-chip)] px-3 py-2 text-xs leading-relaxed text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)]">
                 账号已被限制，如有疑问请通过「关于」中的联系方式联系我们。
               </p>
             ) : null}
@@ -221,9 +224,10 @@ export function MePage(): ReactNode {
           退出登录
         </button>
 
-        <p className="pb-2 text-center text-[11px] leading-relaxed text-muted">
+        <p className="text-center text-[11px] leading-relaxed text-muted">
           资金通过第三方收款码流转，gzspay 不代收代付
         </p>
+        <AppFooter className="pb-2" />
       </main>
 
       <BottomNav />

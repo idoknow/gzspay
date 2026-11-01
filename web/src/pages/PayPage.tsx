@@ -574,7 +574,7 @@ export function PayPage(): ReactNode {
     return (
     <div className="space-y-4">
       <section className="card overflow-hidden p-0">
-        <div className="bg-brand-soft px-4 py-8 text-center">
+        <div className="bg-surface-2 px-4 py-8 text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-surface text-brand shadow-sm">
             <ScanIcon size={38} />
           </div>

@@ -33,7 +33,7 @@ function NavItem({ to, label, icon }: { to: string; label: string; icon: "trade"
       className={({ isActive }) =>
         cn(
           "mx-auto flex w-full max-w-[104px] flex-col items-center gap-1 rounded-2xl py-1.5 text-[11px] font-medium transition-colors duration-200",
-          isActive ? "bg-brand-soft text-brand" : "text-muted active:bg-surface-2",
+          isActive ? "bg-surface-2 font-semibold text-text" : "text-muted active:bg-surface-2",
         )
       }
     >

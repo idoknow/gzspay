@@ -67,7 +67,7 @@ export function SettingsPage(): ReactNode {
                   type="button"
                   className={cn(
                     "flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 transition-colors",
-                    active ? "border-brand bg-brand-soft text-brand" : "border-line bg-surface-2 text-muted",
+                    active ? "border-text bg-surface-2 text-text" : "border-line bg-surface-2 text-muted",
                   )}
                   onClick={() => {
                     setThemeMode(option.key);

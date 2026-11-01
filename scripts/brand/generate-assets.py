@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """gzspay 品牌图形资产生成器。
 
@@ -6,7 +6,7 @@
   - 图标：蓝色圆角方块（120×120，rx=30，#1E6BFF）+ 白色 g（黄色硬币 #FFC933 描白边）+ 白色 g 尾巴；
   - 字标：gzs（#0B1B4D）+ pay（#1E6BFF），Nunito 800，负字距；
   - 副标：CAMPUS PAYMENT，Nunito 800，大写，宽字距，色 #4A5A8C；
-  - 色板：#1E6BFF 品牌蓝、#FFC933 暖黄、#0B1B4D 深海军蓝、#FFFFFF、#F2F7FF 浅蓝底、#4A5A8C 灰蓝。
+  - 色板：#1E6BFF 品牌蓝、#FFC933 暖黄、#0B1B4D 深海军蓝、#FFFFFF、#F5F5F2 中性暖白底、#4A5A8C 灰蓝。
 
 输入：web/public/fonts/nunito-latin.woff2（Nunito 可变字体，ASCII 子集，OFL 1.1）
 输出：
@@ -56,7 +56,7 @@ BLUE = "#1E6BFF"
 YELLOW = "#FFC933"
 NAVY = "#0B1B4D"
 WHITE = "#FFFFFF"
-TINT = "#F2F7FF"
+TINT = "#F5F5F2"
 MUTED = "#4A5A8C"
 
 ICON_RADIUS = 30.0
@@ -68,7 +68,7 @@ TAGLINE = "CAMPUS PAYMENT"
 TAGLINE_TRACKING = 0.38  # 相对字号
 CJK_TEXT = "桂中校园收付款"
 
-SURFACE_BG = (242, 247, 255, 255)  # #F2F7FF
+SURFACE_BG = (245, 245, 242, 255)  # #F5F5F2
 WHITE_RGBA = (255, 255, 255, 255)
 BLUE_RGB = (30, 107, 255)
 YELLOW_RGB = (255, 201, 51)

@@ -19,7 +19,7 @@ export function EmptyState({ title, description, icon, action, compact = false }
           : "flex flex-col items-center justify-center px-6 py-16 text-center"
       }
     >
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-brand-soft text-brand ring-1 ring-brand/10">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-accent-soft text-warning ring-1 ring-accent/30">
         {icon ?? (
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="1.8" />

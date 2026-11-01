@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { AppFooter } from "../components/AppFooter";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
@@ -66,7 +67,7 @@ export function LoginPage(): ReactNode {
         <div className="relative flex flex-col items-center">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-8 h-44 w-44 rounded-full bg-brand/25 blur-3xl"
+            className="pointer-events-none absolute -top-8 h-44 w-44 rounded-full bg-accent/30 blur-3xl"
           />
           <LogoMark size={96} animated />
           <Wordmark size="xl" animated className="mt-5" />
@@ -104,6 +105,7 @@ export function LoginPage(): ReactNode {
           付款前请核对收款方信息
         </p>
         <p className="text-[11px] text-muted">登录即代表你已阅读并同意服务条款与隐私协议</p>
+        <AppFooter className="pt-1" />
       </div>
     </div>
   );
