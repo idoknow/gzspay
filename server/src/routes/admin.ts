@@ -425,33 +425,89 @@ adminRouter.get("/config", requireAdmin(), (_req, res) => {
   res.json(adminConfigView());
 });
 
-const configSchema = z.object({
-  mail: z.object({
-    host: z.string().max(200),
-    port: z.number().int().min(1).max(65535),
-    secure: z.boolean(),
-    username: z.string().max(200),
-    fromName: z.string().max(80),
-    fromAddress: z.string().max(200),
-    password: z.string().max(200).optional(),
-  }),
-  security: z.object({
-    paymentPasswordMaxAttempts: z.number().int().min(1).max(20),
-    paymentPasswordLockMinutes: z.number().int().min(1).max(1440),
-    singlePaymentLimitCents: z.number().int().min(1).max(100_000_000),
-    dailyPaymentLimitCents: z.number().int().min(1).max(1_000_000_000),
-    dynamicCodeTtlSeconds: z.number().int().min(10).max(3600),
-    emailCodeTtlSeconds: z.number().int().min(60).max(86_400),
-    sessionTtlDays: z.number().int().min(1).max(365),
-  }),
-});
+const configUrlSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .refine(
+    (value) => value === "" || /^https?:\/\/[^\s]+$/i.test(value),
+    "地址必须以 http:// 或 https:// 开头",
+  );
+
+const configSchema = z
+  .object({
+    campux: z
+      .object({
+        baseUrl: configUrlSchema,
+        clientId: z.string().trim().max(200),
+        /** 空字符串或未提供表示保留已保存的密钥 */
+        clientSecret: z.string().max(300).optional(),
+        scope: z.string().trim().max(120).default("profile"),
+      })
+      .optional(),
+    mail: z
+      .object({
+        host: z.string().max(200),
+        port: z.number().int().min(1).max(65535),
+        secure: z.boolean(),
+        username: z.string().max(200),
+        fromName: z.string().max(80),
+        fromAddress: z.string().max(200),
+        password: z.string().max(200).optional(),
+      })
+      .optional(),
+    security: z
+      .object({
+        paymentPasswordMaxAttempts: z.number().int().min(1).max(20),
+        paymentPasswordLockMinutes: z.number().int().min(1).max(1440),
+        singlePaymentLimitCents: z.number().int().min(1).max(100_000_000),
+        dailyPaymentLimitCents: z.number().int().min(1).max(1_000_000_000),
+        dynamicCodeTtlSeconds: z.number().int().min(10).max(3600),
+        emailCodeTtlSeconds: z.number().int().min(60).max(86_400),
+        sessionTtlDays: z.number().int().min(1).max(365),
+      })
+      .optional(),
+    system: z
+      .object({
+        siteName: z.string().trim().max(80),
+        adminQq: z.string().trim().max(40),
+        publicBaseUrl: configUrlSchema,
+      })
+      .optional(),
+  })
+  .refine(
+    (value) => Boolean(value.campux || value.mail || value.security || value.system),
+    "没有需要保存的配置",
+  );
 
 adminRouter.put(
   "/config",
   requireAdmin(["super"]),
   asyncHandler((req, res) => {
     const body = parse(configSchema, req.body);
-    saveAdminConfig(req.admin!.user.id, body, requestIp(req));
+    // 校园墙地址与 Client ID 都为空时视为「未配置」，不写入库，避免覆盖 .env 的兜底值
+    const campux =
+      body.campux && (body.campux.baseUrl || body.campux.clientId)
+        ? {
+            baseUrl: body.campux.baseUrl,
+            clientId: body.campux.clientId,
+            scope: body.campux.scope || "profile",
+            ...(body.campux.clientSecret
+              ? { clientSecret: body.campux.clientSecret }
+              : {}),
+          }
+        : undefined;
+    // 站点信息全空时同样不写入
+    const system =
+      body.system &&
+      (body.system.siteName || body.system.adminQq || body.system.publicBaseUrl)
+        ? body.system
+        : undefined;
+    saveAdminConfig(
+      req.admin!.user.id,
+      { campux, mail: body.mail, security: body.security, system },
+      requestIp(req),
+    );
     res.json(adminConfigView());
   }),
 );

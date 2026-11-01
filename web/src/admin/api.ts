@@ -1516,8 +1516,27 @@ function mapSecurityConfig(source: Record<string, unknown>): SecurityConfig {
 export async function getConfig(): Promise<AdminConfig> {
   const payload = await getJson<unknown>("/admin/config");
   const source = record(payload);
+  const campuxSource = record(source.campux ?? source.campusWall ?? source.campuxOAuth);
+  const systemSource = record(source.system ?? source.site ?? source.siteInfo);
   const mailSource = record(source.mail ?? source.smtp ?? source.mailConfig);
   return {
+    campux: {
+      baseUrl: textOr(
+        firstText(campuxSource, ["baseUrl", "baseURL", "url", "base"]),
+        "",
+      ),
+      clientId: textOr(
+        firstText(campuxSource, ["clientId", "clientID", "appId", "client"]),
+        "",
+      ),
+      clientSecretConfigured:
+        firstBoolean(campuxSource, [
+          "clientSecretConfigured",
+          "secretConfigured",
+          "clientSecretSet",
+        ]) ?? false,
+      scope: textOr(firstText(campuxSource, ["scope", "scopes"]), "profile"),
+    },
     mail: {
       host: textOr(
         firstText(mailSource, ["host", "smtpHost", "server"]),
@@ -1547,6 +1566,17 @@ export async function getConfig(): Promise<AdminConfig> {
         ]) ?? false,
     },
     security: mapSecurityConfig(source),
+    system: {
+      siteName: textOr(
+        firstText(systemSource, ["siteName", "name", "title"]),
+        "gzspay",
+      ),
+      adminQq: textOr(firstText(systemSource, ["adminQq", "adminQQ", "qq"]), ""),
+      publicBaseUrl: textOr(
+        firstText(systemSource, ["publicBaseUrl", "publicUrl", "baseUrl"]),
+        "",
+      ),
+    },
   };
 }
 

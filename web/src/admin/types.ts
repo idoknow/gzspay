@@ -430,15 +430,42 @@ export interface SecurityConfig {
   sessionTtlDays: number;
 }
 
-/** GET /admin/config */
-export interface AdminConfig {
-  mail: MailConfig;
-  security: SecurityConfig;
+/** 校园墙 OAuth 登录配置（密钥不回显） */
+export interface CampuxConfig {
+  /** 校园墙站点地址，例如 https://gz.campux.top */
+  baseUrl: string;
+  clientId: string;
+  /** 是否已保存 Client Secret */
+  clientSecretConfigured: boolean;
+  /** OAuth 授权范围，默认 profile */
+  scope: string;
 }
 
-/** PUT /admin/config 入参 */
+/** 站点信息 */
+export interface SiteConfig {
+  siteName: string;
+  adminQq: string;
+  publicBaseUrl: string;
+}
+
+/** GET /admin/config */
+export interface AdminConfig {
+  campux: CampuxConfig;
+  mail: MailConfig;
+  security: SecurityConfig;
+  system: SiteConfig;
+}
+
+/** PUT /admin/config 入参（四块均可只传其一） */
 export interface AdminConfigInput {
-  mail: {
+  campux?: {
+    baseUrl: string;
+    clientId: string;
+    /** 仅当填写新密钥时提交 */
+    clientSecret?: string;
+    scope?: string;
+  };
+  mail?: {
     host: string;
     port: number;
     secure: boolean;
@@ -448,7 +475,12 @@ export interface AdminConfigInput {
     /** 仅当填写新密码时提交 */
     password?: string;
   };
-  security: SecurityConfig;
+  security?: SecurityConfig;
+  system?: {
+    siteName: string;
+    adminQq: string;
+    publicBaseUrl: string;
+  };
 }
 
 /* ---------------------------------------------------------------- 初始化 */

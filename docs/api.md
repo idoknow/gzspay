@@ -362,7 +362,7 @@ interface Announcement {
 | `GET` | `/api/admin/logs?type=audit|login|risk|error&from&to&query&page&pageSize` | `{ items: AdminLog[], ... }` |
 | `GET` | `/api/admin/logs/export?type&from&to&query` | 日志 CSV |
 | `GET` | `/api/admin/config` | `AdminConfig`：`{ campux: CampuxConfig, mail: MailConfig, security: SecurityConfig, system: SystemConfig }`；`mail.passwordConfigured` / `campux.clientSecretConfigured` 表示是否已配置，不返回明文；`system` 含 `siteName/adminQq/publicBaseUrl` |
-| `PUT` | `/api/admin/config` | 更新配置（仅 super，可只传其中一块）；返回更新后的 `AdminConfig`；邮件与校园墙配置变更立即生效 |
+| `PUT` | `/api/admin/config` | 更新配置（仅 super）；body 为 `{ campux?, mail?, security?, system? }`，四块可只传其一，未传的块保持不变。`campux` 为 `{ baseUrl, clientId, clientSecret?, scope? }`，`baseUrl`/`clientId` 都为空时视为「未配置」跳过写入（保留 `.env` 兜底），`clientSecret` 留空表示保留原密钥；保存后立即生效，返回更新后的 `AdminConfig` |
 
 角色权限：`GET` 类接口所有管理员可读；冻结/解冻/重置绑卡/强制下线/关单/标异常/公告增删改/申诉处理 = `super` + `ops`；管理员增删与系统配置写入 = 仅 `super`；`auditor` 只读（写操作 `403`）。
 

@@ -551,6 +551,27 @@ describe("管理后台", () => {
     expect(saved.body.security.singlePaymentLimitCents).toBe(600000);
   });
 
+  it("系统配置可单独保存校园墙 OAuth 参数", async () => {
+    const saved = await adminRequest()
+      .put("/api/admin/config")
+      .send({
+        campux: {
+          baseUrl: "https://campux.example.com",
+          clientId: "test-client-id",
+          clientSecret: "test-client-secret",
+          scope: "profile extra",
+        },
+      })
+      .expect(200);
+    expect(saved.body.campux.baseUrl).toBe("https://campux.example.com");
+    expect(saved.body.campux.clientId).toBe("test-client-id");
+    expect(saved.body.campux.clientSecretConfigured).toBe(true);
+    expect(saved.body.campux.scope).toBe("profile extra");
+    // 只传校园墙一块时，邮件与安全配置保持不变
+    expect(typeof saved.body.mail.host).toBe("string");
+    expect(saved.body.security.singlePaymentLimitCents).toBe(600000);
+  });
+
   it("关于页返回 Markdown 文档与改动日期", async () => {
     const about = await request(app).get("/api/about").expect(200);
     expect(about.body.privacy).toContain("# gzspay 隐私协议");
