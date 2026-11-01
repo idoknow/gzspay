@@ -168,10 +168,6 @@ export function AboutPage(): ReactNode {
             </span>
           </button>
         </section>
-
-        <p className="text-center text-[11px] leading-relaxed text-muted">
-          gzspay 是开源项目，代码托管在 GitHub 的 idoknow 组织
-        </p>
       </main>
 
       <Dialog

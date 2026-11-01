@@ -532,10 +532,6 @@ export function OrderDetailPage(): ReactNode {
         ) : null}
 
         <Timeline order={order} />
-
-        <p className="px-1 pt-1 text-center text-[11px] leading-relaxed text-muted">
-          请核对收款方信息。资金通过第三方收款码流转，gzspay 不代收代付。
-        </p>
       </main>
 
       {showActions ? (

@@ -103,12 +103,6 @@ export function SettingsPage(): ReactNode {
             ))}
           </div>
         </section>
-
-        <p className="text-center text-[11px] leading-relaxed text-muted">
-          邮件由 gzspay 服务端通过校园邮箱发送，仅在订单状态变化时提醒。
-          <br />
-          资金通过第三方收款码流转，gzspay 不代收代付。
-        </p>
       </main>
     </div>
   );

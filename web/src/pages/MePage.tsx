@@ -233,9 +233,6 @@ export function MePage(): ReactNode {
           退出登录
         </button>
 
-        <p className="text-center text-[11px] leading-relaxed text-muted">
-          资金通过第三方收款码流转，gzspay 不代收代付
-        </p>
       </main>
 
       <BottomNav />

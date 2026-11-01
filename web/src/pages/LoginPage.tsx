@@ -106,12 +106,7 @@ export function LoginPage(): ReactNode {
         </div>
       </div>
 
-      <div className="mt-10 space-y-2 text-center watch:mt-4 watch:space-y-1">
-        <p className="text-[11px] leading-relaxed text-muted watch:text-[9px]">
-          资金通过第三方收款码流转，gzspay 不代收代付
-          <br />
-          付款前请核对收款方信息
-        </p>
+      <div className="mt-10 text-center watch:mt-4">
         <p className="text-[11px] text-muted watch:text-[9px]">登录即代表你已阅读并同意服务条款与隐私协议</p>
       </div>
     </div>

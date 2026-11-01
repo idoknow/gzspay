@@ -347,12 +347,6 @@ export function MerchantPage(): ReactNode {
             <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted" />
           </button>
         </section>
-
-        <p className="px-2 text-center text-[11px] leading-relaxed text-muted">
-          资金通过第三方收款码流转，gzspay 不代收代付。
-          <br />
-          请如实上传本人收款码，谨防账号被他人利用。
-        </p>
       </main>
 
       {/* 商家资料编辑 */}

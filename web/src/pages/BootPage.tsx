@@ -92,9 +92,6 @@ export function BootPage({ onReady }: BootPageProps): ReactNode {
           </div>
         ) : null}
       </div>
-      <p className="mt-8 text-center text-[11px] leading-relaxed text-muted watch:mt-3 watch:text-[9px]">
-        资金通过第三方收款码流转，gzspay 不代收代付
-      </p>
     </div>
   );
 }
