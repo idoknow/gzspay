@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
+import { LegalDocLinks } from "../components/LegalDocLinks";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { getSetupStatus, LOGIN_URL } from "../lib/api";
 import { useWatchLayout } from "../lib/hooks";
@@ -107,7 +108,9 @@ export function LoginPage(): ReactNode {
       </div>
 
       <div className="mt-10 text-center watch:mt-4">
-        <p className="text-[11px] text-muted watch:text-[9px]">登录即代表你已阅读并同意服务条款与隐私协议</p>
+        <p className="text-[11px] text-muted watch:text-[9px]">
+          <LegalDocLinks prefix="登录即代表你已阅读并同意" />
+        </p>
       </div>
     </div>
   );

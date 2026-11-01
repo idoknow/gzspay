@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChannelIcon } from "../components/ChannelIcon";
+import { LegalDocLinks } from "../components/LegalDocLinks";
 import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
@@ -235,7 +236,7 @@ export function MerchantRegisterPage(): ReactNode {
           提交注册
         </button>
         <p className="text-center text-[11px] leading-relaxed text-muted">
-          提交即表示同意《服务条款》与《隐私协议》。
+          <LegalDocLinks prefix="提交即表示同意" suffix="。" />
           <br />
           请确保上传的是本人收款码。
         </p>
