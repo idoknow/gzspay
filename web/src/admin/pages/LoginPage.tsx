@@ -1,14 +1,19 @@
 /**
- * 登录页：仅提供「使用校园墙账号登录」入口（整页跳转走后端 OAuth 流程）。
- * 后端回调成功后会 302 回后台；需要二次验证时进入 VerifyPage。
+ * 登录页：后台不再有独立登录，完全复用主站（用户端）会话 Cookie。
+ * 仅提供「用校园墙账号登录」入口（整页跳转走后端 OAuth 流程）。
  */
 import { ThemeSwitch } from "../components/ui";
 import type { ThemeMode } from "../hooks";
+
+/** 未进入后台的原因：未登录 / 登录了但不在管理员名单 */
+export type LoginPageReason = "anonymous" | "not_admin";
 
 export interface LoginPageProps {
   themeMode: ThemeMode;
   onThemeChange: (mode: ThemeMode) => void;
   onLogin: () => void;
+  /** 由 AdminApp 根据会话接口的 error.code 映射而来 */
+  reason?: LoginPageReason;
   error?: string | null;
   onRetry?: () => void;
 }
@@ -17,6 +22,7 @@ export function LoginPage({
   themeMode,
   onThemeChange,
   onLogin,
+  reason = "anonymous",
   error,
   onRetry,
 }: LoginPageProps) {
@@ -37,8 +43,18 @@ export function LoginPage({
         </div>
         <h1 className="admin-auth-title">校园支付 · 管理后台</h1>
         <p className="admin-auth-sub">
-          使用校园墙账号登录。后台按管理员角色控制权限，所有敏感操作均会写入审计日志。
+          登录 gzspay 主站时使用的校园墙账号，如果该账号已是管理员即可进入后台。
         </p>
+
+        {reason === "not_admin" ? (
+          <div className="admin-inline-alert is-danger" role="status">
+            <span>你的账号不在管理员名单内</span>
+          </div>
+        ) : (
+          <div className="admin-inline-alert is-info" role="status">
+            <span>请先登录 gzspay 主站</span>
+          </div>
+        )}
 
         {error ? (
           <div className="admin-inline-alert is-danger" role="alert">
@@ -61,11 +77,17 @@ export function LoginPage({
             className="admin-btn admin-btn-primary admin-auth-btn"
             onClick={onLogin}
           >
-            使用校园墙账号登录
+            用校园墙账号登录
           </button>
         </div>
 
-        <div className="admin-auth-badge">需通过邮箱验证码二次验证</div>
+        <div className="admin-auth-badge">复用主站登录会话，无需单独密码</div>
+
+        {reason === "not_admin" ? (
+          <p className="admin-auth-note">
+            如需开通后台权限，请联系任意一位超级管理员，将你的账号加入管理员名单后再重新登录。
+          </p>
+        ) : null}
 
         <div className="admin-role-cards">
           <div className="admin-role-card">

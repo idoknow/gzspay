@@ -60,4 +60,5 @@ node scripts/smoke.mjs  # 冒烟：启动服务并跑关键接口
 - gzspay 不接触资金，不接入任何支付机构资金接口。
 - 支付密码校验失败 5 次锁定 30 分钟；锁定期间拒绝任何校验。
 - 写接口需通过 CSRF 校验（SameSite Cookie + Origin 白名单）。
-- 管理后台接口必须同时满足：管理员角色 + 二次验证通过 + 按角色限制写操作。
+- 管理后台接口复用主站会话：账号必须在 `admins` 表内，写操作再按角色（`super`/`ops`/`auditor`）限制；没有独立的管理会话或二次验证。
+- 系统未初始化（无管理员且未标记 `system.initialized`）时，除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外的接口必须返回 `503`。

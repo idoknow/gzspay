@@ -1,30 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
-import { config } from "../config.js";
-import { queryOne } from "../db/index.js";
-import {
-  completeAuthorization,
-  createAuthorizationRequest,
-} from "../lib/campux.js";
-import { AppError, errors } from "../lib/errors.js";
 import { asyncHandler, attachAdmin, requireAdmin } from "../lib/http.js";
-import { consumeEmailCode, issueEmailCode } from "../lib/email.js";
-import { maskEmail } from "../lib/crypto.js";
-import { templates } from "../lib/mail.js";
-import { writeLoginLog } from "../lib/audit.js";
+import { isSystemReady } from "../lib/runtime-config.js";
 import {
   clearSessionCookie,
-  issueSession,
-  readSession,
   revokeSessionByToken,
   sessionTokenFromRequest,
-  setSessionCookie,
-  upgradeToAdminSession,
 } from "../lib/session.js";
-import type { AdminRole, AdminRow } from "../lib/types.js";
+import type { AdminRole } from "../lib/types.js";
 import { requestIp } from "../lib/types.js";
 import { pagination, parse, toInt } from "../lib/validate.js";
-import { findUserBySub, requireUserFromContext } from "../services/users.js";
 import {
   addAdmin,
   adminAppeals,
@@ -50,7 +35,6 @@ import {
   deleteAnnouncement,
   forceUserLogout,
   handleAppeal,
-  recordAdminLoginLog,
   removeAdmin,
   resetUserCard,
   saveAdminConfig,
@@ -63,182 +47,44 @@ export const adminRouter: Router = Router();
 
 adminRouter.use(attachAdmin);
 
-function adminPageError(message: string): string {
-  return `<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>管理后台登录失败</title>
-<style>body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#0b1220;color:#e7eefc;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px}
-.card{max-width:440px;background:#131c30;border-radius:20px;padding:28px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
-h1{font-size:20px;margin:0 0 12px;color:#ffd166}p{line-height:1.7;color:#b9c6e0}
-a.btn{display:inline-block;margin-top:16px;background:#2f6fed;color:#fff;text-decoration:none;padding:10px 20px;border-radius:12px}</style>
-</head><body><div class="card"><h1>管理后台登录失败</h1><p>${message}</p><a class="btn" href="/admin">返回管理后台</a></div></body></html>`;
-}
-
-function findAdminRow(userId: string): AdminRow | undefined {
-  return queryOne<AdminRow>("SELECT * FROM admins WHERE user_id = ?", userId);
-}
-
 /* -------------------------------------------------------------- 认证 */
+// 管理后台与主站共用同一套校园墙登录会话（HttpOnly cookie），不再单独走 OAuth 与邮箱二次验证。
 
-adminRouter.get("/auth/login", (req, res, next) => {
-  try {
-    const url = createAuthorizationRequest("admin", null);
-    res.redirect(302, url);
-  } catch (error) {
-    next(error);
-  }
+/** 跳转到主站登录：登录成功后回到 /admin */
+adminRouter.get("/auth/login", (_req, res) => {
+  res.redirect(302, "/api/auth/login?redirect=%2Fadmin");
 });
 
-adminRouter.get(
-  "/auth/callback",
-  asyncHandler(async (req, res) => {
-    const ip = requestIp(req);
-    const code = typeof req.query.code === "string" ? req.query.code : undefined;
-    const state = typeof req.query.state === "string" ? req.query.state : undefined;
-    try {
-      const { profile } = await completeAuthorization("admin", code, state);
-      const user = findUserBySub(profile.sub);
-      const admin = user ? findAdminRow(user.id) : undefined;
-      if (!user || !admin) {
-        recordAdminLoginLog({
-          userId: user?.id ?? null,
-          campuxSub: profile.sub,
-          success: false,
-          reason: "该账号不在管理员名单内",
-          ip,
-          userAgent: req.headers["user-agent"] ?? null,
-        });
-        res.status(403).type("html").send(adminPageError("该校园墙账号不在管理员名单内。"));
-        return;
-      }
-      if (user.status === "frozen") {
-        recordAdminLoginLog({
-          userId: user.id,
-          campuxSub: profile.sub,
-          success: false,
-          reason: "账号已被冻结",
-          ip,
-          userAgent: req.headers["user-agent"] ?? null,
-        });
-        res.status(403).type("html").send(adminPageError("该账号已被冻结。"));
-        return;
-      }
-      // 建议管理员再加一次邮箱验证码二次验证；没有可用邮箱时直接签发管理员会话
-      if (user.email && user.email_verified === 1) {
-        const issued = issueSession(user.id, "admin_pending", req);
-        setSessionCookie(res, issued.token, "admin_pending");
-        try {
-          issueEmailCode({ user, purpose: "admin_2fa", email: user.email, scene: "管理后台登录" });
-        } catch {
-          // 验证码发送失败不阻塞登录流程，页面可重新发送
-        }
-        recordAdminLoginLog({
-          userId: user.id,
-          campuxSub: profile.sub,
-          success: true,
-          reason: "等待邮箱验证码",
-          ip,
-          userAgent: req.headers["user-agent"] ?? null,
-        });
-        res.redirect(302, `${config.appBaseUrl}/admin`);
-        return;
-      }
-      const issued = issueSession(user.id, "admin", req);
-      setSessionCookie(res, issued.token, "admin");
-      recordAdminLoginLog({
-        userId: user.id,
-        campuxSub: profile.sub,
-        success: true,
-        ip,
-        userAgent: req.headers["user-agent"] ?? null,
-      });
-      res.redirect(302, `${config.appBaseUrl}/admin`);
-    } catch (error) {
-      const message = error instanceof AppError ? error.message : "登录失败，请稍后再试";
-      recordAdminLoginLog({
-        userId: null,
-        campuxSub: null,
-        success: false,
-        reason: message,
-        ip,
-        userAgent: req.headers["user-agent"] ?? null,
-      });
-      res.status(400).type("html").send(adminPageError(message));
-    }
-  }),
-);
-
-adminRouter.get(
-  "/auth/session",
-  asyncHandler((req, res) => {
-    const adminSession = readSession(req, "admin") ?? readSession(req, "admin_pending");
-    const user = adminSession?.user ?? null;
-    const admin = user ? findAdminRow(user.id) : undefined;
-    if (!adminSession || !user || !admin) {
-      res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "请先登录管理后台" } });
-      return;
-    }
-    if (adminSession.session.kind === "admin_pending") {
-      res.status(401).json({
-        error: {
-          code: "ADMIN_2FA_REQUIRED",
-          message: "请先完成邮箱二次验证",
-          details: { emailMasked: user.email ? maskEmail(user.email) : null },
-        },
-      });
-      return;
-    }
-    res.json({
-      authenticated: true,
-      pending2fa: false,
-      admin: adminIdentity(user, admin),
-      emailMasked: user.email ? maskEmail(user.email) : null,
+adminRouter.get("/auth/session", (req, res) => {
+  if (!isSystemReady()) {
+    res.status(401).json({
+      error: { code: "SYSTEM_NOT_INITIALIZED", message: "系统尚未初始化" },
     });
-  }),
-);
-
-adminRouter.post(
-  "/auth/verify",
-  asyncHandler((req, res) => {
-    const body = parse(z.object({ code: z.string().trim().min(4, "请输入验证码").max(12) }), req.body);
-    const pending = readSession(req, "admin_pending");
-    const user = pending?.user ?? null;
-    const admin = user ? findAdminRow(user.id) : undefined;
-    if (!pending || !user || !admin) {
-      throw errors.unauthenticated("登录状态已失效，请重新使用校园墙登录");
-    }
-    consumeEmailCode({ userId: user.id, purpose: "admin_2fa", code: body.code, ip: requestIp(req) });
-    upgradeToAdminSession(req, res, user.id);
-    recordAdminLoginLog({
-      userId: user.id,
-      campuxSub: user.campux_sub,
-      success: true,
-      reason: "邮箱二次验证通过",
-      ip: requestIp(req),
-      userAgent: req.headers["user-agent"] ?? null,
+    return;
+  }
+  if (!req.auth) {
+    res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "请先登录" } });
+    return;
+  }
+  if (!req.admin) {
+    res.status(401).json({
+      error: { code: "NOT_ADMIN", message: "你的账号不在管理员名单内" },
     });
-    res.json({ ok: true, admin: adminIdentity(user, admin) });
-  }),
-);
+    return;
+  }
+  res.json({
+    authenticated: true,
+    initialized: true,
+    admin: adminIdentity(req.admin.user, req.admin.admin),
+  });
+});
 
 adminRouter.post("/auth/logout", (req, res) => {
-  const token = sessionTokenFromRequest(req, "admin") ?? sessionTokenFromRequest(req, "admin_pending");
+  const token = sessionTokenFromRequest(req);
   if (token) revokeSessionByToken(token);
-  clearSessionCookie(res, "admin");
-  clearSessionCookie(res, "admin_pending");
+  clearSessionCookie(res);
   res.json({ ok: true });
 });
-
-adminRouter.post(
-  "/auth/resend",
-  asyncHandler((req, res) => {
-    const pending = readSession(req, "admin_pending");
-    const user = pending?.user ?? null;
-    if (!pending || !user || !user.email) throw errors.unauthenticated("登录状态已失效，请重新登录");
-    const result = issueEmailCode({ user, purpose: "admin_2fa", email: user.email, scene: "管理后台登录" });
-    res.json({ ok: true, ...result });
-  }),
-);
 
 /* -------------------------------------------------------------- 总览 */
 
@@ -606,4 +452,3 @@ adminRouter.put(
   }),
 );
 
-export { requireUserFromContext, writeLoginLog };

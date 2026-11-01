@@ -2337,3 +2337,195 @@
     padding: 14px 12px 32px;
   }
 }
+
+/* ------------------------------------------------------------ 初始化向导 */
+
+.admin-setup-page {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.admin-setup-card {
+  width: min(720px, 100%);
+  padding: 34px 32px 30px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-bg-elevated);
+  box-shadow: var(--admin-shadow-lg);
+}
+
+.admin-setup-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 22px 0 18px;
+}
+
+.admin-setup-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.admin-setup-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-setup-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.admin-setup-step-no {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.admin-setup-step.is-current {
+  color: var(--admin-primary);
+  font-weight: 600;
+}
+
+.admin-setup-step.is-current .admin-setup-step-no {
+  border-color: var(--admin-primary);
+  background: var(--admin-primary);
+  color: #fff;
+}
+
+.admin-setup-step.is-done {
+  color: var(--admin-text-secondary);
+}
+
+.admin-setup-step.is-done .admin-setup-step-no {
+  border-color: transparent;
+  background: var(--admin-primary-soft);
+  color: var(--admin-primary);
+}
+
+.admin-setup-finish {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-setup-account {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-bg-soft);
+}
+
+.admin-setup-account-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-setup-account-label {
+  font-size: 11.5px;
+  color: var(--admin-text-muted);
+}
+
+.admin-setup-avatar {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  font-size: 17px;
+  overflow: hidden;
+}
+
+.admin-setup-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.admin-setup-login-note {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--admin-text-secondary);
+}
+
+.admin-setup-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 4px;
+}
+
+.admin-setup-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-setup-footer .admin-field-hint {
+  margin-left: auto;
+}
+
+.admin-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .admin-setup-page {
+    padding: 20px 12px 32px;
+  }
+  .admin-setup-card {
+    padding: 26px 20px 24px;
+  }
+  .admin-setup-progress-head {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .admin-setup-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .admin-setup-footer .admin-btn {
+    width: 100%;
+  }
+  .admin-setup-footer .admin-field-hint {
+    margin-left: 0;
+    text-align: center;
+  }
+  .admin-setup-account {
+    padding: 14px;
+  }
+  .admin-setup-account-main {
+    flex-wrap: wrap;
+  }
+}
+

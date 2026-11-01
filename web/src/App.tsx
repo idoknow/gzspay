@@ -1,11 +1,15 @@
-/** 应用根：启动加载页 → 会话注入 → 路由外壳（守卫 / 底部导航在页面内 / 全局收款请求弹窗 / 懒加载管理后台）。 */
+/**
+ * 应用根：启动加载页 → 系统初始化检查 → 会话注入 → 路由外壳
+ *（守卫 / 底部导航在页面内 / 全局收款请求弹窗 / 懒加载管理后台）。
+ */
 
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from "react-router-dom";
-import { PageLoading } from "./components/Loading";
+import { LoadingBlock, PageLoading } from "./components/Loading";
 import { PaymentRequestDialog } from "./components/PaymentRequestDialog";
+import { getSetupStatus } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/session";
-import type { SessionResponse } from "./lib/types";
+import type { SessionResponse, SetupStatus } from "./lib/types";
 import { AboutPage } from "./pages/AboutPage";
 import { BootPage } from "./pages/BootPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
@@ -22,10 +26,24 @@ import { ProductsPage } from "./pages/ProductsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { StatsPage } from "./pages/StatsPage";
+import { SystemNotReadyPage } from "./pages/SystemNotReadyPage";
 import { TradesPage } from "./pages/TradesPage";
 
 /** 管理后台由另一位负责人实现，懒加载避免进入手机端主包 */
 const AdminApp = lazy(() => import("./admin/AdminApp.js"));
+
+/** 系统初始化状态：路由守卫据此决定是否放行（未初始化时管理后台必须可进入） */
+const SetupStatusContext = createContext<SetupStatus | null>(null);
+
+function useSetupStatus(): SetupStatus | null {
+  return useContext(SetupStatusContext);
+}
+
+/** 是否处于管理后台入口（同一 SPA 的另一半，不受初始化拦截页影响） */
+function isAdminPath(): boolean {
+  const path = window.location.pathname;
+  return path === "/admin" || path.startsWith("/admin/");
+}
 
 /** 已登录 + 已完成引导的业务页外壳：底部不在这里渲染（各页面自带 BottomNav），额外挂全局 SSE 弹窗 */
 function BusinessLayout(): ReactNode {
@@ -69,6 +87,15 @@ function HomeRoute(): ReactNode {
 function AdminRoute(): ReactNode {
   const { authenticated, session, me } = useAuth();
   const location = useLocation();
+  const setup = useSetupStatus();
+  // 系统尚未初始化时还没有管理员账号，此时必须放行到管理后台（由它引导完成初始化）
+  if (setup !== null && !setup.initialized) {
+    return (
+      <Suspense fallback={<PageLoading text="正在加载管理后台…" />}>
+        <AdminApp />
+      </Suspense>
+    );
+  }
   if (!authenticated) {
     return <Navigate to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`} replace />;
   }
@@ -116,14 +143,58 @@ const router = createBrowserRouter([
 
 export function App(): ReactNode {
   const [session, setSession] = useState<SessionResponse | null>(null);
+  const [setup, setSetup] = useState<SetupStatus | null>(null);
+  /** 初始化状态是否已检查完成（请求失败也算完成，避免卡在加载态） */
+  const [setupSettled, setSetupSettled] = useState(false);
+
+  useEffect(() => {
+    if (!session) return;
+    let active = true;
+    setSetupSettled(false);
+    // 兜底超时：状态接口挂住时不要让用户卡在加载态
+    const timeout = window.setTimeout(() => {
+      if (active) setSetupSettled(true);
+    }, 8000);
+    getSetupStatus()
+      .then((next) => {
+        if (active) setSetup(next);
+      })
+      .catch(() => {
+        // 拿不到状态时不做拦截：正常渲染，由各页面自行报错
+        if (active) setSetup(null);
+      })
+      .finally(() => {
+        window.clearTimeout(timeout);
+        if (active) setSetupSettled(true);
+      });
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [session]);
 
   if (!session) {
-    return <BootPage onReady={(next) => setSession(next)} />;
+    return <BootPage onReady={setSession} />;
+  }
+
+  if (!setupSettled) {
+    return (
+      <div className="bg-app flex min-h-[100dvh] items-center justify-center">
+        <LoadingBlock text="正在检查系统状态…" />
+      </div>
+    );
+  }
+
+  // 未初始化且不在管理后台：主站只显示引导页（不挂底部导航、不渲染业务路由）
+  if (setup !== null && !setup.initialized && !isAdminPath()) {
+    return <SystemNotReadyPage status={setup} />;
   }
 
   return (
-    <AuthProvider initialSession={session}>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <SetupStatusContext.Provider value={setup}>
+      <AuthProvider initialSession={session}>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </SetupStatusContext.Provider>
   );
 }

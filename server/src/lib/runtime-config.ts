@@ -1,11 +1,11 @@
 import { config } from "../config.js";
-import { queryAll, setConfigValue } from "../db/index.js";
+import { queryAll, queryOne, setConfigValue } from "../db/index.js";
 import { writeAudit } from "./audit.js";
 import { resetTransporter } from "./mail.js";
 
 /**
  * 可运行时调整的配置：存在 app_config 表，启动时叠加到 config 上，
- * 这样后台改动（金额上限、邮件服务等）无需重启即可生效。
+ * 这样后台改动（校园墙登录、邮件服务、安全防护、站点信息）无需重启即可生效。
  */
 
 interface KeyValue {
@@ -33,10 +33,24 @@ const MAIL_KEYS = {
   fromAddress: "mail.fromAddress",
 } as const;
 
+const CAMPUX_KEYS = {
+  baseUrl: "campux.baseUrl",
+  clientId: "campux.clientId",
+  clientSecret: "campux.clientSecret",
+  scope: "campux.scope",
+} as const;
+
+const SYSTEM_KEYS = {
+  siteName: "system.siteName",
+  adminQq: "system.adminQq",
+  publicBaseUrl: "system.publicBaseUrl",
+  initialized: "system.initialized",
+} as const;
+
+const DEFAULT_SITE_NAME = "gzspay 桂中校园支付";
+
 function storedMap(): Map<string, string> {
-  const rows = queryAll<KeyValue>(
-    "SELECT key, value FROM app_config WHERE key LIKE 'mail.%' OR key LIKE 'security.%'",
-  );
+  const rows = queryAll<KeyValue>("SELECT key, value FROM app_config");
   return new Map(rows.map((row) => [row.key, row.value]));
 }
 
@@ -66,9 +80,24 @@ export interface SecurityConfigView {
   sessionTtlDays: number;
 }
 
+export interface CampuxConfigView {
+  baseUrl: string;
+  clientId: string;
+  clientSecretConfigured: boolean;
+  scope: string;
+}
+
+export interface SystemConfigView {
+  siteName: string;
+  adminQq: string;
+  publicBaseUrl: string;
+}
+
 export interface AdminConfigView {
+  campux: CampuxConfigView;
   mail: MailConfigView;
   security: SecurityConfigView;
+  system: SystemConfigView;
 }
 
 function splitFrom(from: string): { fromName: string; fromAddress: string } {
@@ -79,19 +108,52 @@ function splitFrom(from: string): { fromName: string; fromAddress: string } {
   return { fromName: "gzspay", fromAddress: from.trim() };
 }
 
-export function readAdminConfig(): AdminConfigView {
+export function readMailConfig(): MailConfigView {
   const stored = storedMap();
   const { fromName, fromAddress } = splitFrom(config.smtp.from);
   return {
-    mail: {
-      host: stored.get(MAIL_KEYS.host) ?? config.smtp.host ?? "",
-      port: toIntOr(stored.get(MAIL_KEYS.port), config.smtp.port),
-      secure: (stored.get(MAIL_KEYS.secure) ?? String(config.smtp.secure)) === "true",
-      username: stored.get(MAIL_KEYS.username) ?? config.smtp.user ?? "",
-      fromName: stored.get(MAIL_KEYS.fromName) ?? fromName,
-      fromAddress: stored.get(MAIL_KEYS.fromAddress) ?? fromAddress,
-      passwordConfigured: Boolean(stored.get(MAIL_KEYS.password) ?? config.smtp.pass),
-    },
+    host: stored.get(MAIL_KEYS.host) ?? config.smtp.host ?? "",
+    port: toIntOr(stored.get(MAIL_KEYS.port), config.smtp.port),
+    secure: (stored.get(MAIL_KEYS.secure) ?? String(config.smtp.secure)) === "true",
+    username: stored.get(MAIL_KEYS.username) ?? config.smtp.user ?? "",
+    fromName: stored.get(MAIL_KEYS.fromName) ?? fromName,
+    fromAddress: stored.get(MAIL_KEYS.fromAddress) ?? fromAddress,
+    passwordConfigured: Boolean(stored.get(MAIL_KEYS.password) ?? config.smtp.pass),
+  };
+}
+
+export function readCampuxConfig(): CampuxConfigView {
+  const stored = storedMap();
+  return {
+    baseUrl: stored.get(CAMPUX_KEYS.baseUrl) ?? config.campux.baseUrl,
+    clientId: stored.get(CAMPUX_KEYS.clientId) ?? config.campux.clientId,
+    clientSecretConfigured: Boolean(
+      stored.get(CAMPUX_KEYS.clientSecret) ?? config.campux.clientSecret,
+    ),
+    scope: stored.get(CAMPUX_KEYS.scope) ?? config.campux.scope,
+  };
+}
+
+export function readSystemConfig(): SystemConfigView {
+  const stored = storedMap();
+  return {
+    siteName: stored.get(SYSTEM_KEYS.siteName) ?? DEFAULT_SITE_NAME,
+    adminQq: stored.get(SYSTEM_KEYS.adminQq) ?? "",
+    publicBaseUrl: stored.get(SYSTEM_KEYS.publicBaseUrl) ?? config.publicBaseUrl,
+  };
+}
+
+/** 系统是否已完成初始化（配置完成且已有管理员） */
+export function readInitializedFlag(): boolean {
+  return (storedMap().get(SYSTEM_KEYS.initialized) ?? "") === "1";
+}
+
+export function readAdminConfig(): AdminConfigView {
+  const stored = storedMap();
+  const mail = readMailConfig();
+  return {
+    campux: readCampuxConfig(),
+    mail,
     security: {
       paymentPasswordMaxAttempts: toIntOr(
         stored.get(SECURITY_KEYS.paymentPasswordMaxAttempts),
@@ -119,11 +181,20 @@ export function readAdminConfig(): AdminConfigView {
       ),
       sessionTtlDays: toIntOr(stored.get(SECURITY_KEYS.sessionTtlDays), config.sessionTtlDays),
     },
+    system: readSystemConfig(),
   };
 }
 
 /** config 对象声明为 const 断言（只读），运行时配置需要就地覆盖，这里做一次结构化类型转换 */
 interface MutableConfig {
+  publicBaseUrl: string;
+  campux: {
+    baseUrl: string;
+    clientId: string;
+    clientSecret: string;
+    redirectUri: string;
+    scope: string;
+  };
   smtp: {
     host: string | null;
     port: number;
@@ -149,7 +220,16 @@ const mutableConfig = config as unknown as MutableConfig;
 export function applyRuntimeConfig(): void {
   const stored = storedMap();
   const view = readAdminConfig();
-  const { mail, security } = view;
+  const { mail, security, campux, system } = view;
+
+  mutableConfig.campux.baseUrl = campux.baseUrl.replace(/\/+$/, "");
+  mutableConfig.campux.clientId = campux.clientId;
+  mutableConfig.campux.clientSecret =
+    stored.get(CAMPUX_KEYS.clientSecret) ?? mutableConfig.campux.clientSecret;
+  mutableConfig.campux.scope = campux.scope;
+  mutableConfig.publicBaseUrl = system.publicBaseUrl.replace(/\/+$/, "");
+  mutableConfig.campux.redirectUri = `${mutableConfig.publicBaseUrl}/api/auth/callback`;
+
   mutableConfig.smtp.host = mail.host || null;
   mutableConfig.smtp.port = mail.port;
   mutableConfig.smtp.secure = mail.secure;
@@ -170,45 +250,126 @@ export function applyRuntimeConfig(): void {
   mutableConfig.sessionTtlDays = security.sessionTtlDays;
 }
 
-export interface SaveConfigInput {
-  mail: {
-    host: string;
-    port: number;
-    secure: boolean;
-    username: string;
-    fromName: string;
-    fromAddress: string;
-    password?: string;
-  };
-  security: SecurityConfigView;
+export interface SaveMailInput {
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  fromName: string;
+  fromAddress: string;
+  /** 空字符串或未提供表示保留已保存的密码 */
+  password?: string;
 }
 
-export function saveAdminConfig(actorId: string, input: SaveConfigInput, ip: string): void {
-  const { mail, security } = input;
-  setConfigValue(MAIL_KEYS.host, mail.host.trim());
-  setConfigValue(MAIL_KEYS.port, String(mail.port));
-  setConfigValue(MAIL_KEYS.secure, String(mail.secure));
-  setConfigValue(MAIL_KEYS.username, mail.username.trim());
-  setConfigValue(MAIL_KEYS.fromName, mail.fromName.trim());
-  setConfigValue(MAIL_KEYS.fromAddress, mail.fromAddress.trim());
-  if (mail.password !== undefined && mail.password !== "") {
-    setConfigValue(MAIL_KEYS.password, mail.password);
+export interface SaveSecurityInput extends SecurityConfigView {}
+
+export interface SaveCampuxInput {
+  baseUrl: string;
+  clientId: string;
+  /** 空字符串或未提供表示保留已保存的密钥 */
+  clientSecret?: string;
+  scope: string;
+}
+
+export interface SaveSystemInput {
+  siteName: string;
+  adminQq: string;
+  publicBaseUrl: string;
+}
+
+function writeMail(input: SaveMailInput): void {
+  setConfigValue(MAIL_KEYS.host, input.host.trim());
+  setConfigValue(MAIL_KEYS.port, String(input.port));
+  setConfigValue(MAIL_KEYS.secure, String(input.secure));
+  setConfigValue(MAIL_KEYS.username, input.username.trim());
+  setConfigValue(MAIL_KEYS.fromName, input.fromName.trim());
+  setConfigValue(MAIL_KEYS.fromAddress, input.fromAddress.trim());
+  if (input.password !== undefined && input.password !== "") {
+    setConfigValue(MAIL_KEYS.password, input.password);
   }
-  setConfigValue(SECURITY_KEYS.paymentPasswordMaxAttempts, String(security.paymentPasswordMaxAttempts));
-  setConfigValue(SECURITY_KEYS.paymentPasswordLockMinutes, String(security.paymentPasswordLockMinutes));
-  setConfigValue(SECURITY_KEYS.singlePaymentLimitCents, String(security.singlePaymentLimitCents));
-  setConfigValue(SECURITY_KEYS.dailyPaymentLimitCents, String(security.dailyPaymentLimitCents));
-  setConfigValue(SECURITY_KEYS.dynamicCodeTtlSeconds, String(security.dynamicCodeTtlSeconds));
-  setConfigValue(SECURITY_KEYS.emailCodeTtlSeconds, String(security.emailCodeTtlSeconds));
-  setConfigValue(SECURITY_KEYS.sessionTtlDays, String(security.sessionTtlDays));
+}
+
+function writeCampux(input: SaveCampuxInput): void {
+  setConfigValue(CAMPUX_KEYS.baseUrl, input.baseUrl.trim().replace(/\/+$/, ""));
+  setConfigValue(CAMPUX_KEYS.clientId, input.clientId.trim());
+  setConfigValue(CAMPUX_KEYS.scope, input.scope.trim() || "profile");
+  if (input.clientSecret !== undefined && input.clientSecret !== "") {
+    setConfigValue(CAMPUX_KEYS.clientSecret, input.clientSecret);
+  }
+}
+
+function writeSystem(input: SaveSystemInput): void {
+  setConfigValue(SYSTEM_KEYS.siteName, input.siteName.trim() || DEFAULT_SITE_NAME);
+  setConfigValue(SYSTEM_KEYS.adminQq, input.adminQq.trim());
+  setConfigValue(
+    SYSTEM_KEYS.publicBaseUrl,
+    input.publicBaseUrl.trim().replace(/\/+$/, "") || config.appBaseUrl,
+  );
+}
+
+function writeSecurity(input: SaveSecurityInput): void {
+  setConfigValue(SECURITY_KEYS.paymentPasswordMaxAttempts, String(input.paymentPasswordMaxAttempts));
+  setConfigValue(SECURITY_KEYS.paymentPasswordLockMinutes, String(input.paymentPasswordLockMinutes));
+  setConfigValue(SECURITY_KEYS.singlePaymentLimitCents, String(input.singlePaymentLimitCents));
+  setConfigValue(SECURITY_KEYS.dailyPaymentLimitCents, String(input.dailyPaymentLimitCents));
+  setConfigValue(SECURITY_KEYS.dynamicCodeTtlSeconds, String(input.dynamicCodeTtlSeconds));
+  setConfigValue(SECURITY_KEYS.emailCodeTtlSeconds, String(input.emailCodeTtlSeconds));
+  setConfigValue(SECURITY_KEYS.sessionTtlDays, String(input.sessionTtlDays));
+}
+
+export interface SaveConfigInput {
+  campux?: SaveCampuxInput;
+  mail?: SaveMailInput;
+  security?: SaveSecurityInput;
+  system?: SaveSystemInput;
+}
+
+/** 写回 app_config（mail / campux / system / security 均可选），并立即生效 */
+export function writeRuntimeConfig(input: SaveConfigInput): void {
+  if (input.campux) writeCampux(input.campux);
+  if (input.mail) writeMail(input.mail);
+  if (input.system) writeSystem(input.system);
+  if (input.security) writeSecurity(input.security);
   applyRuntimeConfig();
+}
+
+/** 后台「系统配置」保存入口（保留旧签名，供管理后台使用） */
+export function saveAdminConfig(actorId: string, input: SaveConfigInput, ip: string): void {
+  writeRuntimeConfig(input);
   writeAudit({
     actorId,
     actorRole: "admin",
     action: "admin.config.updated",
     targetType: "app_config",
     targetId: null,
-    detail: "更新系统配置（邮件服务与安全防护）",
+    detail: "更新系统配置（校园墙登录、邮件服务、安全防护与站点信息）",
     ip,
   });
 }
+
+/** 标记系统已完成初始化 */
+export function markInitialized(): void {
+  setConfigValue(SYSTEM_KEYS.initialized, "1");
+}
+
+export function countAdmins(): number {
+  const row = queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM admins");
+  return row ? Number(row.count) : 0;
+}
+
+export function isSystemReady(): boolean {
+  return readInitializedFlag() || countAdmins() > 0;
+}
+
+/** 校园墙登录是否可用（运行期配置优先，环境变量兜底） */
+export function isCampuxReady(): boolean {
+  const campux = readCampuxConfig();
+  return Boolean(campux.clientId && config.campux.clientSecret);
+}
+
+/** 邮件服务是否可用（运行期配置优先） */
+export function isMailReady(): boolean {
+  return Boolean(readMailConfig().host);
+}
+
+export const CONFIG_KEYS = { SECURITY_KEYS, MAIL_KEYS, CAMPUX_KEYS, SYSTEM_KEYS } as const;

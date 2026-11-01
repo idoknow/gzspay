@@ -388,7 +388,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field label="管理员登录态有效期（天）" hint="超过有效期需重新登录并二次验证。">
+          <Field label="管理员登录态有效期（天）" hint="超过有效期需重新登录主站。">
             <input
               className="admin-input"
               inputMode="numeric"

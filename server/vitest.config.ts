@@ -8,7 +8,6 @@ export default defineConfig({
     poolOptions: { forks: { singleFork: true } },
     env: {
       NODE_ENV: "test",
-      DEV_AUTH_ENABLED: "true",
       SESSION_SECRET: "gzspay-test-session-secret",
       APP_BASE_URL: "http://localhost:5173",
       PUBLIC_BASE_URL: "http://localhost:5173",

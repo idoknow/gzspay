@@ -7,12 +7,11 @@ import {
   Navigate,
   Route,
   Routes,
-  useNavigate,
 } from "react-router-dom";
 import "./admin.css";
 import {
   ADMIN_LOGIN_URL,
-  fetchSession,
+  getAdminSession,
   logoutAdmin,
   setAuthInvalidHandler,
 } from "./api";
@@ -24,7 +23,7 @@ import { AdminLayout } from "./Layout";
 import { errorMessage } from "../lib/http";
 import type { AdminIdentity } from "./types";
 import { LoginPage } from "./pages/LoginPage";
-import { VerifyPage } from "./pages/VerifyPage";
+import { SetupWizard } from "./pages/SetupWizard";
 import { OverviewPage } from "./pages/OverviewPage";
 import { MonthlyPage } from "./pages/MonthlyPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -36,39 +35,44 @@ import { AnnouncementsPage } from "./pages/AnnouncementsPage";
 import { LogsPage } from "./pages/LogsPage";
 import { ConfigPage } from "./pages/ConfigPage";
 
+/** 登录页需要区分的两种未进入后台原因 */
+type AnonymousReason = "anonymous" | "not_admin";
+
 type AuthState =
   | { phase: "loading" }
-  | { phase: "anonymous" }
-  | { phase: "pending2fa"; emailMasked: string }
+  | { phase: "setup" }
+  | { phase: "anonymous"; reason: AnonymousReason }
   | { phase: "authenticated"; admin: AdminIdentity };
 
 export default function AdminApp() {
   const theme = useTheme();
-  const navigate = useNavigate();
   const [auth, setAuth] = useState<AuthState>({ phase: "loading" });
   const [bootError, setBootError] = useState<string | null>(null);
 
-  /** 拉取当前会话，决定渲染登录页 / 二次验证页 / 后台。 */
+  /**
+   * 拉取当前会话，决定渲染登录页 / 初始化向导 / 后台。
+   * 后台不再有独立登录：全部复用主站会话 Cookie。
+   */
   const loadSession = useCallback(async () => {
     setBootError(null);
     try {
-      const session = await fetchSession();
+      const { session, reason } = await getAdminSession();
       if (session.authenticated && session.admin) {
         setAuth({ phase: "authenticated", admin: session.admin });
         return;
       }
-      if (session.pending2fa) {
-        setAuth({
-          phase: "pending2fa",
-          emailMasked: session.emailMasked ?? session.admin?.emailMasked ?? "",
-        });
+      if (reason === "not_initialized" || session.initialized === false) {
+        setAuth({ phase: "setup" });
         return;
       }
-      setAuth({ phase: "anonymous" });
+      setAuth({
+        phase: "anonymous",
+        reason: reason === "not_admin" ? "not_admin" : "anonymous",
+      });
     } catch (error) {
       // 网络等非鉴权异常：停留在登录页，并提示原因
       setBootError(errorMessage(error));
-      setAuth({ phase: "anonymous" });
+      setAuth({ phase: "anonymous", reason: "anonymous" });
     }
   }, []);
 
@@ -76,28 +80,25 @@ export default function AdminApp() {
     void loadSession();
   }, [loadSession]);
 
-  // 任意接口返回 401 时，全局切换到登录页或二次验证页
+  // 任意接口返回未登录 / 非管理员 / 未初始化时，全局切换对应页面
   useEffect(() => {
     setAuthInvalidHandler((reason) => {
-      setAuth(
-        reason === "pending2fa"
-          ? { phase: "pending2fa", emailMasked: "" }
-          : { phase: "anonymous" },
-      );
+      if (reason === "not_initialized") {
+        setAuth({ phase: "setup" });
+        return;
+      }
+      setAuth({
+        phase: "anonymous",
+        reason: reason === "not_admin" ? "not_admin" : "anonymous",
+      });
     });
     return () => setAuthInvalidHandler(null);
   }, []);
 
   const handleLogin = useCallback(() => {
-    // 走校园墙 OAuth：整页跳转，后端 302 回来后命中 /admin/*
+    // 走主站登录：整页跳转，后端 302 回来后命中 /admin/*
     window.location.href = ADMIN_LOGIN_URL;
   }, []);
-
-  const handleReLogin = useCallback(() => {
-    setAuth({ phase: "anonymous" });
-    setBootError(null);
-    handleLogin();
-  }, [handleLogin]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -105,39 +106,34 @@ export default function AdminApp() {
     } catch {
       // 退出接口异常时也清理前端状态，避免停留在半登录状态
     }
-    setAuth({ phase: "anonymous" });
+    setAuth({ phase: "anonymous", reason: "anonymous" });
     setBootError(null);
   }, []);
 
-  const handleVerified = useCallback(
-    (admin: AdminIdentity) => {
-      setAuth({ phase: "authenticated", admin });
-      setBootError(null);
-      navigate("/admin/overview", { replace: true });
-    },
-    [navigate],
-  );
+  /** 初始化完成后重新探测会话，正常即进入后台 */
+  const handleSetupCompleted = useCallback(() => {
+    void loadSession();
+  }, [loadSession]);
 
   return (
     <FeedbackProvider>
       <div className="admin-root" data-theme={theme.resolved}>
         {auth.phase === "loading" ? (
           <BootScreen />
+        ) : auth.phase === "setup" ? (
+          <SetupWizard
+            themeMode={theme.mode}
+            onThemeChange={theme.setMode}
+            onCompleted={handleSetupCompleted}
+          />
         ) : auth.phase === "anonymous" ? (
           <LoginPage
+            reason={auth.reason}
             themeMode={theme.mode}
             onThemeChange={theme.setMode}
             onLogin={handleLogin}
             error={bootError}
             onRetry={bootError ? () => void loadSession() : undefined}
-          />
-        ) : auth.phase === "pending2fa" ? (
-          <VerifyPage
-            emailMasked={auth.emailMasked}
-            themeMode={theme.mode}
-            onThemeChange={theme.setMode}
-            onVerified={handleVerified}
-            onReLogin={handleReLogin}
           />
         ) : (
           <AuthenticatedApp
@@ -207,10 +203,6 @@ function AuthenticatedApp({
             }
           />
           <Route path="config" element={<ConfigPage />} />
-          <Route
-            path="verify"
-            element={<Navigate to="/admin/overview" replace />}
-          />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

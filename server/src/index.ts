@@ -2,7 +2,7 @@ import { type Server } from "node:http";
 import { app } from "./app.js";
 import { config } from "./config.js";
 import { cleanupExpired, closeDatabase, execute, migrate } from "./db/index.js";
-import { applyRuntimeConfig, readAdminConfig } from "./lib/runtime-config.js";
+import { applyRuntimeConfig, isSystemReady, readAdminConfig } from "./lib/runtime-config.js";
 import { writeSystemError } from "./lib/audit.js";
 
 const METRICS_RETENTION_DAYS = 7;
@@ -44,6 +44,10 @@ function main(): void {
   try {
     readAdminConfig();
     applyRuntimeConfig();
+    // eslint-disable-next-line no-console
+    console.log(
+      `[gzspay] 初始化状态: ${isSystemReady() ? "已完成" : "未完成（打开 /admin 完成初始化向导）"}`,
+    );
   } catch (error) {
     writeSystemError({
       scope: "startup",

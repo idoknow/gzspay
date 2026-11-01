@@ -10,6 +10,7 @@ import {
   errorHandler,
   notFoundHandler,
   securityHeaders,
+  systemGate,
 } from "./lib/http.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
@@ -20,6 +21,7 @@ import { miscRouter } from "./routes/misc.js";
 import { onboardingRouter } from "./routes/onboarding.js";
 import { ordersRouter } from "./routes/orders.js";
 import { scanRouter } from "./routes/scan.js";
+import { setupRouter } from "./routes/setup.js";
 import { statsRouter } from "./routes/stats.js";
 
 const METRIC_SKIP_PREFIXES = ["/media/", "/assets/", "/api/events/stream"];
@@ -68,10 +70,12 @@ export function createApp(): Express {
   app.use("/media/avatars", express.static(config.avatarDir, { maxAge: "7d", index: false }));
   app.use("/media", express.static(config.uploadDir, { maxAge: "7d", index: false }));
 
-  // 接口统一挂载点：CSRF 校验 + 会话解析
+  // 接口统一挂载点：CSRF 校验 + 会话解析 + 初始化状态闸门
   const api = express.Router();
   api.use(csrfGuard);
   api.use(attachUser);
+  api.use("/setup", setupRouter);
+  api.use(systemGate);
   api.use("/auth", authRouter);
   api.use("/onboarding", onboardingRouter);
   api.use("/me", meRouter);

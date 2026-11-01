@@ -201,7 +201,7 @@ export function AdminsPage() {
             ))}
           </div>
           <p className="admin-readonly-hint" style={{ marginTop: 14 }}>
-            安全要求：管理员登录必须完成邮箱二次验证；所有管理员操作会写入不可修改的操作日志。
+            安全要求：管理员权限复用主站登录会话；所有管理员操作会写入不可修改的操作日志。
           </p>
         </Card>
       </div>

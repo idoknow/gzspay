@@ -19,7 +19,7 @@ export interface AuthContextValue {
   patchMe: (patch: Partial<Me>) => void;
   /** 退出登录并回到登录页 */
   logout: () => Promise<void>;
-  /** 直接替换会话（DEV 登录后） */
+  /** 直接替换会话（外部注入登录态时使用） */
   setSession: (session: SessionResponse) => void;
 }
 

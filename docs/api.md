@@ -6,7 +6,7 @@
 
 - 基础路径：`/api`。
 - 认证：服务端会话 Cookie（`gzs_session`，HttpOnly）。未登录返回 `401`。
-- 管理后台会话：`gzs_admin` Cookie，只对 `/api/admin/**` 生效。
+- 管理后台复用同一个 `gzs_session` 会话（没有独立的 `gzs_admin` Cookie，也没有邮箱二次验证）。
 - 请求/响应均为 JSON（文件上传除外，使用 `multipart/form-data`）。
 - 金额字段一律为「分」的整数（`amountCents`）。
 - 时间为 ISO 8601 字符串（UTC）。
@@ -36,6 +36,10 @@
 | `RATE_LIMITED` | 429 | 请求过于频繁 |
 | `ORDER_STATUS_INVALID` | 409 | 订单状态不允许该操作 |
 | `LIMIT_EXCEEDED` | 400 | 超出金额上限 |
+| `NOT_ADMIN` | 401 | 已登录但账号不在管理员名单内 |
+| `SYSTEM_NOT_INITIALIZED` | 503 | 系统尚未初始化（请管理员打开 `/admin` 完成初始化向导） |
+| `CAMPUX_NOT_CONFIGURED` | 503 | 尚未配置校园墙登录（初始化向导第一步） |
+| `ALREADY_INITIALIZED` | 409 | 系统已完成初始化，不能重复提交初始化配置 |
 
 ### 用户公开信息 `PublicUser`
 
@@ -81,9 +85,20 @@ interface Me {
 | --- | --- | --- |
 | `GET` | `/api/auth/session` | 当前登录态：`{ authenticated, me?, onboardStep?, isAdmin }` |
 | `GET` | `/api/auth/login` | 302 跳转校园墙授权页（生成 state + PKCE） |
-| `GET` | `/api/auth/callback?code&state` | 校园墙回调，成功后 302 到 `APP_BASE_URL/`（新用户到 `/onboarding`） |
+| `GET` | `/api/auth/callback?code&state` | 校园墙回调，成功后 302 到 `APP_BASE_URL/`（新用户到 `/onboarding`，`redirect=/admin` 时到 `/admin`）；系统未初始化时第一个登录的账号自动成为超级管理员 |
 | `POST` | `/api/auth/logout` | 退出登录，清 Cookie |
-| `POST` | `/api/auth/dev-login` | 仅开发模式：`{ sub?, name?, username? }` 直接登录，返回 `{ me }` |
+
+未配置校园墙（`CAMPUX_BASE_URL` / `CAMPUX_CLIENT_ID` / `CAMPUX_CLIENT_SECRET` 缺一）时，`GET /api/auth/login` 返回 503 `CAMPUX_NOT_CONFIGURED`。
+
+## 1.1 系统初始化
+
+首次部署时系统处于「未初始化」状态：除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外的接口统一返回 503（`CAMPUX_NOT_CONFIGURED` 或 `SYSTEM_NOT_INITIALIZED`）。管理后台打开后进入四步初始化向导（校园墙 → 发件 → 站点信息 → 完成），完成后第一个登录的账号成为超级管理员。
+
+| 方法 | 路径 | 请求体 | 说明 |
+| --- | --- | --- | --- |
+| `GET` | `/api/setup/status` | — | `{ initialized, campuxConfigured, mailConfigured, adminCount, currentUser, system, campux, mail }`（无需登录；`currentUser` 为当前登录用户或 `null`，`system` 含 `siteName/adminQq/publicBaseUrl`，`mail` 不回显密码只给 `passwordConfigured`） |
+| `POST` | `/api/setup/config` | `{ campux?, mail?, system? }` | 保存初始化配置，返回 `{ ok, status }`；仅 `initialized=false` 时可用，否则 409 `ALREADY_INITIALIZED`；`clientSecret` / `password` 留空表示沿用已保存值 |
+| `POST` | `/api/setup/finish` | — | 需主站登录；把当前账号设为超级管理员并标记初始化完成，返回 `{ ok, admin }`；未登录 401 `UNAUTHENTICATED` |
 
 ## 2. 新用户引导
 
@@ -282,7 +297,7 @@ interface SSEOrderUpdate {
 
 ## 10. 管理后台
 
-统一前缀 `/api/admin`。要求管理员角色 + 二次验证完成；写操作要求角色权限（`super` 全权、`ops` 运营、`auditor` 只读）。
+统一前缀 `/api/admin`。**管理后台复用主站登录会话**（同一个 `gzs_session` Cookie，没有独立的 OAuth 与邮箱二次验证）；已登录但不在 `admins` 表内的账号返回 401 `NOT_ADMIN`。写操作要求角色权限（`super` 全权、`ops` 运营、`auditor` 只读）。
 
 管理后台前端的响应类型定义集中在 `web/src/admin/types.ts`，下文用其中的类型名说明。所有列表接口返回统一分页结构 `{ items, total, page, pageSize }`；操作类接口成功返回 `{ ok: true, ... }`。
 
@@ -290,12 +305,9 @@ interface SSEOrderUpdate {
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/api/admin/auth/login` | 整页跳转发起校园墙 OAuth（`302`）；回调成功后若需二次验证会跳回 `/admin` |
-| `GET` | `/api/admin/auth/callback` | OAuth 回调（管理端专用，`gzs_admin` Cookie）；不在管理员名单或账号冻结时返回 `403` HTML 错误页 |
-| `GET` | `/api/admin/auth/session` | 已登录：`{ authenticated: true, pending2fa: false, admin: AdminIdentity, emailMasked }`；未登录 `401 UNAUTHENTICATED`；已过 OAuth 未过二次验证 `401 ADMIN_2FA_REQUIRED`（`details.emailMasked`） |
-| `POST` | `/api/admin/auth/verify` | `{ code }` 校验邮箱验证码 → 升级为管理会话，返回 `{ ok: true, admin }` |
-| `POST` | `/api/admin/auth/resend` | 重新发送二次验证邮箱验证码 |
-| `POST` | `/api/admin/auth/logout` | 退出管理会话 → `{ ok: true }` |
+| `GET` | `/api/admin/auth/login` | `302` 到 `/api/auth/login?redirect=%2Fadmin`（复用主站校园墙登录） |
+| `GET` | `/api/admin/auth/session` | 已登录且是管理员：`{ authenticated: true, initialized: true, admin: AdminIdentity }`；系统未初始化 `401 SYSTEM_NOT_INITIALIZED`；未登录 `401 UNAUTHENTICATED`；登录了但不是管理员 `401 NOT_ADMIN`（三者中「未初始化」优先判断） |
+| `POST` | `/api/admin/auth/logout` | 退出登录（撤销主站会话）→ `{ ok: true }` |
 
 `AdminIdentity`：`{ id, displayName, emailMasked, role: "super"|"ops"|"auditor", createdAt }`。
 
@@ -329,8 +341,8 @@ interface SSEOrderUpdate {
 | `DELETE` | `/api/admin/announcements/:id` | 删除（super/ops） |
 | `GET` | `/api/admin/logs?type=audit|login|risk|error&from&to&query&page&pageSize` | `{ items: AdminLog[], ... }` |
 | `GET` | `/api/admin/logs/export?type&from&to&query` | 日志 CSV |
-| `GET` | `/api/admin/config` | `AdminConfig`：`{ mail: MailConfig, security: SecurityConfig }`；`mail.passwordConfigured` 表示是否已配置密码，不返回明文 |
-| `PUT` | `/api/admin/config` | 更新配置（仅 super）；返回更新后的 `AdminConfig`；邮件配置变更立即生效 |
+| `GET` | `/api/admin/config` | `AdminConfig`：`{ campux: CampuxConfig, mail: MailConfig, security: SecurityConfig, system: SystemConfig }`；`mail.passwordConfigured` / `campux.clientSecretConfigured` 表示是否已配置，不返回明文；`system` 含 `siteName/adminQq/publicBaseUrl` |
+| `PUT` | `/api/admin/config` | 更新配置（仅 super，可只传其中一块）；返回更新后的 `AdminConfig`；邮件与校园墙配置变更立即生效 |
 
 角色权限：`GET` 类接口所有管理员可读；冻结/解冻/重置绑卡/强制下线/关单/标异常/公告增删改/申诉处理 = `super` + `ops`；管理员增删与系统配置写入 = 仅 `super`；`auditor` 只读（写操作 `403`）。
 

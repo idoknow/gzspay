@@ -24,10 +24,11 @@ export interface AdminIdentity {
   createdAt: string | null;
 }
 
-/** 管理后台会话状态（GET /admin/auth/session） */
+/** 管理后台会话状态（GET /admin/auth/session，复用主站 Cookie） */
 export interface AdminSession {
   authenticated: boolean;
-  pending2fa: boolean;
+  /** 系统是否已完成初始化；接口未返回时为 undefined */
+  initialized?: boolean;
   admin: AdminIdentity | null;
   emailMasked: string | null;
 }
@@ -408,6 +409,96 @@ export interface AdminConfigInput {
     password?: string;
   };
   security: SecurityConfig;
+}
+
+/* ---------------------------------------------------------------- 初始化 */
+
+/** 初始化向导步骤编号：校园墙 → 发件 → 站点 → 完成 */
+export type SetupStep = 1 | 2 | 3 | 4;
+
+/** 初始化向导中当前已登录的主站用户 */
+export interface SetupCurrentUser {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
+/** 站点信息（GET /setup/status 的 system） */
+export interface SetupSystemInfo {
+  siteName: string;
+  adminQq: string;
+  publicBaseUrl: string;
+}
+
+/** 校园墙登录配置（GET /setup/status 的 campux，密钥不回显） */
+export interface SetupCampuxInfo {
+  baseUrl: string;
+  clientId: string;
+  /** 是否已保存 Client Secret */
+  clientSecretConfigured: boolean;
+  scope: string;
+}
+
+/** 发件配置（GET /setup/status 的 mail，密码不回显） */
+export interface SetupMailInfo {
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  /** 是否已保存 SMTP 密码 */
+  passwordConfigured: boolean;
+  fromName: string;
+  fromAddress: string;
+}
+
+/** GET /setup/status —— 系统初始化状态（无需登录） */
+export interface SetupStatus {
+  initialized: boolean;
+  campuxConfigured: boolean;
+  mailConfigured: boolean;
+  adminCount: number;
+  /** 当前主站登录用户；未登录为 null */
+  currentUser: SetupCurrentUser | null;
+  system: SetupSystemInfo;
+  campux: SetupCampuxInfo;
+  mail: SetupMailInfo;
+}
+
+/** POST /setup/config 入参：允许分步提交，未提供的字段保持原值 */
+export interface SetupConfigInput {
+  campux?: {
+    baseUrl: string;
+    clientId: string;
+    /** 留空表示保留已保存的密钥（首次必填） */
+    clientSecret: string;
+    scope: string;
+  };
+  mail?: {
+    host: string;
+    port: number;
+    secure: boolean;
+    username: string;
+    /** 留空表示保留已保存的密码（首次必填） */
+    password: string;
+    fromName: string;
+    fromAddress: string;
+  };
+  system?: {
+    siteName: string;
+    adminQq: string;
+  };
+}
+
+/** 初始化完成后生效的超级管理员 */
+export interface SetupAdmin {
+  id: string;
+  displayName: string;
+  role: AdminRole;
+}
+
+/** POST /setup/finish 结果 */
+export interface SetupFinishResult {
+  admin: SetupAdmin | null;
 }
 
 /* ------------------------------------------------------------- 通用查询 */

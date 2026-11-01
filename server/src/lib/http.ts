@@ -5,6 +5,7 @@ import { queryOne } from "../db/index.js";
 import { writeSystemError } from "./audit.js";
 import { AppError, errors } from "./errors.js";
 import { readSession } from "./session.js";
+import { isCampuxReady, isSystemReady } from "./runtime-config.js";
 import type { AdminRole, AdminRow, AuthContext, SessionRow } from "./types.js";
 
 /** 包装异步路由，把异常交给错误中间件 */
@@ -69,9 +70,46 @@ export function csrfGuard(req: Request, res: Response, next: NextFunction): void
   next();
 }
 
+/** 初始化之前也允许访问的接口前缀（登录、初始化、健康检查、管理后台鉴权） */
+const OPEN_PREFIXES = ["/health", "/setup", "/auth", "/admin/auth"];
+
+/**
+ * 系统初始化闸门：没配好校园墙登录 / 没完成初始化时，除白名单外的接口一律 503。
+ * 这样「没配置主站不让用」，同时在初始化向导里仍然可以保存配置并完成登录。
+ */
+export function systemGate(req: Request, res: Response, next: NextFunction): void {
+  const current = req.path;
+  const open = OPEN_PREFIXES.some(
+    (prefix) => current === prefix || current.startsWith(`${prefix}/`),
+  );
+  if (open) {
+    next();
+    return;
+  }
+  if (!isCampuxReady()) {
+    res.status(503).json({
+      error: {
+        code: "CAMPUX_NOT_CONFIGURED",
+        message: "系统尚未配置校园墙登录，请管理员先在管理后台完成初始化",
+      },
+    });
+    return;
+  }
+  if (!isSystemReady()) {
+    res.status(503).json({
+      error: {
+        code: "SYSTEM_NOT_INITIALIZED",
+        message: "系统尚未初始化，请管理员先在管理后台完成初始化",
+      },
+    });
+    return;
+  }
+  next();
+}
+
 /** 解析登录态（不强制登录） */
 export function attachUser(req: Request, _res: Response, next: NextFunction): void {
-  const auth = readSession(req, "user");
+  const auth = readSession(req);
   if (auth) {
     req.auth = { ...auth, ip: req.ip ?? req.socket.remoteAddress ?? "unknown" } as AuthContext;
   }
@@ -87,7 +125,7 @@ export interface RequireUserOptions {
 export function requireUser(options: RequireUserOptions = {}): RequestHandler {
   return (req, _res, next) => {
     const auth = req.auth ?? (() => {
-      const resolved = readSession(req, "user");
+      const resolved = readSession(req);
       return resolved
         ? ({ ...resolved, ip: req.ip ?? req.socket.remoteAddress ?? "unknown" } as AuthContext)
         : undefined;
@@ -105,32 +143,28 @@ export function requireUser(options: RequireUserOptions = {}): RequestHandler {
   };
 }
 
-/** 解析管理员会话（admin_pending 或 admin） */
+/** 解析管理员身份：直接复用主站登录会话，再校验 admins 表 */
 export function attachAdmin(req: Request, _res: Response, next: NextFunction): void {
-  const session = readSession(req, "admin") ?? readSession(req, "admin_pending");
-  if (session) {
-    const admin = queryOne<AdminRow>("SELECT * FROM admins WHERE user_id = ?", session.user.id);
+  const auth = readSession(req);
+  if (auth) {
+    const admin = queryOne<AdminRow>("SELECT * FROM admins WHERE user_id = ?", auth.user.id);
     if (admin && admin.role) {
-      req.admin = {
-        user: session.user,
-        admin,
-        session: session.session,
-      };
+      req.admin = { user: auth.user, admin, session: auth.session };
     }
   }
   next();
 }
 
-/** 要求已通过邮箱二次验证的正式管理员会话 */
+/** 要求当前登录账号是管理员（roles 为空表示任意角色） */
 export function requireAdmin(roles?: AdminRole[]): RequestHandler {
   return (req, _res, next) => {
     const context = req.admin;
     if (!context) {
-      next(errors.unauthenticated("请先登录管理后台"));
-      return;
-    }
-    if (context.session.kind !== "admin") {
-      next(new AppError(401, "ADMIN_2FA_REQUIRED", "请先完成邮箱二次验证"));
+      if (!req.auth) {
+        next(errors.unauthenticated("请先登录"));
+        return;
+      }
+      next(new AppError(401, "NOT_ADMIN", "你的账号不在管理员名单内"));
       return;
     }
     if (context.user.status === "frozen") {

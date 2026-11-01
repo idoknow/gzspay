@@ -123,6 +123,16 @@ async function loadResource(url: string, sink: ByteSink): Promise<void> {
   }
 }
 
+/** 从错误响应体里取出后端错误码（非 JSON 或结构不符时返回 null） */
+function parseErrorCode(bytes: Uint8Array): string | null {
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as { error?: { code?: unknown } };
+    return typeof parsed.error?.code === "string" ? parsed.error.code : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 会话检查：读取字节并解析登录态 */
 async function checkSession(sink: ByteSink): Promise<SessionResponse> {
   const response = await fetch("/api/auth/session", {
@@ -132,6 +142,11 @@ async function checkSession(sink: ByteSink): Promise<SessionResponse> {
   const bytes = await readBytesWithProgress(response, sink);
 
   if (response.status === 401) {
+    return { authenticated: false };
+  }
+  // 系统尚未初始化时后端拒绝除健康检查 / 初始化 / 管理后台之外的接口，
+  // 此时按「未登录」继续启动，由 App 的初始化拦截页引导管理员去管理后台完成配置。
+  if (response.status === 503 && parseErrorCode(bytes) === "SYSTEM_NOT_INITIALIZED") {
     return { authenticated: false };
   }
   if (!response.ok) {

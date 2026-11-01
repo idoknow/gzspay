@@ -42,7 +42,7 @@ const TABS: TabItem<LogTabKey>[] = [
 
 const TAB_DESCRIPTIONS: Record<LogTabKey, string> = {
   audit: "管理员在后台执行的关键写操作留痕，用于追溯与审计。",
-  login: "管理员登录、二次验证、退出的记录，可用于排查异常登录。",
+  login: "管理员登录、退出与权限变更的记录，可用于排查异常登录。",
   risk: "支付风控规则命中记录，包括金额超限、密码错误、异常设备等。",
   error: "服务端异常与接口错误堆栈摘要，便于定位系统故障。",
 };

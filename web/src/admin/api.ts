@@ -55,6 +55,11 @@ import type {
   SecurityConfig,
   ServiceHealth,
   ServiceStatus,
+  SetupAdmin,
+  SetupConfigInput,
+  SetupCurrentUser,
+  SetupFinishResult,
+  SetupStatus,
   StorageStatus,
   SystemAlert,
   SystemStatus,
@@ -67,26 +72,30 @@ import type {
 
 const CSRF_HEADERS: Record<string, string> = { "X-Requested-With": "gzspay" };
 
-type AuthInvalidReason = "anonymous" | "pending2fa";
+/** 鉴权失效原因：未登录 / 非管理员 / 系统尚未初始化 */
+export type AuthInvalidReason = "anonymous" | "not_admin" | "not_initialized";
 
 let authInvalidHandler: ((reason: AuthInvalidReason) => void) | null = null;
 
-/** 注册鉴权失效回调（401 / ADMIN_2FA_REQUIRED），由 AdminApp 在挂载时注入 */
+/** 注册鉴权失效回调（UNAUTHENTICATED / NOT_ADMIN / SYSTEM_NOT_INITIALIZED），由 AdminApp 在挂载时注入 */
 export function setAuthInvalidHandler(
   handler: ((reason: AuthInvalidReason) => void) | null,
 ): void {
   authInvalidHandler = handler;
 }
 
+/** 把接口错误映射为鉴权失效原因；与鉴权无关时返回 null */
+function authReasonOf(error: unknown): AuthInvalidReason | null {
+  if (!(error instanceof ApiError)) return null;
+  if (error.code === "SYSTEM_NOT_INITIALIZED") return "not_initialized";
+  if (error.code === "NOT_ADMIN") return "not_admin";
+  if (error.code === "UNAUTHENTICATED" || error.status === 401) return "anonymous";
+  return null;
+}
+
 function notifyAuthInvalid(error: unknown): void {
-  if (!(error instanceof ApiError)) return;
-  const authCode =
-    error.code === "UNAUTHENTICATED" || error.code === "ADMIN_2FA_REQUIRED";
-  if (error.status === 401 || authCode) {
-    authInvalidHandler?.(
-      error.code === "ADMIN_2FA_REQUIRED" ? "pending2fa" : "anonymous",
-    );
-  }
+  const reason = authReasonOf(error);
+  if (reason) authInvalidHandler?.(reason);
 }
 
 async function getJson<T>(
@@ -108,11 +117,12 @@ async function writeJson<T>(
   method: WriteMethod,
   path: string,
   body?: unknown,
+  notify = true,
 ): Promise<T> {
   try {
     return await request<T>(path, { method, body, headers: CSRF_HEADERS });
   } catch (error) {
-    notifyAuthInvalid(error);
+    if (notify) notifyAuthInvalid(error);
     throw error;
   }
 }
@@ -148,32 +158,17 @@ function mapAdminIdentity(raw: unknown): AdminIdentity {
 
 function mapSessionPayload(payload: unknown): AdminSession {
   const source = record(payload);
-  const adminSource = isRecord(source.admin)
-    ? source.admin
-    : isRecord(source.profile)
-      ? source.profile
-      : null;
-  const identity = adminSource
-    ? mapAdminIdentity(adminSource)
-    : firstText(source, ["displayName", "name", "fullName", "role"])
-      ? mapAdminIdentity(source)
-      : null;
-  const pending2fa = firstBoolean(source, [
-    "pending2fa",
-    "needs2fa",
-    "requires2fa",
-    "pending2FA",
-  ]);
-  let authenticated = firstBoolean(source, ["authenticated", "loggedIn"]) ?? false;
-  if (!authenticated && identity && pending2fa !== true) authenticated = true;
-  if (!authenticated && source.ok === true && identity) authenticated = true;
-  const emailMasked =
-    firstText(source, ["emailMasked", "email"]) ?? identity?.emailMasked ?? null;
+  const adminSource = isRecord(source.admin) ? source.admin : null;
+  const identity = adminSource ? mapAdminIdentity(adminSource) : null;
+  const authenticated =
+    (firstBoolean(source, ["authenticated", "loggedIn"]) ?? false) &&
+    identity !== null;
   return {
     authenticated,
-    pending2fa: !authenticated && (pending2fa ?? false),
+    initialized: firstBoolean(source, ["initialized"]) ?? undefined,
     admin: authenticated ? identity : null,
-    emailMasked,
+    emailMasked:
+      firstText(source, ["emailMasked", "email"]) ?? identity?.emailMasked ?? null,
   };
 }
 
@@ -210,52 +205,137 @@ function mapTone(
 
 /* ------------------------------------------------------------------ 认证 */
 
-/** 发起校园墙 OAuth 登录的地址（整页跳转，不走 fetch） */
+/** 发起校园墙登录的地址（整页跳转，不走 fetch；后端 302 到主站登录） */
 export const ADMIN_LOGIN_URL = "/api/admin/auth/login";
 
-/** GET /admin/auth/session */
-export async function fetchSession(): Promise<AdminSession> {
+/** 会话探测结果：session 为映射后的会话，reason 说明为何进不了后台 */
+export interface AdminSessionResult {
+  session: AdminSession;
+  reason: AuthInvalidReason | null;
+}
+
+/**
+ * GET /admin/auth/session
+ * 复用主站会话 Cookie：200 → 已登录管理员；401 按 error.code 区分未登录 / 非管理员 / 未初始化。
+ */
+export async function getAdminSession(): Promise<AdminSessionResult> {
   try {
     const payload = await getJson<unknown>("/admin/auth/session", undefined, false);
-    return mapSessionPayload(payload);
+    return { session: mapSessionPayload(payload), reason: null };
   } catch (error) {
-    if (error instanceof ApiError) {
-      if (error.code === "ADMIN_2FA_REQUIRED") {
-        return {
+    const reason = authReasonOf(error);
+    if (reason) {
+      return {
+        session: {
           authenticated: false,
-          pending2fa: true,
-          admin: null,
-          emailMasked: text(record(error.details).emailMasked),
-        };
-      }
-      if (error.status === 401 || error.code === "UNAUTHENTICATED") {
-        return {
-          authenticated: false,
-          pending2fa: false,
+          initialized: false,
           admin: null,
           emailMasked: null,
-        };
-      }
+        },
+        reason,
+      };
     }
     throw error;
   }
 }
 
-export interface VerifyResult {
-  admin: AdminIdentity | null;
-}
-
-/** POST /admin/auth/verify */
-export async function verifyAdminCode(code: string): Promise<VerifyResult> {
-  const payload = await writeJson<unknown>("POST", "/admin/auth/verify", { code });
-  const source = record(payload);
-  const adminSource = isRecord(source.admin) ? source.admin : null;
-  return { admin: adminSource ? mapAdminIdentity(adminSource) : null };
-}
-
 /** POST /admin/auth/logout */
 export async function logoutAdmin(): Promise<void> {
   await postAction("/admin/auth/logout");
+}
+
+/* ------------------------------------------------------------------ 初始化 */
+
+function mapSetupCurrentUser(raw: unknown): SetupCurrentUser | null {
+  if (!isRecord(raw)) return null;
+  const id = firstText(raw, ["id", "userId"]);
+  if (!id) return null;
+  return {
+    id,
+    displayName: textOr(firstText(raw, ["displayName", "name"]), "校园墙用户"),
+    avatarUrl: firstText(raw, ["avatarUrl", "avatar"]),
+  };
+}
+
+function mapSetupStatus(payload: unknown): SetupStatus {
+  const source = record(payload);
+  const system = record(source.system);
+  const campux = record(source.campux);
+  const mail = record(source.mail);
+  return {
+    initialized: firstBoolean(source, ["initialized"]) ?? false,
+    campuxConfigured: firstBoolean(source, ["campuxConfigured"]) ?? false,
+    mailConfigured: firstBoolean(source, ["mailConfigured"]) ?? false,
+    adminCount: numberOr(firstNumber(source, ["adminCount"]), 0),
+    currentUser: mapSetupCurrentUser(source.currentUser),
+    system: {
+      siteName: textOr(
+        firstText(system, ["siteName", "name"]),
+        "gzspay 桂中校园支付",
+      ),
+      adminQq: textOr(firstText(system, ["adminQq"]), ""),
+      publicBaseUrl: textOr(firstText(system, ["publicBaseUrl", "baseUrl"]), ""),
+    },
+    campux: {
+      baseUrl: textOr(firstText(campux, ["baseUrl"]), ""),
+      clientId: textOr(firstText(campux, ["clientId"]), ""),
+      clientSecretConfigured:
+        firstBoolean(campux, ["clientSecretConfigured", "secretConfigured"]) ??
+        false,
+      scope: textOr(firstText(campux, ["scope"]), "profile"),
+    },
+    mail: {
+      host: textOr(firstText(mail, ["host"]), ""),
+      port: numberOr(firstNumber(mail, ["port"]), 465),
+      secure: firstBoolean(mail, ["secure", "ssl"]) ?? true,
+      username: textOr(firstText(mail, ["username", "user"]), ""),
+      passwordConfigured:
+        firstBoolean(mail, ["passwordConfigured", "passwordSet"]) ?? false,
+      fromName: textOr(firstText(mail, ["fromName"]), "gzspay"),
+      fromAddress: textOr(firstText(mail, ["fromAddress", "from"]), ""),
+    },
+  };
+}
+
+function mapSetupAdmin(raw: unknown): SetupAdmin {
+  const source = record(raw);
+  return {
+    id: textOr(firstText(source, ["id", "userId"]), "unknown"),
+    displayName: textOr(firstText(source, ["displayName", "name"]), "管理员"),
+    role: mapRole(firstText(source, ["role"])),
+  };
+}
+
+/** GET /setup/status —— 系统初始化状态（无需登录） */
+export async function getSetupStatus(): Promise<SetupStatus> {
+  const payload = await getJson<unknown>("/setup/status", undefined, false);
+  return mapSetupStatus(payload);
+}
+
+/**
+ * POST /setup/config —— 保存初始化步骤配置。
+ * 允许分步提交：只传当前步骤的字段；clientSecret / password 传空串表示保留旧值。
+ */
+export async function saveSetupConfig(
+  input: SetupConfigInput,
+): Promise<SetupStatus> {
+  const payload = await writeJson<unknown>("POST", "/setup/config", input, false);
+  const source = record(payload);
+  return mapSetupStatus(source.status ?? payload);
+}
+
+/** POST /setup/finish —— 完成初始化，当前主站登录账号成为超级管理员 */
+export async function finishSetup(): Promise<SetupFinishResult> {
+  const payload = await writeJson<unknown>(
+    "POST",
+    "/setup/finish",
+    undefined,
+    false,
+  );
+  const source = record(payload);
+  return {
+    admin: isRecord(source.admin) ? mapSetupAdmin(source.admin) : null,
+  };
 }
 
 /* ------------------------------------------------------------------ 总览 */

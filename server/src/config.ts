@@ -65,6 +65,7 @@ export const config = {
   nodeEnv,
   isProduction,
   isTest: nodeEnv === "test",
+  exposeEmailCode: bool("EMAIL_CODE_DEV_MODE", false),
   port: int("PORT", 3000),
   appBaseUrl,
   publicBaseUrl,
@@ -77,21 +78,15 @@ export const config = {
 
   sessionSecret: str("SESSION_SECRET", "dev-only-session-secret-change-me"),
   sessionCookieName: "gzs_session",
-  adminCookieName: "gzs_admin",
   sessionTtlDays: int("SESSION_TTL_DAYS", 7),
-  adminSessionTtlMinutes: int("ADMIN_SESSION_TTL_MINUTES", 30),
 
   campux: {
-    baseUrl: str("CAMPUX_BASE_URL", "https://campux.example.com").replace(/\/+$/, ""),
+    baseUrl: optionalStr("CAMPUX_BASE_URL") ?? "",
     clientId: str("CAMPUX_CLIENT_ID", ""),
     clientSecret: str("CAMPUX_CLIENT_SECRET", ""),
     redirectUri: str("CAMPUX_REDIRECT_URI", `${publicBaseUrl}/api/auth/callback`),
     tenantId: optionalStr("CAMPUX_TENANT_ID"),
-    scope: str("CAMPUX_SCOPE", "profile tenant"),
-    adminRedirectUri: str(
-      "CAMPUX_ADMIN_REDIRECT_URI",
-      `${publicBaseUrl}/api/admin/auth/callback`,
-    ),
+    scope: str("CAMPUX_SCOPE", "profile"),
   },
 
   qqAvatarUrlTemplate: str(
@@ -122,13 +117,6 @@ export const config = {
     paymentRequestTtlSeconds: 180,
   },
 
-  dev: {
-    authEnabled: bool("DEV_AUTH_ENABLED", !isProduction),
-    sub: str("DEV_LOGIN_SUB", "dev-user-1"),
-    name: str("DEV_LOGIN_NAME", "10001"),
-    username: str("DEV_LOGIN_USERNAME", "测试同学"),
-  },
-
   /** 测试环境可通过环境变量覆盖 */
   get testDatabasePath(): string {
     return process.env.TEST_DATABASE_PATH ?? ":memory:";
@@ -137,7 +125,7 @@ export const config = {
 
 /** 校园墙 OAuth 是否已配置（未配置时登录会返回明确错误） */
 export function isCampuxConfigured(): boolean {
-  return Boolean(config.campux.clientId && config.campux.clientSecret);
+  return Boolean(config.campux.baseUrl && config.campux.clientId && config.campux.clientSecret);
 }
 
 /** 邮箱发件是否可用；未配置时邮件落到 outbox 表 */
@@ -145,9 +133,9 @@ export function isSmtpConfigured(): boolean {
   return Boolean(config.smtp.host);
 }
 
-/** 开发模式才允许把验证码回显到响应中，便于本地联调 */
+/** 自动化测试或显式开启 EMAIL_CODE_DEV_MODE 时，把邮箱验证码回显到响应里（仅限本地/冒烟） */
 export function canExposeDevCode(): boolean {
-  return !config.isProduction;
+  return config.isTest || config.exposeEmailCode;
 }
 
 export function resolvePathFromRepo(p: string): string {

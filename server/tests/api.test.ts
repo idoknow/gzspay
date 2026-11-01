@@ -5,6 +5,7 @@ import { config } from "../src/config.js";
 import { execute, migrate, queryOne, resetDatabaseForTests } from "../src/db/index.js";
 import { buildCardQrContent, hashToken, randomToken } from "../src/lib/crypto.js";
 import { generateQrPngBuffer } from "../src/lib/qr.js";
+import { loginOrRegister } from "../src/services/users.js";
 
 const CSRF = { "X-Requested-With": "gzspay" };
 
@@ -16,28 +17,42 @@ interface Agent {
   delete(url: string): request.Test;
 }
 
-function agentWith(session: request.SuperAgentTest): Agent {
+/** 测试会话：所有请求都带上 CSRF 头与登录 Cookie，由 Cookie 决定身份 */
+interface TestSession extends Agent {}
+
+function cookieSession(cookie: string): TestSession {
+  const attach = (test: request.Test) => test.set(CSRF).set("Cookie", cookie);
   return {
-    get: (url) => session.get(url).set(CSRF),
-    post: (url) => session.post(url).set(CSRF),
-    patch: (url) => session.patch(url).set(CSRF),
-    put: (url) => session.put(url).set(CSRF),
-    delete: (url) => session.delete(url).set(CSRF),
+    get: (url) => attach(request(app).get(url)),
+    post: (url) => attach(request(app).post(url)),
+    patch: (url) => attach(request(app).patch(url)),
+    put: (url) => attach(request(app).put(url)),
+    delete: (url) => attach(request(app).delete(url)),
   };
 }
 
-async function login(seed: string, username: string): Promise<{ session: request.SuperAgentTest; id: string }> {
-  const session = request.agent(app);
-  const response = await session
-    .post("/api/auth/dev-login")
-    .set(CSRF)
-    .send({ sub: `test-${seed}`, name: "13800000000", username })
-    .expect(200);
-  return { session, id: response.body.me.id as string };
+function agentWith(session: TestSession): Agent {
+  return session;
+}
+
+/** 直接建立校园墙账号与会话（开发登录已移除，测试不再依赖专门的后门接口） */
+async function login(seed: string, username: string): Promise<{ session: TestSession; id: string }> {
+  const { user } = loginOrRegister({ sub: `test-${seed}`, qq: "13800000000", username }, "127.0.0.1");
+  const token = randomToken(32);
+  const now = new Date();
+  execute(
+    "INSERT INTO sessions (id, user_id, kind, ip, user_agent, created_at, expires_at, last_seen_at) VALUES (?, ?, 'user', '127.0.0.1', 'vitest', ?, ?, ?)",
+    hashToken(token),
+    user.id,
+    now.toISOString(),
+    new Date(now.getTime() + 7 * 24 * 3600 * 1000).toISOString(),
+    now.toISOString(),
+  );
+  return { session: cookieSession(`${config.sessionCookieName}=${token}`), id: user.id };
 }
 
 async function completeOnboarding(
-  session: request.SuperAgentTest,
+  session: TestSession,
   options: { cardNo: string; studentNo: string },
 ): Promise<void> {
   const api = agentWith(session);
@@ -51,9 +66,29 @@ async function completeOnboarding(
   await api.post("/api/onboarding/payment-password").send({ password: "123456", confirm: "123456" }).expect(200);
 }
 
+/** 测试环境视为「已完成初始化」：写入初始化标记与站点信息 */
+function initializeSystem(): void {
+  const now = new Date().toISOString();
+  const rows: [string, string][] = [
+    ["system.initialized", "1"],
+    ["system.siteName", "桂中校园支付"],
+    ["campux.baseUrl", "https://campux.test"],
+    ["campux.clientId", "test-client"],
+  ];
+  for (const [key, value] of rows) {
+    execute(
+      "INSERT OR REPLACE INTO app_config (key, value, updated_at) VALUES (?, ?, ?)",
+      key,
+      value,
+      now,
+    );
+  }
+}
+
 beforeAll(() => {
   resetDatabaseForTests();
   migrate();
+  initializeSystem();
 });
 
 afterAll(() => {
@@ -77,13 +112,51 @@ describe("基础接口", () => {
     expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 
-  it("开发登录后可读到自己的资料", async () => {
+  it("登录后可读到自己的资料", async () => {
     const { session } = await login("basic", "基础用户");
     const response = await agentWith(session).get("/api/me").expect(200);
     expect(response.body.onboardStep).toBe("name");
     expect(response.body.onboarded).toBe(false);
     const sessionInfo = await agentWith(session).get("/api/auth/session").expect(200);
     expect(sessionInfo.body.authenticated).toBe(true);
+  });
+
+  it("开发登录接口已移除", async () => {
+    const response = await request(app).post("/api/auth/dev-login").set(CSRF).send({});
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("初始化状态接口返回系统信息", async () => {
+    const response = await request(app).get("/api/setup/status").expect(200);
+    expect(response.body.initialized).toBe(true);
+    expect(response.body.system.siteName).toBe("桂中校园支付");
+    expect(typeof response.body.adminCount).toBe("number");
+    expect(response.body.currentUser).toBeNull();
+  });
+
+  it("已初始化后不能再提交初始化配置", async () => {
+    const response = await request(app)
+      .post("/api/setup/config")
+      .set(CSRF)
+      .send({ system: { siteName: "另一个站点" } })
+      .expect(409);
+    expect(response.body.error.code).toBe("ALREADY_INITIALIZED");
+  });
+
+  it("完成初始化需要先登录", async () => {
+    const response = await request(app).post("/api/setup/finish").set(CSRF).send({}).expect(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
+  });
+
+  it("管理后台登录跳转到主站登录", async () => {
+    const response = await request(app).get("/api/admin/auth/login").expect(302);
+    expect(response.headers.location).toBe("/api/auth/login?redirect=%2Fadmin");
+  });
+
+  it("未登录访问管理后台会话返回 401", async () => {
+    const response = await request(app).get("/api/admin/auth/session").expect(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
   });
 });
 
@@ -124,9 +197,9 @@ describe("新用户引导", () => {
 });
 
 describe("商家与订单", () => {
-  let merchantSession: request.SuperAgentTest;
+  let merchantSession: TestSession;
   let merchantId = "";
-  let payerSession: request.SuperAgentTest;
+  let payerSession: TestSession;
   let payerId = "";
   let orderId = "";
 
@@ -319,15 +392,16 @@ describe("管理后台", () => {
       new Date().toISOString(),
     );
     const token = randomToken(32);
+    const now = new Date();
     execute(
-      "INSERT INTO sessions (id, user_id, kind, ip, user_agent, created_at, expires_at, last_seen_at) VALUES (?, ?, 'admin', '127.0.0.1', 'vitest', ?, ?, ?)",
+      "INSERT INTO sessions (id, user_id, kind, ip, user_agent, created_at, expires_at, last_seen_at) VALUES (?, ?, 'user', '127.0.0.1', 'vitest', ?, ?, ?)",
       hashToken(token),
       userId,
-      new Date().toISOString(),
-      new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-      new Date().toISOString(),
+      now.toISOString(),
+      new Date(now.getTime() + 7 * 24 * 3600 * 1000).toISOString(),
+      now.toISOString(),
     );
-    adminCookie = `${config.adminCookieName}=${token}`;
+    adminCookie = `${config.sessionCookieName}=${token}`;
   });
 
   function adminRequest() {
@@ -341,6 +415,7 @@ describe("管理后台", () => {
   it("管理员会话可读取", async () => {
     const response = await adminRequest().get("/api/admin/auth/session").expect(200);
     expect(response.body.authenticated).toBe(true);
+    expect(response.body.initialized).toBe(true);
     expect(response.body.admin.role).toBe("super");
   });
 
@@ -411,6 +486,6 @@ describe("管理后台", () => {
   it("普通用户访问管理接口被拒绝", async () => {
     const { session } = await login("plain-user", "普通用户");
     const response = await agentWith(session).get("/api/admin/overview").expect(401);
-    expect(response.body.error.code).toBe("UNAUTHENTICATED");
+    expect(response.body.error.code).toBe("NOT_ADMIN");
   });
 });

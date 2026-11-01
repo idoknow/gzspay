@@ -8,7 +8,6 @@ import type {
   CardQrResponse,
   CreateOrderPayload,
   CreatePaymentRequestPayload,
-  DevLoginResponse,
   DynamicCodeResolveResponse,
   DynamicCodeResponse,
   EmailStartResponse,
@@ -34,6 +33,7 @@ import type {
   Product,
   ScanCardResponse,
   SessionResponse,
+  SetupStatus,
   StatsSummary,
   StatsTimeseries,
 } from "./types";
@@ -105,6 +105,15 @@ function normalizeMerchantChannels(value: unknown): MerchantChannel[] {
 }
 
 /* ------------------------------------------------------------------ */
+/* 0. 系统初始化                                                       */
+/* ------------------------------------------------------------------ */
+
+/** 系统初始化状态（无需登录）：主站启动时用来判断是否显示「系统尚未初始化」拦截页 */
+export function getSetupStatus(): Promise<SetupStatus> {
+  return api.get<SetupStatus>("/setup/status");
+}
+
+/* ------------------------------------------------------------------ */
 /* 1. 认证                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -117,10 +126,6 @@ export function getSession(): Promise<SessionResponse> {
 
 export function logout(): Promise<{ ok: boolean }> {
   return api.post<{ ok: boolean }>("/auth/logout");
-}
-
-export function devLogin(body?: { sub?: string; name?: string; username?: string }): Promise<DevLoginResponse> {
-  return api.post<DevLoginResponse>("/auth/dev-login", body ?? {});
 }
 
 /* ------------------------------------------------------------------ */

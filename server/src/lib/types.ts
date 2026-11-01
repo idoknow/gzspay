@@ -41,7 +41,7 @@ export interface UserRow {
 export interface SessionRow {
   id: string;
   user_id: string;
-  kind: "user" | "admin" | "admin_pending";
+  kind: "user";
   ip: string | null;
   user_agent: string | null;
   created_at: string;

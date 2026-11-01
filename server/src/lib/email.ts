@@ -6,7 +6,7 @@ import { errors } from "./errors.js";
 import { sendMail, templates } from "./mail.js";
 import type { UserRow } from "./types.js";
 
-export type EmailCodePurpose = "email_verify" | "email_change" | "password_reset" | "admin_2fa";
+export type EmailCodePurpose = "email_verify" | "email_change" | "password_reset";
 
 interface EmailCodeRow {
   id: string;
@@ -32,7 +32,6 @@ const SCENE_LABELS: Record<EmailCodePurpose, string> = {
   email_verify: "绑定邮箱",
   email_change: "更换邮箱",
   password_reset: "重置支付密码",
-  admin_2fa: "登录管理后台",
 };
 
 /** 发送邮箱验证码：同用途 60 秒内只能发一次，旧验证码立即失效 */

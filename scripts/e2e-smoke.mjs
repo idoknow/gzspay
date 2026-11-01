@@ -1,16 +1,27 @@
 #!/usr/bin/env node
 /**
- * 端到端主链路冒烟脚本（需要先启动后端，并使用全新数据库：引导步骤、学号与卡号都会占用）。
+ * 端到端主链路冒烟脚本（需要先启动后端，并使用全新数据库：初始化状态、引导步骤、学号与卡号都会占用）。
  *
- * 用法：
- *   E2E_BASE_URL=http://127.0.0.1:3100 node scripts/e2e-smoke.mjs
+ * 用法（后端环境变量需与下面一致：DATABASE_PATH / SESSION_SECRET）：
+ *   DATABASE_PATH=E:\code\gzspay\server\data\smoke.sqlite SESSION_SECRET=gzspay-smoke-session-secret node server/dist/index.js
+ *   E2E_BASE_URL=http://127.0.0.1:3100 E2E_DATABASE_PATH=E:\code\gzspay\server\data\smoke.sqlite \
+ *     SESSION_SECRET=gzspay-smoke-session-secret node scripts/e2e-smoke.mjs
  *
- * 覆盖：健康检查 → 开发登录 → 五步引导 → 商家注册（multipart 收款码）→ 商品 →
- * 扫码解析 → 下单（幂等）→ 我已支付 → 确认收款 → 统计 → 动态码收款请求/确认 → SSE → CSRF 拒绝。
+ * 覆盖：健康检查 → CSRF 拒绝 → 未初始化闸门 → 初始化配置 → 首个登录者成为超管 →
+ * 管理后台复用主站会话 → 五步引导 → 商家注册（multipart 收款码）→ 商品 → 扫码解析 →
+ * 下单（幂等）→ 我已支付 → 确认收款 → 统计 → 动态码收款请求/确认 → SSE → 关于页。
+ *
+ * 说明：校园墙 OAuth 无法在脚本里走完，脚本直接向数据库写入账号与会话（仅冒烟用）。
  */
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import QRCode from "qrcode";
 
 const BASE = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000";
+const DB_PATH = path.resolve(process.env.E2E_DATABASE_PATH ?? "server/data/smoke.sqlite");
+const SESSION_SECRET = process.env.SESSION_SECRET ?? "gzspay-smoke-session-secret";
+const SESSION_COOKIE = "gzs_session";
 const PASSWORD = "123456";
 
 let passed = 0;
@@ -32,8 +43,40 @@ function check(name, condition, detail = "") {
   else fail(name, detail || "断言失败");
 }
 
-function makeClient(label) {
-  let cookie = "";
+function hashSessionToken(token) {
+  return createHash("sha256").update(`${token}.${SESSION_SECRET}`).digest("hex");
+}
+
+/**
+ * 直接写入账号与会话（模拟「已经走过校园墙登录」），返回可用的 Cookie。
+ * 仅用于本冒烟脚本，生产环境的会话只会由 OAuth 回调建立。
+ */
+function seedSession({ sub, username, qq = null }) {
+  const db = new DatabaseSync(DB_PATH);
+  try {
+    const now = new Date().toISOString();
+    const userId = randomUUID();
+    db.prepare(
+      "INSERT INTO users (id, campux_sub, qq, campux_username, created_at, updated_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).run(userId, sub, qq, username, now, now, now);
+    const token = randomBytes(32).toString("base64url");
+    db.prepare(
+      "INSERT INTO sessions (id, user_id, kind, ip, user_agent, created_at, expires_at, last_seen_at) VALUES (?, ?, 'user', '127.0.0.1', 'smoke', ?, ?, ?)",
+    ).run(
+      hashSessionToken(token),
+      userId,
+      now,
+      new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+      now,
+    );
+    return { id: userId, cookie: `${SESSION_COOKIE}=${token}` };
+  } finally {
+    db.close();
+  }
+}
+
+function makeClient(label, initialCookie = "") {
+  let cookie = initialCookie;
   async function request(path, { method = "GET", body, form, csrf = true } = {}) {
     const headers = {};
     if (cookie) headers.cookie = cookie;
@@ -93,15 +136,55 @@ async function main() {
   const health = await anonymous.expect("/api/health", 200);
   check("健康检查", health.data.status === "ok" && health.data.database === "up", `version=${health.data.version}`);
 
-  const csrf = await anonymous.request("/api/auth/dev-login", { method: "POST", body: { seed: 9 }, csrf: false });
+  const csrf = await anonymous.request("/api/auth/logout", { method: "POST", csrf: false });
   check("缺少 X-Requested-With 时被拒绝", csrf.status === 403 && csrf.data?.error?.code === "CSRF_REJECTED", `status=${csrf.status}`);
 
-  await anonymous.expect("/api/admin/auth/session", 401);
+  // 初始化前：业务接口被闸门拦住，管理后台提示尚未初始化
+  const beforeInit = await anonymous.request("/api/me");
+  check(
+    "未初始化时业务接口返回 503",
+    beforeInit.status === 503 && beforeInit.data?.error?.code === "SYSTEM_NOT_INITIALIZED",
+    `status=${beforeInit.status}`,
+  );
+  const adminBeforeInit = await anonymous.request("/api/admin/auth/session");
+  check(
+    "未初始化时管理后台提示未初始化",
+    adminBeforeInit.status === 401 && adminBeforeInit.data?.error?.code === "SYSTEM_NOT_INITIALIZED",
+    `status=${adminBeforeInit.status}`,
+  );
+
+  const setupStatus = await anonymous.expect("/api/setup/status", 200);
+  check(
+    "初始化状态为未完成",
+    setupStatus.data.initialized === false && setupStatus.data.adminCount === 0,
+    `initialized=${setupStatus.data.initialized}`,
+  );
+
+  // 首位登录账号（真实环境由校园墙回调建立会话）：完成初始化后自动成为超级管理员
+  const firstAdmin = seedSession({ sub: "e2e-first-admin", username: "陈老师" });
+  const admin = makeClient("首位管理员", firstAdmin.cookie);
+  const configured = await admin.expect("/api/setup/config", 200, {
+    method: "POST",
+    body: {
+      campux: { baseUrl: "https://campux.example.com", clientId: "e2e-client", clientSecret: "e2e-secret" },
+      system: { siteName: "桂中校园支付", adminQq: "1692138502" },
+    },
+  });
+  check(
+    "保存初始化配置",
+    configured.data.status?.campuxConfigured === true &&
+      configured.data.status?.system?.siteName === "桂中校园支付",
+  );
+  const finished = await admin.expect("/api/setup/finish", 200, { method: "POST", body: {} });
+  check("第一个登录账号成为超级管理员", finished.data.admin?.role === "super");
+  const adminSession = await admin.expect("/api/admin/auth/session", 200);
+  check(
+    "管理后台复用主站登录会话",
+    adminSession.data.initialized === true && adminSession.data.admin?.role === "super",
+  );
 
   // 商家账号
-  const merchant = makeClient("商家");
-  const merchantLogin = await merchant.expect("/api/auth/dev-login", 200, { method: "POST", body: { sub: "e2e-merchant", name: "20001", username: "王商家" } });
-  check("商家开发登录", merchantLogin.data.me?.id !== undefined);
+  const merchant = makeClient("商家", seedSession({ sub: "e2e-merchant", username: "王商家" }).cookie);
   const merchantMe = await onboard(merchant, {
     surname: "王",
     givenName: "商家",
@@ -130,8 +213,7 @@ async function main() {
   check("商家公开主页含在售商品", publicMerchant.data.products?.length >= 1, `products=${publicMerchant.data.products?.length}`);
 
   // 付款人账号
-  const payer = makeClient("付款人");
-  await payer.expect("/api/auth/dev-login", 200, { method: "POST", body: { sub: "e2e-payer", name: "20002", username: "李同学" } });
+  const payer = makeClient("付款人", seedSession({ sub: "e2e-payer", username: "李同学" }).cookie);
   const payerMe = await onboard(payer, {
     surname: "李",
     givenName: "同学",

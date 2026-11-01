@@ -22,13 +22,15 @@ npm install
 
 # 2. 准备环境变量
 cp .env.example .env
-# 至少填写 CAMPUX_CLIENT_ID / CAMPUX_CLIENT_SECRET / SESSION_SECRET
-# 本地联调可打开 DEV_AUTH_ENABLED=1 使用开发登录
+# 至少填写 SESSION_SECRET；校园墙与发件配置可以在首次打开 /admin 的初始化向导里填写
+# 本地/内网联调没配 SMTP 时，可打开 EMAIL_CODE_DEV_MODE=1 让验证码直接回显到接口响应
 
 # 3. 开发模式（同时启动后端 3000 与前端 5173）
 npm run dev
 
 # 4. 打开 http://localhost:5173
+# 5. 第一次使用打开 http://localhost:5173/admin 完成初始化向导（校园墙 → 发件 → 站点信息 → 完成）
+#    第一个登录的账号会自动成为超级管理员
 ```
 
 ### 在局域网里预览（真机调试）
@@ -48,7 +50,7 @@ EXTRA_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 - Windows 首次运行需要在防火墙提示里允许 Node.js 入站，或手动放行 TCP 5173。
 - 局域网访问走的是 HTTP，浏览器只把 `localhost`/HTTPS 视为安全上下文，**扫码（相机）功能在局域网 HTTP 下不可用**；真机测扫码需要用 HTTPS 反代或内网证书。
-- 开发登录（`DEV_AUTH_ENABLED=1`）对所有能访问该地址的人生效，公网或不可信 WiFi 下不要暴露。
+- 开发登录已移除：登录一律走校园墙 OAuth；本地联调可用 `EMAIL_CODE_DEV_MODE=1` 让邮箱验证码回显到接口响应（仅限本机/内网，公网或不可信 WiFi 下不要暴露）。
 
 ## 常用命令
 

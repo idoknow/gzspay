@@ -10,6 +10,17 @@
 ### 新增
 
 - 新增 `scripts/grant-admin.mjs` 与 `npm run admin:grant`：按校园墙 `sub`、邮箱、QQ 号或用户 id 授予 / 撤销管理后台权限（角色 `super` / `ops` / `auditor`），`--list` 可查看现有管理员与最近登录过的账号；`docs/deploy.md` 的「首个管理员」一节改为使用该命令，并补充进入后台的完整步骤。
+- 新增系统初始化流程：`/api/setup/status`、`/api/setup/config`、`/api/setup/finish` 与「首次打开向导」（校园墙登录 → 发件配置 → 站点信息/管理员 QQ → 完成），初始化完成后**第一个登录的账号自动成为超级管理员**；管理员 QQ 与站点名称可在向导或后台配置里修改。
+- 新增系统闸门：未初始化时除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外的接口统一返回 `503`（`CAMPUX_NOT_CONFIGURED` / `SYSTEM_NOT_INITIALIZED`）。
+- 新增 `EMAIL_CODE_DEV_MODE`：本地/内网调试可把邮箱验证码回显到接口响应（生产请勿开启）；移除 `DEV_AUTH_ENABLED` / `DEV_LOGIN_*` 配置。
+- 管理后台前端新增初始化向导（`SetupWizard`，四步 + 进度条，可回上一步，密钥/密码留空表示不改），登录页改为「用校园墙账号登录」；主站新增「系统尚未初始化」提示页（展示管理员 QQ，可跳到 `/admin` 初始化）。
+
+### 变更
+
+- 管理后台完全复用主站登录会话：删除独立的管理端 OAuth 回调、邮箱验证码二次验证、`gzs_admin` Cookie 与 `admin_pending` 会话；`/api/admin/auth/login` 改为跳转 `/api/auth/login?redirect=%2Fadmin`，`/api/admin/auth/session` 只返回 `UNAUTHENTICATED` / `NOT_ADMIN` / `SYSTEM_NOT_INITIALIZED` 三种失败。
+- 移除开发登录接口 `POST /api/auth/dev-login` 与相关配置；测试与端到端冒烟改为直连数据库写入用户与会话（`sha256(token.secret)`）再发请求，冒烟覆盖初始化向导 → 首个超管 → 主链路全流程（40 项断言）。
+- 后台系统配置扩展为「校园墙 / 发件 / 安全 / 站点信息」四块，校园墙凭据与站点地址可在后台修改并立即生效；`.env` 中对应值作为未配置时的兜底。
+- 文档同步：`docs/api.md` 增加初始化接口与系统闸门、重写管理后台认证段；`docs/deploy.md` 校园墙只登记一个回调地址并补充首次初始化步骤；`README.md`、`DESIGN.md`、`AGENTS.md` 去除开发登录与二次验证的旧描述。
 
 ## [0.2.0] - 2026-11-01
 

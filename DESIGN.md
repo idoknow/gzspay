@@ -189,7 +189,9 @@ logo、当前版本号、更新日志（按版本倒序，未发布的记录按�
 
 ## 8. 管理后台（电脑端网页）
 
-登录同样使用校园墙 OAuth，且其校园墙用户 ID（sub）必须在管理员名单内；建议对管理员再加一次邮箱验证码二次验证。
+**完全复用主站登录会话**：没有独立的管理后台 OAuth、`gzs_admin` Cookie 或邮箱二次验证；打开 `/admin` 时先校验主站会话，登录了但不是管理员则提示「账号不在管理员名单内」。管理员权限由 `admins` 表决定（`super` / `ops` / `auditor`）。
+
+**首次初始化**：全新部署时系统处于未初始化状态，主站显示「系统尚未初始化」提示页，打开 `/admin` 进入四步初始化向导（校园墙登录 → 发件配置 → 站点信息/管理员 QQ → 完成）。完成后**第一个登录的账号自动成为超级管理员**；在完成初始化之前，除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外的接口统一返回 `503`。
 
 1. **总览**：全校总交易额、本月交易额、今日订单数、用户数、商家数，以及近 12 个月趋势。
 2. **每月交易额**：按月柱状图，点进某月查看每日趋势。
@@ -279,7 +281,7 @@ gzspay/
 | `dynamic_codes` | 一次性动态码（哈希存储，60 秒过期，用后即失效） |
 | `payment_requests` | 动态码收款请求（含 SSE 推送状态） |
 | `idempotency_keys` | 下单幂等 |
-| `admins` / `admin_2fa` | 管理员角色（超级管理员 / 运营 / 只读审计）与二次验证 |
+| `admins` | 管理员角色（超级管理员 / 运营 / 只读审计），主键为校园墙用户 ID，复用主站会话 |
 | `announcements` | 公告 |
 | `audit_logs` / `login_logs` / `risk_logs` / `system_errors` | 各类日志，只增不改 |
 | `notification_settings` | 三个独立邮件开关 |
@@ -306,9 +308,10 @@ gzspay/
 
 1. **用户登录**：Campux OAuth2 授权码 + PKCE(S256) → 服务端换取令牌 → `/oauth/userinfo` → 校验 `sub` 与校园墙（`tenant_id`）→ 拉取 QQ 头像缓存 → 建会话 → 立即 revoke 校园墙令牌。
 2. **会话**：`gzs_session` Cookie（HttpOnly、SameSite=Lax、生产 Secure），服务端存哈希，7 天滚动续期；支付等高敏感操作永不只依赖会话。
-3. **管理后台**：同一 OAuth 流程，但要求 `sub` 在管理员名单；之后必须再通过绑定邮箱的验证码（`gzs_admin` 会话，30 分钟绝对过期，权限按角色收敛）。
-4. **CSRF**：SameSite=Lax + 写操作校验 `Origin`/`Referer` 白名单，缺失时拒绝。
-5. **开发模式**：`DEV_AUTH_ENABLED=1` 且非生产环境才开放 `POST /api/auth/dev-login`，用于本地联调与自动化测试。
+3. **管理后台**：直接复用主站会话（同一个 `gzs_session`、7 天滚动续期）；是否可进后台只看 `admins` 表，权限按角色收敛，没有独立 OAuth / 二次验证 / 独立 Cookie。
+4. **首次初始化**：未初始化时除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外统一返回 `503`；打开 `/admin` 走四步向导（校园墙、发件、站点信息、完成），第一个登录的账号自动成为超级管理员并标记初始化完成。手工授权过管理员的旧库视为已初始化。
+5. **CSRF**：SameSite=Lax + 写操作校验 `Origin`/`Referer` 白名单，缺失时拒绝。
+6. **没有开发登录**：`/api/auth/dev-login` 已移除；自动化测试与冒烟脚本直接写库造会话，本地联调需要验证码时用 `EMAIL_CODE_DEV_MODE=1`（仅非生产）。
 
 ### 10.6 支付密码
 

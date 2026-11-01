@@ -60,9 +60,27 @@ export interface SessionResponse {
   isAdmin?: boolean;
 }
 
-/** POST /api/auth/dev-login */
-export interface DevLoginResponse {
-  me: Me;
+/** 站点信息（GET /api/setup/status 中的 system） */
+export interface SetupSystemInfo {
+  siteName: string;
+  adminQq: string;
+  publicBaseUrl: string;
+}
+
+/**
+ * GET /api/setup/status：系统初始化状态（无需登录）。
+ * 只声明主站用到的字段，其余配置由管理后台自行定义。
+ */
+export interface SetupStatus {
+  /** 系统是否已完成初始化 */
+  initialized: boolean;
+  /** 是否已配置校园墙登录（未配置时主站无法登录） */
+  campuxConfigured: boolean;
+  /** 是否已配置发件（邮箱验证码） */
+  mailConfigured: boolean;
+  adminCount: number;
+  currentUser: Me | null;
+  system: SetupSystemInfo;
 }
 
 /** GET /api/onboarding */

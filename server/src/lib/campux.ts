@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { config, isCampuxConfigured } from "../config.js";
 import { execute, isoAfter, nowIso, queryOne } from "../db/index.js";
-import { newId, sha256 } from "./crypto.js";
+import { sha256 } from "./crypto.js";
 import { errors } from "./errors.js";
 import { writeLoginLog, writeSystemError } from "./audit.js";
 
@@ -12,8 +12,6 @@ export interface CampuxProfile {
   tenantId: string | null;
   tenantName: string | null;
 }
-
-type OAuthKind = "user" | "admin";
 
 interface OAuthStateRow {
   state: string;
@@ -40,19 +38,14 @@ function revokeEndpoint(): string {
   return `${config.campux.baseUrl}/oauth/revoke`;
 }
 
-export function oauthRedirectUri(kind: OAuthKind): string {
-  return kind === "user" ? config.campux.redirectUri : config.campux.adminRedirectUri;
+export function oauthRedirectUri(): string {
+  return config.campux.redirectUri;
 }
 
 /** 生成 state + PKCE（S256），写入 oauth_states，10 分钟过期 */
-export function createAuthorizationRequest(
-  kind: OAuthKind,
-  redirectTo: string | null,
-): string {
+export function createAuthorizationRequest(redirectTo: string | null): string {
   if (!isCampuxConfigured()) {
-    throw errors.validation(
-      "尚未配置校园墙 OAuth（CAMPUX_CLIENT_ID / CAMPUX_CLIENT_SECRET），请联系管理员",
-    );
+    throw errors.validation("系统尚未配置校园墙登录，请联系管理员在管理后台完成初始化");
   }
   const state = randomBytes(24).toString("base64url");
   const codeVerifier = randomBytes(32).toString("base64url");
@@ -63,7 +56,7 @@ export function createAuthorizationRequest(
     state,
     codeVerifier,
     sanitizeRedirect(redirectTo),
-    kind,
+    "user",
     nowIso(),
     isoAfter(600),
   );
@@ -71,7 +64,7 @@ export function createAuthorizationRequest(
   const params = new URLSearchParams({
     response_type: "code",
     client_id: config.campux.clientId,
-    redirect_uri: oauthRedirectUri(kind),
+    redirect_uri: oauthRedirectUri(),
     scope: config.campux.scope,
     state,
     code_challenge: codeChallenge,
@@ -95,12 +88,11 @@ interface StateConsumption {
 }
 
 /** 校验并消费 state（一次性） */
-export function consumeState(state: string | undefined, kind: OAuthKind): StateConsumption {
+export function consumeState(state: string | undefined): StateConsumption {
   if (!state) throw errors.validation("授权请求缺少 state，请重新登录");
   const row = queryOne<OAuthStateRow>(
-    "SELECT * FROM oauth_states WHERE state = ? AND purpose = ?",
+    "SELECT * FROM oauth_states WHERE state = ? AND purpose = 'user'",
     state,
-    kind,
   );
   execute("DELETE FROM oauth_states WHERE state = ?", state);
   if (!row) throw errors.validation("授权状态无效或已使用，请重新登录");
@@ -129,15 +121,11 @@ async function postForm(url: string, form: Record<string, string>): Promise<Resp
   });
 }
 
-async function exchangeCode(
-  kind: OAuthKind,
-  code: string,
-  codeVerifier: string,
-): Promise<TokenResponse> {
+async function exchangeCode(code: string, codeVerifier: string): Promise<TokenResponse> {
   const form: Record<string, string> = {
     grant_type: "authorization_code",
     code,
-    redirect_uri: oauthRedirectUri(kind),
+    redirect_uri: oauthRedirectUri(),
     client_id: config.campux.clientId,
     client_secret: config.campux.clientSecret,
     code_verifier: codeVerifier,
@@ -203,17 +191,16 @@ function asString(value: unknown): string | null {
 
 /** 完整回调流程：校验 state → 换 token → userinfo → revoke → 返回用户画像 */
 export async function completeAuthorization(
-  kind: OAuthKind,
   code: string | undefined,
   state: string | undefined,
 ): Promise<{ profile: CampuxProfile; redirectTo: string | null }> {
-  const consumed = consumeState(state, kind);
+  const consumed = consumeState(state);
   if (!code) throw errors.validation("授权回调缺少授权码，请重新登录");
   if (!isCampuxConfigured()) {
     throw errors.validation("校园墙 OAuth 未配置，无法完成登录");
   }
 
-  const tokens = await exchangeCode(kind, code, consumed.codeVerifier);
+  const tokens = await exchangeCode(code, consumed.codeVerifier);
   const accessToken = tokens.access_token;
   if (!accessToken) {
     throw errors.validation("校园墙未返回访问令牌，请重新登录");
@@ -237,7 +224,7 @@ export async function completeAuthorization(
       });
       throw errors.forbidden("请使用桂中校园墙账号登录");
     }
-    writeLoginLog({ userId: null, method: `campux_${kind}`, success: true });
+    writeLoginLog({ userId: null, method: "campux", success: true });
     return {
       profile: {
         sub,
@@ -254,19 +241,6 @@ export async function completeAuthorization(
     const refreshToken = tokens.refresh_token;
     if (refreshToken) revokeCampuxToken(refreshToken);
   }
-}
-
-/** 开发态模拟登录资料（仅非生产环境可用） */
-export function devProfile(seed: number): CampuxProfile {
-  const suffixes = ["1", "2", "3", "4", "5"];
-  const suffix = suffixes[seed % suffixes.length] ?? "1";
-  return {
-    sub: config.dev.authEnabled ? `dev-user-${suffix}` : `dev-user-${newId()}`,
-    qq: null,
-    username: config.dev.username,
-    tenantId: config.campux.tenantId,
-    tenantName: "桂中校园墙",
-  };
 }
 
 /** 访问令牌在库中不保存，这里仅为兼容调用方 */

@@ -1,12 +1,9 @@
-/** 登录页：仅「使用校园墙账号登录」一个入口；开发环境额外提供 dev-login。 */
+/** 登录页：仅「使用校园墙账号登录」一个入口；未配置校园墙登录时禁用入口并提示。 */
 
-import { useState, type ReactNode } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
-import { Spinner } from "../components/Loading";
-import { useToast } from "../components/Toast";
-import { devLogin, LOGIN_URL } from "../lib/api";
-import { errorMessage } from "../lib/http";
+import { getSetupStatus, LOGIN_URL } from "../lib/api";
 import { useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 
@@ -30,37 +27,34 @@ function authErrorText(raw: string): string {
 }
 
 export function LoginPage(): ReactNode {
-  const navigate = useNavigate();
   const [params] = useSearchParams();
-  const toast = useToast();
   const watch = useWatchLayout();
-  const { authenticated, onboarded, setSession } = useAuth();
-  const [devBusy, setDevBusy] = useState(false);
+  const { authenticated, onboarded } = useAuth();
+  /** 校园墙登录是否可用：null 表示状态未知（读取失败或仍在读取） */
+  const [campuxConfigured, setCampuxConfigured] = useState<boolean | null>(null);
   const redirect = safeRedirect(params.get("redirect"));
   const authError = params.get("auth_error");
+
+  // 读取初始化状态：未配置校园墙登录时禁用入口并给出提示；读取失败不阻塞（由后端登录接口自行报错）
+  useEffect(() => {
+    let active = true;
+    getSetupStatus()
+      .then((status) => {
+        if (active) setCampuxConfigured(status.campuxConfigured);
+      })
+      .catch(() => {
+        // 忽略：状态未知时保持入口可用
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (authenticated) {
     return <Navigate to={onboarded ? redirect : "/onboarding"} replace />;
   }
 
-  const handleDevLogin = async (): Promise<void> => {
-    if (devBusy) return;
-    setDevBusy(true);
-    try {
-      const result = await devLogin();
-      setSession({
-        authenticated: true,
-        me: result.me,
-        onboardStep: result.me.onboardStep,
-        isAdmin: result.me.isAdmin,
-      });
-      navigate(result.me.onboarded ? redirect : "/onboarding", { replace: true });
-    } catch (cause) {
-      toast.error(errorMessage(cause));
-    } finally {
-      setDevBusy(false);
-    }
-  };
+  const campuxUnavailable = campuxConfigured === false;
 
   return (
     <div className="bg-app flex min-h-[100dvh] flex-col px-6 pb-[max(env(safe-area-inset-bottom),24px)] pt-[max(env(safe-area-inset-top),40px)] watch:px-3 watch:pb-[max(env(safe-area-inset-bottom),10px)] watch:pt-[max(env(safe-area-inset-top),12px)]">
@@ -83,22 +77,32 @@ export function LoginPage(): ReactNode {
             </div>
           ) : null}
 
-          <a
-            href={LOGIN_URL}
-            className="btn btn-primary btn-block h-[52px] text-base watch:h-9 watch:text-[13px]"
-          >
-            使用校园墙账号登录
-          </a>
+          {campuxUnavailable ? (
+            <>
+              <span
+                className="btn btn-primary btn-block h-[52px] cursor-not-allowed text-base opacity-50 watch:h-9 watch:text-[13px]"
+                aria-disabled="true"
+              >
+                使用校园墙账号登录
+              </span>
+              <div
+                role="alert"
+                className="rounded-2xl bg-warning-soft px-4 py-3 text-sm leading-relaxed text-warning animate-fade-in watch:rounded-xl watch:px-3 watch:py-2 watch:text-[11px]"
+              >
+                管理员尚未配置校园墙登录，暂时无法登录
+              </div>
+            </>
+          ) : (
+            <a
+              href={LOGIN_URL}
+              className="btn btn-primary btn-block h-[52px] text-base watch:h-9 watch:text-[13px]"
+            >
+              使用校园墙账号登录
+            </a>
+          )}
           <p className="text-center text-xs leading-relaxed text-muted watch:text-[10px]">
             使用校园墙账号授权登录，无需额外注册
           </p>
-
-          {import.meta.env.DEV ? (
-            <button type="button" className="btn btn-outline btn-block" disabled={devBusy} onClick={() => void handleDevLogin()}>
-              {devBusy ? <Spinner size={18} /> : null}
-              开发者登录（仅开发环境）
-            </button>
-          ) : null}
         </div>
       </div>
 

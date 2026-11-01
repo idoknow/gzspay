@@ -35,13 +35,15 @@ npm test                # 可选：运行接口测试
 | `CAMPUX_TENANT_ID` | 可选，用于校验返回的用户属于桂中校园墙 |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | 发信配置；未配置时邮件写入 `mail_outbox` 表而不发送 |
 | `DATABASE_PATH` | SQLite 文件路径，建议放在持久化目录 |
+| `EMAIL_CODE_DEV_MODE` | 仅本地/冒烟使用（把邮箱验证码回显到接口响应）；**生产必须为 `0` 或不设置** |
 
-校园墙后台需登记两个回调地址：
+校园墙后台只需登记一个回调地址：
 
-- 用户端：`${PUBLIC_BASE_URL}/api/auth/callback`
-- 管理端：`${PUBLIC_BASE_URL}/api/admin/auth/callback`
+- `${PUBLIC_BASE_URL}/api/auth/callback`（用户端与管理后台共用这一条）
 
-权限范围（scope）：`profile tenant`。
+权限范围（scope）：`profile`（若之后在应用里勾选 tenant，可改成 `profile tenant`）。
+
+> 校园墙地址、Client ID / Secret、发件配置与站点信息也可以在首次打开 `/admin` 时的初始化向导里填写，会覆盖 `.env` 的对应值并存进数据库。
 
 ## 4. 启动
 
@@ -98,9 +100,15 @@ server {
 }
 ```
 
-## 6. 首个管理员
+## 6. 首次初始化与管理员
 
-管理员通过「校园墙 OAuth 登录 + 邮箱验证码二次验证」进入后台，其校园墙用户 ID（`sub`）必须在 `admins` 表中。首个管理员可先用自己的校园墙账号登录一次（会自动建号），再在服务器上执行：
+部署完成后的第一次打开：
+
+1. 访问 `https://<域名>/admin`，进入初始化向导（四步：校园墙 → 发件 → 站点信息 → 完成）。此时除初始化相关接口外，全站接口返回 `503 SYSTEM_NOT_INITIALIZED`，主站会显示「系统尚未初始化」提示页。
+2. 配置好校园墙登录与发件配置后，用校园墙账号登录 —— **第一个登录的账号会自动成为超级管理员**，并被标记为系统初始化完成。
+3. 之后在后台「管理员管理」中添加其他管理员。
+
+管理员名单存在 `admins` 表，**复用主站登录会话**（没有独立的 OAuth、邮箱二次验证或 `gzs_admin` Cookie）；账号不在名单内时后台显示「账号不在管理员名单内」。命令行也可以直接授权/撤销（适合脚本化部署或找回权限）：
 
 ```bash
 npm run admin:grant -- --list                                  # 查看现有管理员与最近登录过的账号
@@ -109,11 +117,7 @@ npm run admin:grant -- --email <邮箱> --role ops               # 也可以按�
 npm run admin:grant -- --sub <sub> --revoke                    # 撤销
 ```
 
-角色：`super`（全部权限，可改系统配置）、`ops`（运营，不能改系统配置）、`auditor`（只读审计）。脚本默认读取 `.env` 里的 `DATABASE_PATH`（相对路径按 `server/` 解析），也可用 `--db <路径>` 指定。
-
-之后即可在后台「管理员管理」中添加其他管理员。
-
-进入方式：访问 `https://<域名>/admin` → 点「使用校园墙登录」→ 校园墙授权后回到后台；账号已验证邮箱时还需要输入邮箱验证码（未配置 SMTP 时验证码写入 `mail_outbox` 表，可用于内网调试）。
+角色：`super`（全部权限，可改系统配置）、`ops`（运营，不能改系统配置）、`auditor`（只读审计）。脚本默认读取 `.env` 里的 `DATABASE_PATH`（相对路径按 `server/` 解析），也可用 `--db <路径>` 指定。手工授权过管理员的旧库无需再走初始化向导（`admins` 表非空即视为已初始化）。
 
 ## 7. 备份与维护
 
