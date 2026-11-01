@@ -160,9 +160,12 @@ export function MePage(): ReactNode {
               className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/25 blur-2xl"
             />
             <div className="relative flex items-center gap-4 watch:gap-2.5">
-              <span className="rounded-[22px] bg-white/55 p-[3px] ring-1 ring-[color:var(--hero-ring)] watch:rounded-[16px] watch:p-0.5">
-                <Avatar name={me.displayName} avatarUrl={me.avatarUrl} size={watch ? 44 : 60} />
-              </span>
+              <Avatar
+                name={me.displayName}
+                avatarUrl={me.avatarUrl}
+                size={watch ? 44 : 60}
+                className="ring-1 ring-[color:var(--hero-ring)] shadow-[0_10px_24px_-14px_rgba(0,0,0,0.55)]"
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <h1 className="truncate text-lg font-bold text-[color:var(--hero-fg)] watch:text-[15px]">
