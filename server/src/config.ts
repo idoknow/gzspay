@@ -48,8 +48,20 @@ const extraAllowedOrigins = str("EXTRA_ALLOWED_ORIGINS", "")
   .map((item) => item.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
+/** 读取 server/package.json 的版本号（仓库版本以此为准），失败时退回 0.0.0 */
+function readPackageJsonVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(SERVER_ROOT, "package.json"), "utf-8")) as {
+      version?: string;
+    };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
 export const config = {
-  version: "0.1.0",
+  version: readPackageJsonVersion(),
   nodeEnv,
   isProduction,
   isTest: nodeEnv === "test",
@@ -144,12 +156,5 @@ export function resolvePathFromRepo(p: string): string {
 }
 
 export function readPackageVersion(): string {
-  try {
-    const pkg = JSON.parse(readFileSync(path.join(SERVER_ROOT, "package.json"), "utf-8")) as {
-      version?: string;
-    };
-    return pkg.version ?? config.version;
-  } catch {
-    return config.version;
-  }
+  return config.version;
 }

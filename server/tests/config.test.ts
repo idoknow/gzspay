@@ -1,4 +1,20 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+describe("config.version", () => {
+  it("与 server/package.json 的版本号一致", async () => {
+    vi.resetModules();
+    const { config } = await import("../src/config.js");
+    const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const pkg = JSON.parse(readFileSync(path.join(serverRoot, "package.json"), "utf-8")) as {
+      version: string;
+    };
+    expect(config.version).toBe(pkg.version);
+    expect(config.version).toMatch(/^\d+\.\d+\.\d+/);
+  });
+});
 
 /** 环境变量在模块加载时读取，因此每个用例重新加载配置模块 */
 describe("config.extraAllowedOrigins", () => {
