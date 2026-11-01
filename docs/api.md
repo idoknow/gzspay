@@ -340,6 +340,7 @@ interface Announcement {
 | `GET` | `/api/admin/monthly?year&month` | `MonthlyData`：年视图返回 `{ year, months: MonthlyBucket[] }`（每月含 `days`）；指定 `month` 时返回该月每日桶 |
 | `GET` | `/api/admin/users?query&page&pageSize` | 用户列表：`{ items: AdminUser[], total, page, pageSize }`，按姓名/学号/邮箱搜索 |
 | `GET` | `/api/admin/users/growth?months=12` | `{ buckets: [{ key, label, count }] }` |
+| `GET` | `/api/admin/users/online` | 当前在线：`{ items: OnlineUser[], total, onlineWindowMinutes }`；在线 = 会话未过期且最近 5 分钟内有请求（`OnlineUser` 含 `id/displayName/avatarUrl/studentNoMasked/isMerchant/ip/userAgent/lastSeenAt/sessionCount`） |
 | `GET` | `/api/admin/users/:id` | `{ user: AdminUserDetail, orderCount, totalAmountCents, recentOrders }` |
 | `POST` | `/api/admin/users/:id/freeze` / `unfreeze` | 冻结/解冻（super/ops） |
 | `POST` | `/api/admin/users/:id/reset-card` | 重置绑卡（super/ops） |

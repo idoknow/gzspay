@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   freezeUser,
   forceLogoutUser,
+  getOnlineUsers,
   getUserDetail,
   getUsers,
   getUsersGrowth,
@@ -39,20 +40,24 @@ import {
 } from "../format";
 import { useAsync, useDebounced } from "../hooks";
 import { errorMessage } from "../../lib/http";
-import type { AdminUser, TrendBucket, UserDetailPayload } from "../types";
+import type { AdminUser, OnlineUser, TrendBucket, UserDetailPayload } from "../types";
 
 export function UsersPage() {
+  const feedback = useFeedback();
+  const { canWrite } = useAdmin();
   const [keyword, setKeyword] = useState("");
   const debouncedKeyword = useDebounced(keyword, 300);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const [busyUserId, setBusyUserId] = useState<string | null>(null);
 
   const users = useAsync(
     () => getUsers(debouncedKeyword, page, pageSize),
     [debouncedKeyword, page, pageSize],
   );
   const growth = useAsync<TrendBucket[]>(() => getUsersGrowth(12), []);
+  const online = useAsync(() => getOnlineUsers(), []);
 
   const rows = users.data?.items ?? [];
   const total = users.data?.total ?? 0;
@@ -60,10 +65,33 @@ export function UsersPage() {
     (sum, bucket) => sum + bucket.orderCount,
     0,
   );
+  const onlineUsers = online.data?.items ?? [];
+  const onlineWindow = online.data?.onlineWindowMinutes ?? 5;
 
   const changeKeyword = (value: string) => {
     setKeyword(value);
     setPage(1);
+  };
+
+  const handleForceLogout = async (user: OnlineUser) => {
+    const confirmed = await feedback.confirm({
+      title: "强制下线",
+      description: `将立即注销「${user.displayName}」当前所有登录会话，对方需要重新登录。确认操作？`,
+      confirmText: "强制下线",
+      danger: true,
+    });
+    if (!confirmed) return;
+    setBusyUserId(user.id);
+    try {
+      await forceLogoutUser(user.id);
+      feedback.success(`已将「${user.displayName}」强制下线`);
+      online.refresh();
+      users.refresh();
+    } catch (error) {
+      feedback.error(errorMessage(error));
+    } finally {
+      setBusyUserId(null);
+    }
   };
 
   return (
@@ -78,8 +106,9 @@ export function UsersPage() {
             onClick={() => {
               users.refresh();
               growth.refresh();
+              online.refresh();
             }}
-            disabled={users.loading}
+            disabled={users.loading || online.loading}
           >
             刷新
           </Button>
@@ -124,9 +153,112 @@ export function UsersPage() {
                 hint="按注册时间统计"
                 tone="accent"
               />
+              <StatCard
+                label="当前在线"
+                value={formatNumber(onlineUsers.length)}
+                hint={`最近 ${onlineWindow} 分钟内有请求`}
+                tone="success"
+              />
             </div>
           </Card>
         </div>
+
+        <Card
+          title="当前在线"
+          subtitle={`会话未过期且最近 ${onlineWindow} 分钟内有请求的用户，可强制下线`}
+          extra={
+            <div className="admin-flex" style={{ gap: 8, alignItems: "center" }}>
+              <Badge tone={onlineUsers.length > 0 ? "success" : "neutral"}>
+                {onlineUsers.length} 人在线
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                loading={online.loading}
+                onClick={() => online.refresh()}
+              >
+                刷新
+              </Button>
+            </div>
+          }
+          flush
+        >
+          {online.error && !online.data ? (
+            <div style={{ padding: 18 }}>
+              <ErrorState
+                message={errorMessage(online.error)}
+                onRetry={() => online.refresh()}
+              />
+            </div>
+          ) : online.loading && !online.data ? (
+            <div style={{ padding: 18 }}>
+              <TableSkeleton rows={3} cols={5} />
+            </div>
+          ) : onlineUsers.length === 0 ? (
+            <div style={{ padding: 18 }}>
+              <EmptyState
+                title="当前没有在线用户"
+                description={`最近 ${onlineWindow} 分钟内没有用户访问，稍后会自动统计到新的活跃会话。`}
+              />
+            </div>
+          ) : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>用户</th>
+                    <th>学号</th>
+                    <th>来源 IP</th>
+                    <th>设备</th>
+                    <th>最近活跃</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {onlineUsers.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <div className="admin-flex" style={{ gap: 10 }}>
+                          <div className="admin-avatar admin-avatar-sm" aria-hidden="true">
+                            {user.displayName.slice(0, 1)}
+                          </div>
+                          <div>
+                            <div className="admin-cell-primary">{user.displayName}</div>
+                            <div className="admin-cell-sub admin-text-xs">
+                              {user.isMerchant ? "商家" : "普通用户"}
+                              {user.sessionCount > 1 ? ` · ${user.sessionCount} 个会话` : ""}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="admin-mono admin-text-sm">{user.studentNoMasked || "—"}</td>
+                      <td className="admin-mono admin-text-xs">{user.ip || "—"}</td>
+                      <td className="admin-text-sm" title={user.userAgent ?? undefined}>
+                        {describeAgent(user.userAgent)}
+                      </td>
+                      <td className="admin-text-sm admin-muted" title={formatDateTime(user.lastSeenAt)}>
+                        {formatRelative(user.lastSeenAt)}
+                      </td>
+                      <td>
+                        <div className="admin-cell-actions">
+                          <Button
+                            variant="danger-ghost"
+                            size="sm"
+                            disabled={!canWrite || busyUserId !== null}
+                            loading={busyUserId === user.id}
+                            onClick={() => void handleForceLogout(user)}
+                          >
+                            强制下线
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
 
         <Card
           title="用户列表"
@@ -238,6 +370,32 @@ export function UsersPage() {
       ) : null}
     </>
   );
+}
+
+/** 把 User-Agent 归纳成「设备 · 浏览器」，列表里便于扫读。 */
+function describeAgent(userAgent: string | null): string {
+  if (!userAgent) return "—";
+  const device = /iPhone|iPad|iPod/i.test(userAgent)
+    ? "iOS"
+    : /Android/i.test(userAgent)
+      ? "Android"
+      : /Windows/i.test(userAgent)
+        ? "Windows"
+        : /Macintosh|Mac OS X/i.test(userAgent)
+          ? "macOS"
+          : /Linux/i.test(userAgent)
+            ? "Linux"
+            : "其它";
+  const browser = /Edg\//i.test(userAgent)
+    ? "Edge"
+    : /Chrome\//i.test(userAgent)
+      ? "Chrome"
+      : /Firefox\//i.test(userAgent)
+        ? "Firefox"
+        : /Safari\//i.test(userAgent)
+          ? "Safari"
+          : "浏览器";
+  return `${device} · ${browser}`;
 }
 
 function UserRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {

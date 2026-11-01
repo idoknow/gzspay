@@ -74,6 +74,8 @@ import type {
   SystemStatus,
   TodoItem,
   TrendBucket,
+  OnlineUser,
+  OnlineUsersPayload,
   UserDetailPayload,
 } from "./types";
 
@@ -647,8 +649,7 @@ export async function forceLogoutUser(id: string): Promise<void> {
 }
 
 /** GET /admin/users/growth?months=12 */
-export async function getUsersGrowth(months = 12): Promise<TrendBucket[]> {
-  const payload = await getJson<unknown>("/admin/users/growth", { months });
+export async function getUsersGrowth(months = 12): Promise<TrendBucket[]> {  const payload = await getJson<unknown>("/admin/users/growth", { months });
   const source = record(payload);
   const buckets = firstArray(source, ["buckets", "months", "items", "data", "trend"]);
   return buckets.map((raw, index) => {
@@ -667,8 +668,42 @@ export async function getUsersGrowth(months = 12): Promise<TrendBucket[]> {
   });
 }
 
-/* --------------------------------------------------------------- 管理员管理 */
+/** GET /admin/users/online —— 当前在线用户（会话未过期且最近有请求） */
+export async function getOnlineUsers(): Promise<OnlineUsersPayload> {
+  const payload = await getJson<unknown>("/admin/users/online");
+  const source = record(payload);
+  const items = firstArray(source, ["items", "users", "online", "data"]).map(
+    (raw): OnlineUser => {
+      const item = record(raw);
+      return {
+        id: textOr(firstText(item, ["id", "userId"]), ""),
+        displayName: textOr(
+          firstText(item, ["displayName", "name", "fullName"]),
+          "未知用户",
+        ),
+        avatarUrl: firstText(item, ["avatarUrl", "avatar"]),
+        studentNoMasked: firstText(item, ["studentNoMasked", "studentNo"]),
+        isMerchant: firstBoolean(item, ["isMerchant", "merchant"]) ?? false,
+        ip: firstText(item, ["ip", "lastIp"]),
+        userAgent: firstText(item, ["userAgent", "agent"]),
+        lastSeenAt:
+          isoOrNull(firstText(item, ["lastSeenAt", "lastActiveAt", "lastSeen"])) ??
+          new Date().toISOString(),
+        sessionCount: numberOr(firstNumber(item, ["sessionCount", "sessions"]), 1),
+      };
+    },
+  );
+  return {
+    items,
+    total: numberOr(firstNumber(source, ["total", "count"]), items.length),
+    onlineWindowMinutes: numberOr(
+      firstNumber(source, ["onlineWindowMinutes", "windowMinutes"]),
+      5,
+    ),
+  };
+}
 
+/* --------------------------------------------------------------- 管理员管理 */
 function mapAdminMember(raw: unknown): AdminMember {
   const source = record(raw);
   const userId = firstText(source, ["userId", "id", "adminUserId"]);

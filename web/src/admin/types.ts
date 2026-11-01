@@ -124,6 +124,26 @@ export interface UserDetailPayload {
   recentOrders: AdminOrder[];
 }
 
+/** 在线用户（会话未过期且最近几分钟内有请求） */
+export interface OnlineUser {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  studentNoMasked: string | null;
+  isMerchant: boolean;
+  ip: string | null;
+  userAgent: string | null;
+  lastSeenAt: string;
+  sessionCount: number;
+}
+
+/** GET /admin/users/online */
+export interface OnlineUsersPayload {
+  items: OnlineUser[];
+  total: number;
+  onlineWindowMinutes: number;
+}
+
 /* ---------------------------------------------------------------- 管理员 */
 
 /** 管理员管理列表行 */

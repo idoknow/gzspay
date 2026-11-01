@@ -400,6 +400,71 @@ export function adminUsersGrowth(months = 12) {
   };
 }
 
+/** 判定「在线」的活跃窗口（分钟）：会话未过期且最近这么多分钟内有请求。 */
+export const ONLINE_WINDOW_MINUTES = 5;
+
+export interface AdminOnlineUserDto {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  studentNoMasked: string | null;
+  isMerchant: boolean;
+  ip: string | null;
+  userAgent: string | null;
+  lastSeenAt: string;
+  sessionCount: number;
+}
+
+interface OnlineSessionRow {
+  user_id: string;
+  ip: string | null;
+  user_agent: string | null;
+  last_seen_at: string;
+  surname: string | null;
+  given_name: string | null;
+  campux_username: string | null;
+  avatar_url: string | null;
+  student_no: string | null;
+  is_merchant: number;
+}
+
+export function adminOnlineUsers() {
+  const since = new Date(Date.now() - ONLINE_WINDOW_MINUTES * 60_000).toISOString();
+  const rows = queryAll<OnlineSessionRow>(
+    `SELECT s.user_id, s.ip, s.user_agent, s.last_seen_at,
+            u.surname, u.given_name, u.campux_username, u.avatar_url, u.student_no,
+            (SELECT COUNT(*) FROM merchants m WHERE m.user_id = u.id) AS is_merchant
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.kind = 'user' AND s.expires_at > ? AND s.last_seen_at >= ?
+     ORDER BY s.last_seen_at DESC`,
+    nowIso(),
+    since,
+  );
+  const byUser = new Map<string, AdminOnlineUserDto>();
+  for (const row of rows) {
+    const existing = byUser.get(row.user_id);
+    if (existing) {
+      existing.sessionCount += 1;
+      continue;
+    }
+    byUser.set(row.user_id, {
+      id: row.user_id,
+      displayName: nameOf(row),
+      avatarUrl: row.avatar_url,
+      studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
+      isMerchant: row.is_merchant > 0,
+      ip: row.ip,
+      userAgent: row.user_agent,
+      lastSeenAt: row.last_seen_at,
+      sessionCount: 1,
+    });
+  }
+  const items = [...byUser.values()];
+  return { items, total: items.length, onlineWindowMinutes: ONLINE_WINDOW_MINUTES };
+}
+
+
 export function setUserFrozen(actorId: string, userId: string, frozen: boolean, ip: string) {
   const user = findUserById(userId);
   if (!user) throw errors.notFound("用户不存在");

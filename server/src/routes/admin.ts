@@ -21,6 +21,7 @@ import {
   adminLogsCsv,
   adminMembers,
   adminMonthly,
+  adminOnlineUsers,
   adminOrderDetail,
   adminOrders,
   adminOrdersCsv,
@@ -125,6 +126,14 @@ adminRouter.get(
   asyncHandler((req, res) => {
     const months = Number.parseInt(String(req.query.months ?? "12"), 10);
     res.json(adminUsersGrowth(Number.isFinite(months) ? months : 12));
+  }),
+);
+
+adminRouter.get(
+  "/users/online",
+  requireAdmin(),
+  asyncHandler((_req, res) => {
+    res.json(adminOnlineUsers());
   }),
 );
 

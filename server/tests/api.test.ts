@@ -463,11 +463,13 @@ describe("商家与订单", () => {
 
 describe("管理后台", () => {
   let adminCookie: string;
+  let adminUserId: string;
 
   beforeAll(() => {
     const user = queryOne<{ id: string }>("SELECT id FROM users ORDER BY created_at ASC LIMIT 1");
     const userId = user?.id;
     if (!userId) throw new Error("缺少测试用户");
+    adminUserId = userId;
     execute(
       "INSERT INTO admins (user_id, role, created_by, created_at) VALUES (?, 'super', NULL, ?)",
       userId,
@@ -501,6 +503,29 @@ describe("管理后台", () => {
     expect(response.body.authenticated).toBe(true);
     expect(response.body.initialized).toBe(true);
     expect(response.body.admin.role).toBe("super");
+  });
+
+  it("在线用户列表包含活跃会话并支持强制下线", async () => {
+    const target = await login("online-target", "在线目标");
+
+    const list = await adminRequest().get("/api/admin/users/online").expect(200);
+    expect(typeof list.body.onlineWindowMinutes).toBe("number");
+    expect(list.body.total).toBeGreaterThanOrEqual(1);
+    const self = list.body.items.find((row: { id: string }) => row.id === adminUserId);
+    expect(self?.sessionCount).toBeGreaterThanOrEqual(1);
+    const targetRow = list.body.items.find((row: { id: string }) => row.id === target.id);
+    expect(targetRow?.displayName).toBe("在线目标");
+    expect(targetRow?.ip).toBe("127.0.0.1");
+    expect(typeof targetRow?.lastSeenAt).toBe("string");
+
+    await adminRequest().post(`/api/admin/users/${target.id}/force-logout`).send({}).expect(200);
+
+    const after = await agentWith(target.session).get("/api/me").expect(401);
+    expect(after.body.error.code).toBe("UNAUTHENTICATED");
+    const listAfter = await adminRequest().get("/api/admin/users/online").expect(200);
+    expect(
+      listAfter.body.items.some((row: { id: string }) => row.id === target.id),
+    ).toBe(false);
   });
 
   it("总览与月度数据", async () => {
