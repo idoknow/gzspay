@@ -1,4 +1,4 @@
-/** 商家中心：渠道启用开关、修改收款码（需支付密码）、商家资料编辑、商品与发布入口。 */
+/** 商家中心：商家资料与备注要求、收款方式开关与收款码、商品与发布入口。 */
 
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +13,7 @@ import { useToast } from "../components/Toast";
 import { getMerchant, setMerchantChannelEnabled, updateMerchant, uploadMerchantChannelQr } from "../lib/api";
 import { cn } from "../lib/format";
 import { errorMessage } from "../lib/http";
-import { useAsync } from "../lib/hooks";
+import { useAsync, useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 import type { MerchantChannel, PayChannel } from "../lib/types";
 
@@ -23,9 +23,17 @@ interface QrEditState {
   previewUrl: string | null;
 }
 
+/** 渠道标识：短名 + 配色，让三行收款方式更容易区分。 */
+const CHANNEL_BADGE: Record<PayChannel, { short: string; className: string }> = {
+  alipay: { short: "支", className: "bg-[#1677ff]/12 text-[#1677ff]" },
+  wechat: { short: "微", className: "bg-[#07c160]/14 text-[#07974a]" },
+  qq: { short: "Q", className: "bg-[#12b7f5]/14 text-[#0d8fc0]" },
+};
+
 export function MerchantPage(): ReactNode {
   const toast = useToast();
   const navigate = useNavigate();
+  const watch = useWatchLayout();
   const { me } = useAuth();
   const { data, loading, error, reload } = useAsync(() => getMerchant(), []);
   const [busyChannel, setBusyChannel] = useState<PayChannel | null>(null);
@@ -92,6 +100,11 @@ export function MerchantPage(): ReactNode {
     } finally {
       setBusyChannel(null);
     }
+  };
+
+  const openQrEdit = (channel: PayChannel): void => {
+    setQrEdit({ channel, file: null, previewUrl: null });
+    setPasswordOpen(false);
   };
 
   const closeQrEdit = (): void => {
@@ -174,80 +187,222 @@ export function MerchantPage(): ReactNode {
 
   return (
     <div className="bg-app min-h-[100dvh]">
-      <PageHeader title="商家中心" back right={<button type="button" className="btn btn-ghost btn-sm" onClick={openProfile}>编辑资料</button>} />
+      <PageHeader title="商家中心" back />
 
-      <main className="page space-y-4 pb-10 pt-4">
-        <section className="card p-4">
-          <div className="flex items-center gap-3">
-            <Avatar name={me?.displayName ?? merchant.name} avatarUrl={me?.avatarUrl} size={52} />
+      <main className="page space-y-3.5 pb-10 pt-4 watch:space-y-2.5">
+        {/* 商家概览：头像、名称、学号与两个快捷入口 */}
+        <section className="hero-gradient relative overflow-hidden rounded-[26px] p-4 shadow-[var(--shadow-card)] watch:rounded-2xl watch:p-3.5">
+          <span aria-hidden="true" className="absolute -top-14 -right-10 h-32 w-32 rounded-full bg-white/30" />
+          <span aria-hidden="true" className="absolute -bottom-16 -left-8 h-28 w-28 rounded-full bg-white/20" />
+          <div className="relative flex items-start gap-3">
+            <Avatar
+              name={me?.displayName ?? merchant.name}
+              avatarUrl={me?.avatarUrl}
+              size={watch ? 46 : 54}
+              className="ring-2 ring-white/45"
+            />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-semibold text-text">{merchant.name}</p>
-              <p className="mt-0.5 text-xs text-muted">商家账号 · 学号 {me ? me.studentNo : "-"}</p>
+              <div className="flex items-center gap-2">
+                <p className="truncate text-[17px] font-semibold text-[color:var(--hero-fg)] watch:text-[15px]">
+                  {merchant.name}
+                </p>
+                <span className="shrink-0 rounded-full bg-[color:var(--hero-chip)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--hero-fg)]">
+                  已开通
+                </span>
+              </div>
+              <p className="mt-1 truncate text-[11px] text-[color:var(--hero-fg-soft)]">
+                商家账号 · 学号 {me?.studentNo || "未填写"}
+              </p>
             </div>
-            <span className="rounded-full bg-success-soft px-2.5 py-1 text-[11px] font-medium text-success">已开通</span>
           </div>
-          <div className="mt-3 rounded-2xl bg-surface-2 px-3 py-2.5">
-            <p className="text-[11px] text-muted">备注要求</p>
-            <p className="mt-0.5 whitespace-pre-wrap text-sm text-text">
-              {merchant.noteRequirement || "未设置备注要求（付款人可直接付款）"}
-            </p>
+
+          <div className="relative mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-[color:var(--hero-chip)] px-3 py-2">
+              <p className="text-[10px] text-[color:var(--hero-fg-faint)]">收款方式</p>
+              <p className="mt-0.5 text-[13px] font-semibold text-[color:var(--hero-fg)]">
+                {enabledCount} / {merchant.channels.length} 已启用
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/merchant/products")}
+              className="flex items-center justify-between gap-1 rounded-2xl bg-[color:var(--hero-chip)] px-3 py-2 text-left transition active:scale-[0.98]"
+            >
+              <span>
+                <span className="block text-[10px] text-[color:var(--hero-fg-faint)]">商品与发布</span>
+                <span className="mt-0.5 block text-[13px] font-semibold text-[color:var(--hero-fg)]">管理商品</span>
+              </span>
+              <ChevronRightIcon className="h-4 w-4 shrink-0 text-[color:var(--hero-fg-soft)]" />
+            </button>
           </div>
         </section>
 
-        <section className="card p-4">
-          <div className="flex items-center justify-between">
+        {/* 备注要求 */}
+        <section className="card p-4 watch:rounded-2xl watch:p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted watch:h-6 watch:w-6">
+                <NoteIcon />
+              </span>
+              <h2 className="text-sm font-semibold text-text">备注要求</h2>
+            </div>
+            <button
+              type="button"
+              onClick={openProfile}
+              className="shrink-0 text-[11px] font-medium text-brand transition active:opacity-70"
+            >
+              编辑资料
+            </button>
+          </div>
+          <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-text watch:text-[12.5px]">
+            {merchant.noteRequirement || (
+              <span className="text-muted">未设置备注要求，付款人可以直接付款。可在这里补充姓名、学号等信息。</span>
+            )}
+          </p>
+        </section>
+
+        {/* 收款方式 */}
+        <section className="card p-4 watch:rounded-2xl watch:p-3.5">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-text">收款方式</h2>
             <span className="text-[11px] text-muted">至少保留一个启用</span>
           </div>
-          <div className="mt-2 space-y-2">
-            {merchant.channels.map((item) => (
-              <div key={item.channel} className="row rounded-2xl bg-surface-2 px-3 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text">{item.label}</p>
-                  <p className={cn("mt-0.5 text-[11px]", item.hasQr ? "text-muted" : "text-danger")}>
-                    {item.hasQr ? "已上传收款码" : "未上传收款码，扫码付款时不会展示该渠道"}
-                  </p>
+          <div className="mt-2.5 space-y-2">
+            {merchant.channels.map((item) => {
+              const badge = CHANNEL_BADGE[item.channel];
+              return (
+                <div
+                  key={item.channel}
+                  className="flex items-center gap-2.5 rounded-2xl bg-surface-2 px-3 py-2.5 watch:px-2.5 watch:py-2"
+                >
+                  <span
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold watch:h-8 watch:w-8 watch:text-[13px]",
+                      badge.className,
+                    )}
+                  >
+                    {badge.short}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      <p className="text-[13px] font-medium text-text">{item.label}</p>
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 py-0.5 text-[10px]",
+                          item.hasQr ? "bg-success-soft text-success" : "bg-danger/10 text-danger",
+                        )}
+                      >
+                        {item.hasQr ? "已上传" : "未上传"}
+                      </span>
+                    </div>
+                    {item.hasQr ? (
+                      <button
+                        type="button"
+                        onClick={() => openQrEdit(item.channel)}
+                        className="mt-0.5 text-[11px] font-medium text-brand transition active:opacity-70"
+                      >
+                        更换收款码
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openQrEdit(item.channel)}
+                        className="mt-0.5 text-[11px] font-medium text-brand transition active:opacity-70"
+                      >
+                        上传收款码
+                      </button>
+                    )}
+                  </div>
+                  <Toggle
+                    checked={item.enabled}
+                    disabled={busyChannel === item.channel}
+                    onChange={(next) => void handleToggle(item, next)}
+                    label={`${item.label}收款开关`}
+                  />
                 </div>
-                <Toggle
-                  checked={item.enabled}
-                  disabled={busyChannel === item.channel}
-                  onChange={(next) => void handleToggle(item, next)}
-                  label={`${item.label}收款开关`}
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {merchant.channels.map((item) => (
-              <button
-                key={`qr-${item.channel}`}
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => {
-                  setQrEdit({ channel: item.channel, file: null, previewUrl: null });
-                  setPasswordOpen(false);
-                }}
-              >
-                {item.hasQr ? `更换${item.label}收款码` : `上传${item.label}收款码`}
-              </button>
-            ))}
-          </div>
+          <p className="mt-2.5 text-[11px] leading-relaxed text-muted">
+            未上传收款码的渠道不会出现在付款人的支付选项里；停用后该渠道暂时不可收款。
+          </p>
         </section>
 
-        <section className="card p-4">
-          <h2 className="text-sm font-semibold text-text">商品与发布</h2>
-          <p className="mt-1 text-xs text-muted">维护商品与价格、编辑备注要求、预览付款人视角。</p>
-          <button type="button" className="btn btn-primary btn-block mt-3" onClick={() => navigate("/merchant/products")}>
-            进入商品与发布
+        {/* 商品与发布 */}
+        <section className="card p-4 watch:rounded-2xl watch:p-3.5">
+          <button
+            type="button"
+            onClick={() => navigate("/merchant/products")}
+            className="flex w-full items-center gap-3 text-left transition active:opacity-80"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand watch:h-9 watch:w-9">
+              <BagIcon />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-text">商品与发布</span>
+              <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">
+                维护商品与价格、编辑备注要求、预览付款人视角
+              </span>
+            </span>
+            <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted" />
           </button>
         </section>
 
-        <p className="text-center text-[11px] leading-relaxed text-muted">
+        <p className="px-2 text-center text-[11px] leading-relaxed text-muted">
           资金通过第三方收款码流转，gzspay 不代收代付。
           <br />
           请如实上传本人收款码，谨防账号被他人利用。
         </p>
       </main>
+
+      {/* 商家资料编辑 */}
+      <Dialog
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        title="商家资料"
+        description="修改后，付款人扫码看到的名称与备注要求会立即更新。"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setProfileOpen(false)}>
+              取消
+            </button>
+            <button type="button" className="btn btn-primary" disabled={savingProfile} onClick={() => void saveProfile()}>
+              {savingProfile ? "保存中…" : "保存"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="label" htmlFor="merchant-name">
+              商家名称
+            </label>
+            <input
+              id="merchant-name"
+              className="input"
+              value={profileName}
+              maxLength={20}
+              placeholder="例如：三班小卖部"
+              onChange={(event) => setProfileName(event.target.value)}
+            />
+            <p className="mt-1 text-[11px] text-muted">付款人扫码后会看到这个名称。</p>
+          </div>
+          <div>
+            <label className="label" htmlFor="merchant-note">
+              备注要求
+            </label>
+            <textarea
+              id="merchant-note"
+              className="input min-h-20 py-2"
+              value={profileNote}
+              maxLength={120}
+              placeholder="例如：请在备注里填写姓名和学号后四位"
+              onChange={(event) => setProfileNote(event.target.value)}
+            />
+            <p className="mt-1 text-[11px] text-muted">付款人下单时会看到并按要求填写备注。</p>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog
         open={qrEdit !== null}
@@ -296,5 +451,31 @@ export function MerchantPage(): ReactNode {
         onSubmit={uploadQr}
       />
     </div>
+  );
+}
+
+function ChevronRightIcon({ className }: { className?: string }): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className={className} aria-hidden="true">
+      <path d="m9 5 7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function NoteIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4" aria-hidden="true">
+      <path d="M6 4.5h9l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 7 19V6a1.5 1.5 0 0 1 1.5-1.5Z" strokeLinejoin="round" />
+      <path d="M9.5 11h5M9.5 14.5h3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BagIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5" aria-hidden="true">
+      <path d="M5.5 8h13l1 12.5h-15L5.5 8Z" strokeLinejoin="round" />
+      <path d="M9 9.5V7a3 3 0 0 1 6 0v2.5" strokeLinecap="round" />
+    </svg>
   );
 }
