@@ -8,6 +8,7 @@ import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { devLogin, LOGIN_URL } from "../lib/api";
 import { errorMessage } from "../lib/http";
+import { useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 
 function safeRedirect(raw: string | null): string {
@@ -33,6 +34,7 @@ export function LoginPage(): ReactNode {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const toast = useToast();
+  const watch = useWatchLayout();
   const { authenticated, onboarded, setSession } = useAuth();
   const [devBusy, setDevBusy] = useState(false);
   const redirect = safeRedirect(params.get("redirect"));
@@ -62,30 +64,33 @@ export function LoginPage(): ReactNode {
   };
 
   return (
-    <div className="bg-app flex min-h-[100dvh] flex-col px-6 pb-[max(env(safe-area-inset-bottom),24px)] pt-[max(env(safe-area-inset-top),40px)]">
+    <div className="bg-app flex min-h-[100dvh] flex-col px-6 pb-[max(env(safe-area-inset-bottom),24px)] pt-[max(env(safe-area-inset-top),40px)] watch:px-3 watch:pb-[max(env(safe-area-inset-bottom),10px)] watch:pt-[max(env(safe-area-inset-top),12px)]">
       <div className="flex flex-1 flex-col items-center justify-center">
         <div className="relative flex flex-col items-center">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-8 h-44 w-44 rounded-full bg-accent/30 blur-3xl"
+            className="pointer-events-none absolute -top-8 h-44 w-44 rounded-full bg-accent/30 blur-3xl watch:-top-4 watch:h-24 watch:w-24"
           />
-          <LogoMark size={96} animated />
-          <Wordmark size="xl" animated className="mt-5" />
-          <Tagline animated className="mt-3" />
-          <p className="mt-2 text-sm text-muted">桂中校园收付款</p>
+          <LogoMark size={watch ? 64 : 96} animated />
+          <Wordmark size={watch ? "md" : "xl"} animated className="mt-5 watch:mt-3" />
+          <Tagline animated className="mt-3 watch:mt-1.5" />
+          <p className="mt-2 text-sm text-muted watch:mt-1 watch:text-[11px]">桂中校园收付款</p>
         </div>
 
-        <div className="mt-10 w-full max-w-[360px] space-y-3">
+        <div className="mt-10 w-full max-w-[360px] space-y-3 watch:mt-5 watch:space-y-2">
           {authError ? (
-            <div className="rounded-2xl bg-danger-soft px-4 py-3 text-sm leading-relaxed text-danger animate-fade-in">
+            <div className="rounded-2xl bg-danger-soft px-4 py-3 text-sm leading-relaxed text-danger animate-fade-in watch:rounded-xl watch:px-3 watch:py-2 watch:text-[11px]">
               {authErrorText(authError)}
             </div>
           ) : null}
 
-          <a href={LOGIN_URL} className="btn btn-primary btn-block h-[52px] text-base">
+          <a
+            href={LOGIN_URL}
+            className="btn btn-primary btn-block h-[52px] text-base watch:h-9 watch:text-[13px]"
+          >
             使用校园墙账号登录
           </a>
-          <p className="text-center text-xs leading-relaxed text-muted">
+          <p className="text-center text-xs leading-relaxed text-muted watch:text-[10px]">
             使用校园墙账号授权登录，无需额外注册
           </p>
 
@@ -98,14 +103,14 @@ export function LoginPage(): ReactNode {
         </div>
       </div>
 
-      <div className="mt-10 space-y-2 text-center">
-        <p className="text-[11px] leading-relaxed text-muted">
+      <div className="mt-10 space-y-2 text-center watch:mt-4 watch:space-y-1">
+        <p className="text-[11px] leading-relaxed text-muted watch:text-[9px]">
           资金通过第三方收款码流转，gzspay 不代收代付
           <br />
           付款前请核对收款方信息
         </p>
-        <p className="text-[11px] text-muted">登录即代表你已阅读并同意服务条款与隐私协议</p>
-        <AppFooter className="pt-1" />
+        <p className="text-[11px] text-muted watch:text-[9px]">登录即代表你已阅读并同意服务条款与隐私协议</p>
+        <AppFooter className="pt-1 watch:pt-0" />
       </div>
     </div>
   );

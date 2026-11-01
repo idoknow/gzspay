@@ -66,38 +66,42 @@ export function Dialog({
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
         className={cn(
-          "animate-slide-up w-full max-w-[440px] border border-line bg-surface text-text shadow-[var(--shadow-float)]",
+          "animate-slide-up hide-scrollbar max-h-[92dvh] w-full max-w-[440px] overflow-y-auto border border-line bg-surface text-text shadow-[var(--shadow-float)]",
           variant === "sheet"
-            ? "rounded-t-[26px] border-b-0 px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3"
-            : "rounded-[26px] px-5 py-5",
+            ? "rounded-t-[26px] border-b-0 px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3 watch:px-3.5 watch:pt-2 watch:pb-[calc(12px+env(safe-area-inset-bottom))]"
+            : "rounded-[26px] px-5 py-5 watch:rounded-2xl watch:px-3.5 watch:py-3.5",
           className,
         )}
       >
         {variant === "sheet" ? (
-          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-surface-3" aria-hidden="true" />
+          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-surface-3 watch:mb-2 watch:h-1 watch:w-8" aria-hidden="true" />
         ) : null}
         {title || showClose ? (
           <div className="mb-1 flex items-start gap-3">
             <div className="min-w-0 flex-1">
-              {title ? <h2 className="text-lg font-bold text-text">{title}</h2> : null}
-              {description ? <p className="mt-1 text-sm leading-relaxed text-muted">{description}</p> : null}
+              {title ? <h2 className="text-lg font-bold text-text watch:text-[15px]">{title}</h2> : null}
+              {description ? (
+                <p className="mt-1 text-sm leading-relaxed text-muted watch:mt-0.5 watch:text-[11px]">
+                  {description}
+                </p>
+              ) : null}
             </div>
             {showClose && closable ? (
               <button
                 type="button"
                 onClick={close}
                 aria-label="关闭"
-                className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition active:bg-surface-2"
+                className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition active:bg-surface-2 watch:-mr-0.5 watch:-mt-0.5 watch:h-7 watch:w-7"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="watch:h-4 watch:w-4">
                   <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
                 </svg>
               </button>
             ) : null}
           </div>
         ) : null}
-        <div className={title ? "mt-3" : ""}>{children}</div>
-        {footer ? <div className="mt-5">{footer}</div> : null}
+        <div className={title ? "mt-3 watch:mt-2" : ""}>{children}</div>
+        {footer ? <div className="mt-5 watch:mt-3">{footer}</div> : null}
       </div>
     </div>,
     document.body,

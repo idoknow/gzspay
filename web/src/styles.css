@@ -3,6 +3,9 @@
 /* 主题切换：通过 <html data-theme="light|dark"> 生效（auto 由 JS 解析为具体值） */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* 小屏 / 手表适配：视口宽度小于 360px 时生效（手机最小常见宽度为 360px） */
+@custom-variant watch (@media (width < 360px));
+
 /* 品牌字体：Nunito 800（ASCII 子集自托管，见 docs/brand.md；中文继续使用系统字体） */
 @font-face {
   font-family: "Nunito";
@@ -607,4 +610,101 @@ img {
   margin: 1rem 0;
   border: 0;
   border-top: 1px solid var(--line);
+}
+
+/* =========================================================================
+   小屏 / 手表适配（视口宽度小于 360px）
+   这一层不放进 @layer，优先级高于 Tailwind 的 components / utilities，
+   用于把手机版尺寸整体压到表盘可用的密度。
+   ========================================================================= */
+@media (max-width: 359px) {
+  body {
+    font-size: 15px;
+  }
+  .page {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .page-with-nav {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+  .page-with-footer {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+  .card {
+    border-radius: 18px;
+  }
+  .card.p-4 {
+    padding: 12px;
+  }
+  .card.p-5 {
+    padding: 14px;
+  }
+  .card-flat {
+    border-radius: 16px;
+  }
+  .hero-gradient {
+    border-radius: 18px;
+  }
+  .btn {
+    min-height: 42px;
+    padding-left: 14px;
+    padding-right: 14px;
+    border-radius: 14px;
+    font-size: 14px;
+  }
+  .btn-sm {
+    min-height: 32px;
+    padding-left: 10px;
+    padding-right: 10px;
+    border-radius: 11px;
+    font-size: 12px;
+  }
+  .input {
+    min-height: 42px;
+    padding-left: 12px;
+    padding-right: 12px;
+    border-radius: 13px;
+    font-size: 15px;
+  }
+  .label {
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .chip {
+    min-height: 30px;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+  .segmented {
+    padding: 3px;
+  }
+  .segmented-item {
+    min-height: 30px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    gap: 4px;
+    font-size: 11.5px;
+  }
+  .section-title {
+    margin-bottom: 6px;
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top, 0px), 8px);
+  }
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+  }
+  .markdown {
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .markdown h1 {
+    font-size: 0.95rem;
+  }
+  .markdown h2 {
+    font-size: 0.84rem;
+  }
 }

@@ -144,7 +144,7 @@ function OrderQrPanel({
             {error ? (
               <p className="py-6 text-center text-xs text-danger">{error}</p>
             ) : loading ? (
-              <div className="skeleton h-[220px] w-[220px]" />
+              <div className="skeleton h-[220px] w-[220px] watch:h-[168px] watch:w-[168px]" />
             ) : (
               <QrImage dataUrl={dataUrl} size={220} alt={`${channel ? payChannelLabel(channel) : ""}收款码`} />
             )}
@@ -776,7 +776,7 @@ export function OrderDetailPage(): ReactNode {
               {qrDialog.error ? (
                 <p className="py-6 text-center text-xs text-danger">{qrDialog.error}</p>
               ) : qrDialog.loading ? (
-                <div className="skeleton h-[220px] w-[220px]" />
+                <div className="skeleton h-[220px] w-[220px] watch:h-[168px] watch:w-[168px]" />
               ) : (
                 <QrImage dataUrl={qrDialog.url} size={220} alt="收款码" />
               )}

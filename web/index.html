@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -247,6 +247,30 @@
         100% {
           opacity: 1;
           transform: translateY(0);
+        }
+      }
+      @media (max-width: 359px) {
+        #boot-splash {
+          gap: 12px;
+          padding: 0 12px;
+        }
+        #boot-splash .boot-mark {
+          width: 64px;
+          height: 64px;
+        }
+        #boot-splash .boot-brand {
+          gap: 6px;
+        }
+        #boot-splash .boot-wordmark {
+          font-size: 40px;
+        }
+        #boot-splash .boot-tagline {
+          font-size: 8px;
+          letter-spacing: 0.3em;
+        }
+        #boot-bar {
+          width: 92px;
+          height: 3px;
         }
       }
       @media (prefers-reduced-motion: reduce) {

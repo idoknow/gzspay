@@ -391,6 +391,8 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
         open={scannerOpen}
         title="扫描校园卡二维码"
         hint="将校园卡二维码放入取景框，即可自动识别"
+        manualLabel="校园卡卡号"
+        manualPlaceholder="例如 2023123456"
         onResult={handleScan}
         onClose={() => setScannerOpen(false)}
       />

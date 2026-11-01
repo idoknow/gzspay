@@ -937,6 +937,8 @@ export function PayPage(): ReactNode {
         open={scannerOpen}
         title={mode === "pay" ? "扫描商家校园卡" : "扫描客户校园卡"}
         hint="将校园卡二维码放入取景框内，即可自动识别"
+        manualLabel={mode === "pay" ? "商家校园卡号" : "客户校园卡号"}
+        manualPlaceholder="例如 2023123456"
         onResult={(raw) => {
           void handleScanned(raw).catch((cause: unknown) => handleScanError(cause));
         }}

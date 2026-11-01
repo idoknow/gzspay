@@ -101,44 +101,49 @@ export function BuiltInKeypad({
 
   const dots = Array.from({ length }, (_, index) => index);
   const keyClass =
-    "flex h-14 select-none items-center justify-center rounded-2xl bg-surface-2 text-2xl font-semibold text-text transition active:scale-[0.98] active:bg-surface-3 disabled:opacity-40";
+    "flex h-14 select-none items-center justify-center rounded-2xl bg-surface-2 text-2xl font-semibold text-text transition active:scale-[0.98] active:bg-surface-3 disabled:opacity-40 watch:h-9 watch:rounded-xl watch:text-lg";
 
   return (
     <div className={cn("w-full", className)}>
       {title ? (
-        <div className="mb-4 text-center">
-          <p className="text-base font-bold text-text">{title}</p>
-          {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
+        <div className="mb-4 text-center watch:mb-2">
+          <p className="text-base font-bold text-text watch:text-[13px]">{title}</p>
+          {description ? (
+            <p className="mt-1 text-sm text-muted watch:mt-0.5 watch:text-[11px]">{description}</p>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="flex justify-center gap-3 py-1" aria-label="已输入位数">
+      <div className="flex justify-center gap-3 py-1 watch:gap-1.5 watch:py-0.5" aria-label="已输入位数">
         {dots.map((index) => (
           <span
             key={index}
             className={cn(
-              "h-3.5 w-3.5 rounded-full border transition-colors",
+              "h-3.5 w-3.5 rounded-full border transition-colors watch:h-2.5 watch:w-2.5",
               index < value.length ? "border-brand bg-brand" : "border-line bg-surface-2",
             )}
           />
         ))}
       </div>
 
-      <div className="flex min-h-6 items-center justify-center pt-2">
+      <div className="flex min-h-6 items-center justify-center pt-2 watch:min-h-4 watch:pt-1">
         {busy ? (
-          <span className="flex items-center gap-2 text-xs text-muted">
+          <span className="flex items-center gap-2 text-xs text-muted watch:text-[10px]">
             <Spinner size={14} /> 验证中…
           </span>
         ) : error ? (
-          <span className="animate-fade-in text-center text-[13px] font-medium text-danger" role="alert">
+          <span
+            className="animate-fade-in text-center text-[13px] font-medium text-danger watch:text-[11px]"
+            role="alert"
+          >
             {error}
           </span>
         ) : (
-          <span className="text-xs text-muted">支付密码只在本机输入</span>
+          <span className="text-xs text-muted watch:text-[10px]">支付密码只在本机输入</span>
         )}
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2.5">
+      <div className="mt-3 grid grid-cols-3 gap-2.5 watch:mt-2 watch:gap-1.5">
         {DIGITS.map((digit) => (
           <button
             key={`digit-${digit}`}
@@ -161,7 +166,12 @@ export function BuiltInKeypad({
           disabled={busy}
           onClick={removeLast}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg
+            className="h-6 w-6 watch:h-4 watch:w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
             <path
               d="M9 5h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9L3 12l6-7Z"
               stroke="currentColor"
@@ -173,7 +183,7 @@ export function BuiltInKeypad({
         </button>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3">
+      <div className="mt-4 flex items-center justify-between gap-3 watch:mt-2 watch:gap-2">
         {onCancel ? (
           <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel} disabled={busy}>
             {cancelText}

@@ -278,6 +278,8 @@ export function ProfilePage(): ReactNode {
         open={scannerOpen}
         title="扫描校园卡二维码"
         hint="将校园卡二维码放入取景框内"
+        manualLabel="校园卡卡号"
+        manualPlaceholder="例如 2023123456"
         onResult={handleScanResult}
         onClose={() => setScannerOpen(false)}
       />

@@ -134,6 +134,27 @@ export function useThemeMode(): ThemeMode {
   return mode;
 }
 
+/** 小屏 / 手表视口断点（与 styles.css 的 watch 变体保持一致） */
+export const WATCH_MEDIA_QUERY = "(max-width: 359px)";
+
+/**
+ * 是否处于小屏 / 手表视口（宽度小于 360px）。
+ * 手表上的浏览器通常没有可用摄像头，扫码会优先走手动输入。
+ */
+export function useWatchLayout(): boolean {
+  const [watch, setWatch] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(WATCH_MEDIA_QUERY).matches,
+  );
+  useEffect(() => {
+    const query = window.matchMedia(WATCH_MEDIA_QUERY);
+    const onChange = (): void => setWatch(query.matches);
+    onChange();
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return watch;
+}
+
 /** 页面可见性（切回前台时刷新数据） */
 export function useVisible(): boolean {
   const [visible, setVisible] = useState(() => !document.hidden);

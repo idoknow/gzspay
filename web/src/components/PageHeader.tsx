@@ -48,15 +48,20 @@ export function PageHeader({
         className,
       )}
     >
-      <div className="mx-auto flex w-full max-w-[520px] items-center gap-3 px-4 py-3">
+      <div className="mx-auto flex w-full max-w-[520px] items-center gap-3 px-4 py-3 watch:gap-2 watch:px-2.5 watch:py-2">
         {back ? (
           <button
             type="button"
             onClick={handleBack}
             aria-label="返回"
-            className="-ml-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text transition active:bg-surface-2"
+            className="-ml-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text transition active:bg-surface-2 watch:-ml-0.5 watch:h-8 watch:w-8"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <svg
+              className="h-[22px] w-[22px] watch:h-[18px] watch:w-[18px]"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
               <path
                 d="M15 5l-7 7 7 7"
                 stroke="currentColor"
@@ -68,8 +73,10 @@ export function PageHeader({
           </button>
         ) : null}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[17px] font-bold text-text">{title}</h1>
-          {subtitle ? <p className="mt-0.5 truncate text-xs text-muted">{subtitle}</p> : null}
+          <h1 className="truncate text-[17px] font-bold text-text watch:text-[15px]">{title}</h1>
+          {subtitle ? (
+            <p className="mt-0.5 truncate text-xs text-muted watch:text-[10px]">{subtitle}</p>
+          ) : null}
         </div>
         {right ? <div className="flex shrink-0 items-center gap-1">{right}</div> : null}
       </div>

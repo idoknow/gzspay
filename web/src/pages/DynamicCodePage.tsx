@@ -147,9 +147,9 @@ export function DynamicCodePage(): ReactNode {
               {qrError ? (
                 <p className="py-10 text-center text-xs text-danger">{qrError}</p>
               ) : !dataUrl ? (
-                <div className="skeleton h-[232px] w-[232px]" />
+                <div className="skeleton h-[232px] w-[232px] watch:h-[176px] watch:w-[176px]" />
               ) : (
-                <div className="relative rounded-3xl border border-line bg-white p-4">
+                <div className="relative rounded-3xl border border-line bg-white p-4 watch:rounded-2xl watch:p-2">
                   <QrImage dataUrl={dataUrl} size={232} alt="我的动态收付款码" />
                   {expired ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl bg-black/55 text-white">
@@ -213,6 +213,8 @@ export function DynamicCodePage(): ReactNode {
       <QrScanner
         open={scannerOpen}
         title="扫一扫"
+        manualLabel="动态码内容"
+        manualPlaceholder="例如 gzspay:dynamic:abc123"
         onResult={handleScanned}
         onClose={() => setScannerOpen(false)}
       />

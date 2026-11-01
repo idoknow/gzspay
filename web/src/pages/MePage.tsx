@@ -8,6 +8,7 @@ import { BottomNav } from "../components/BottomNav";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
 import { formatFriendlyTime } from "../lib/format";
+import { useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 
 interface MenuItem {
@@ -19,7 +20,7 @@ interface MenuItem {
 
 function MenuIcon({ children }: { children: ReactNode }): ReactNode {
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-surface-2 text-text ring-1 ring-line/70">
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-surface-2 text-text ring-1 ring-line/70 watch:h-8 watch:w-8 watch:rounded-xl">
       {children}
     </span>
   );
@@ -100,6 +101,7 @@ function ChevronRightIcon(): ReactNode {
 export function MePage(): ReactNode {
   const navigate = useNavigate();
   const toast = useToast();
+  const watch = useWatchLayout();
   const { me, logout } = useAuth();
   const [showCardNo, setShowCardNo] = useState(false);
 
@@ -144,7 +146,7 @@ export function MePage(): ReactNode {
 
       <main className="page page-with-nav space-y-4 pt-4">
         {me ? (
-          <section className="hero-gradient relative overflow-hidden rounded-3xl p-5">
+          <section className="hero-gradient relative overflow-hidden rounded-3xl p-5 watch:rounded-2xl watch:p-3.5">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-white/45 blur-2xl"
@@ -153,13 +155,15 @@ export function MePage(): ReactNode {
               aria-hidden="true"
               className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/25 blur-2xl"
             />
-            <div className="relative flex items-center gap-4">
-              <span className="rounded-[22px] bg-white/55 p-[3px] ring-1 ring-[color:var(--hero-ring)]">
-                <Avatar name={me.displayName} avatarUrl={me.avatarUrl} size={60} />
+            <div className="relative flex items-center gap-4 watch:gap-2.5">
+              <span className="rounded-[22px] bg-white/55 p-[3px] ring-1 ring-[color:var(--hero-ring)] watch:rounded-[16px] watch:p-0.5">
+                <Avatar name={me.displayName} avatarUrl={me.avatarUrl} size={watch ? 44 : 60} />
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="truncate text-lg font-bold text-[color:var(--hero-fg)]">{me.displayName}</h1>
+                  <h1 className="truncate text-lg font-bold text-[color:var(--hero-fg)] watch:text-[15px]">
+                    {me.displayName}
+                  </h1>
                   {me.isMerchant ? (
                     <span className="shrink-0 rounded-full bg-[color:var(--hero-chip)] px-2 py-0.5 text-[10px] font-semibold text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)]">
                       商家
@@ -199,7 +203,7 @@ export function MePage(): ReactNode {
             <button
               key={item.path}
               type="button"
-              className={`group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2 ${
+              className={`group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2 watch:gap-2.5 watch:px-3 watch:py-2.5 ${
                 index > 0 ? "border-t border-line/70" : ""
               }`}
               onClick={() => navigate(item.path)}

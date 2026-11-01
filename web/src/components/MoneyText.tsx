@@ -4,11 +4,11 @@ import type { ReactNode } from "react";
 import { cn, formatCents } from "../lib/format";
 
 const SIZE_CLASS = {
-  sm: "text-[15px]",
-  md: "text-xl",
-  lg: "text-[28px]",
-  xl: "text-[38px]",
-  hero: "text-[46px]",
+  sm: "text-[15px] watch:text-[13px]",
+  md: "text-xl watch:text-lg",
+  lg: "text-[28px] watch:text-[22px]",
+  xl: "text-[38px] watch:text-[26px]",
+  hero: "text-[46px] watch:text-[30px]",
 } as const;
 
 export type MoneySize = keyof typeof SIZE_CLASS;

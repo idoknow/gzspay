@@ -27,13 +27,13 @@ export function AmountInput({
   return (
     <div
       className={cn(
-        "flex items-baseline gap-2 rounded-2xl border border-line bg-surface px-4 py-3",
+        "flex items-baseline gap-2 rounded-2xl border border-line bg-surface px-4 py-3 watch:gap-1.5 watch:px-3 watch:py-2",
         className,
       )}
     >
-      <span className="text-2xl font-bold text-text">¥</span>
+      <span className="text-2xl font-bold text-text watch:text-lg">¥</span>
       <input
-        className="min-w-0 flex-1 bg-transparent text-[32px] font-bold tracking-tight text-text outline-none placeholder:text-surface-3"
+        className="min-w-0 flex-1 bg-transparent text-[32px] font-bold tracking-tight text-text outline-none placeholder:text-surface-3 watch:text-[24px]"
         value={value}
         inputMode="decimal"
         autoComplete="off"
@@ -42,7 +42,7 @@ export function AmountInput({
         placeholder={placeholder}
         onChange={(event) => onChange(sanitizeAmountInput(event.target.value))}
       />
-      {unit ? <span className="shrink-0 text-sm text-muted">{unit}</span> : null}
+      {unit ? <span className="shrink-0 text-sm text-muted watch:text-[11px]">{unit}</span> : null}
     </div>
   );
 }

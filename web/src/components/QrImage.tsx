@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { cn } from "../lib/format";
+import { useWatchLayout } from "../lib/hooks";
 import { errorMessage } from "../lib/http";
 
 export interface QrImageProps {
@@ -11,13 +12,15 @@ export interface QrImageProps {
   className?: string;
 }
 
-/** 白色底 + 圆角的二维码图片 */
+/** 白色底 + 圆角的二维码图片（手表小屏自动缩小，保证不横向溢出） */
 export function QrImage({ dataUrl, size = 240, alt = "二维码", className }: QrImageProps): ReactNode {
+  const watch = useWatchLayout();
+  const side = watch ? Math.min(size, 168) : size;
   if (!dataUrl) {
     return (
       <div
         className={cn("skeleton rounded-2xl", className)}
-        style={{ width: size, height: size }}
+        style={{ width: side, height: side }}
         aria-label="二维码生成中"
       />
     );
@@ -26,10 +29,10 @@ export function QrImage({ dataUrl, size = 240, alt = "二维码", className }: Q
     <img
       src={dataUrl}
       alt={alt}
-      width={size}
-      height={size}
+      width={side}
+      height={side}
       className={cn("rounded-2xl bg-white", className)}
-      style={{ width: size, height: size }}
+      style={{ width: side, height: side }}
     />
   );
 }
