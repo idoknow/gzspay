@@ -167,11 +167,6 @@ export function MePage(): ReactNode {
                   <h1 className="truncate text-lg font-bold text-[color:var(--hero-fg)] watch:text-[15px]">
                     {me.displayName}
                   </h1>
-                  {me.isMerchant ? (
-                    <span className="shrink-0 rounded-full bg-[color:var(--hero-chip)] px-2 py-0.5 text-[10px] font-semibold text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)]">
-                      商家
-                    </span>
-                  ) : null}
                 </div>
                 <p className="mt-1 text-xs text-[color:var(--hero-fg-soft)]">学号 {me.studentNo || "未填写"}</p>
                 {me.cardNoMasked ? (
