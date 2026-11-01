@@ -335,16 +335,43 @@ export interface StatsTimeseries {
   buckets: StatsBucket[];
 }
 
-/** 公告 */
+/** 公告级别：普通 / 重要 / 警示 */
+export type AnnouncementLevel = "info" | "important" | "warning";
+
+/** 公告级别中文名（UI 展示用，info 不展示标签） */
+export const ANNOUNCEMENT_LEVEL_LABELS: Record<AnnouncementLevel, string> = {
+  info: "公告",
+  important: "重要",
+  warning: "注意",
+};
+
+/** 公告（GET /api/announcements 列表项） */
 export interface Announcement {
   id: string;
   title: string;
+  /** Markdown 源文本 */
   content: string;
+  level: AnnouncementLevel;
   pinned: boolean;
+  /** 发布时间（ISO 8601） */
+  publishedAt: string;
+  /** 最后修改时间（ISO 8601） */
+  updatedAt: string;
+  /** 当前用户是否已读 */
+  read: boolean;
 }
 
+/** GET /api/announcements：置顶优先，其次 publishedAt 倒序 */
 export interface AnnouncementsResponse {
   items: Announcement[];
+  /** 当前用户的未读条数 */
+  unreadCount: number;
+}
+
+/** POST /api/announcements/:id/read（幂等） */
+export interface AnnouncementReadResponse {
+  ok: boolean;
+  unreadCount: number;
 }
 
 /** 关于页 */

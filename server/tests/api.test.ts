@@ -408,7 +408,9 @@ describe("管理后台", () => {
     return {
       get: (url: string) => request(app).get(url).set(CSRF).set("Cookie", adminCookie),
       post: (url: string) => request(app).post(url).set(CSRF).set("Cookie", adminCookie),
+      patch: (url: string) => request(app).patch(url).set(CSRF).set("Cookie", adminCookie),
       put: (url: string) => request(app).put(url).set(CSRF).set("Cookie", adminCookie),
+      delete: (url: string) => request(app).delete(url).set(CSRF).set("Cookie", adminCookie),
     };
   }
 
@@ -435,13 +437,85 @@ describe("管理后台", () => {
     expect(csv.text).toContain("订单号");
   });
 
-  it("公告可以被管理员创建并在用户端生效", async () => {
-    await adminRequest()
+  it("公告：发布后用户端出现未读并可标记已读", async () => {
+    const { session: reader } = await login("notice-reader", "公告读者");
+    const created = await adminRequest()
       .post("/api/admin/announcements")
-      .send({ title: "开学通知", content: "本周开始使用 gzspay", pinned: true })
+      .send({
+        title: "开学通知",
+        content: "## 本周开始使用 gzspay\n\n请及时绑定校园卡。",
+        level: "important",
+        pinned: true,
+      })
       .expect(200);
-    const active = await request(app).get("/api/announcements/active").expect(200);
-    expect(active.body.items[0].title).toBe("开学通知");
+    const id = created.body.id as string;
+
+    const before = await agentWith(reader).get("/api/announcements").expect(200);
+    const item = before.body.items.find((row: { id: string }) => row.id === id);
+    expect(item?.title).toBe("开学通知");
+    expect(item?.level).toBe("important");
+    expect(item?.pinned).toBe(true);
+    expect(item?.read).toBe(false);
+    expect(typeof item?.publishedAt).toBe("string");
+    const unreadBefore = before.body.unreadCount as number;
+    expect(unreadBefore).toBeGreaterThanOrEqual(1);
+
+    const read = await agentWith(reader)
+      .post(`/api/announcements/${id}/read`)
+      .send({})
+      .expect(200);
+    expect(read.body.ok).toBe(true);
+    expect(read.body.unreadCount).toBe(unreadBefore - 1);
+
+    // 幂等：重复标记已读不会再减少未读数
+    const repeated = await agentWith(reader)
+      .post(`/api/announcements/${id}/read`)
+      .send({})
+      .expect(200);
+    expect(repeated.body.unreadCount).toBe(unreadBefore - 1);
+
+    const after = await agentWith(reader).get("/api/announcements").expect(200);
+    expect(after.body.items.find((row: { id: string }) => row.id === id)?.read).toBe(true);
+
+    const adminList = await adminRequest().get("/api/admin/announcements").expect(200);
+    const adminItem = adminList.body.items.find((row: { id: string }) => row.id === id);
+    expect(adminItem?.readCount).toBe(1);
+    expect(adminItem?.totalUsers).toBeGreaterThanOrEqual(1);
+  });
+
+  it("公告：修改内容与发布日期会重新推送", async () => {
+    const { session: reader } = await login("notice-repush", "公告重推读者");
+    const created = await adminRequest()
+      .post("/api/admin/announcements")
+      .send({
+        title: "维护通知",
+        content: "今晚维护",
+        publishedAt: "2026-10-01T00:00:00.000Z",
+      })
+      .expect(200);
+    const id = created.body.id as string;
+
+    const first = await agentWith(reader).get("/api/announcements").expect(200);
+    expect(
+      first.body.items.find((row: { id: string }) => row.id === id)?.publishedAt,
+    ).toBe("2026-10-01T00:00:00.000Z");
+    await agentWith(reader).post(`/api/announcements/${id}/read`).send({}).expect(200);
+
+    const updated = await adminRequest()
+      .patch(`/api/admin/announcements/${id}`)
+      .send({
+        title: "维护通知",
+        content: "维护改到明晚",
+        publishedAt: "2026-10-02T00:00:00.000Z",
+      })
+      .expect(200);
+    expect(updated.body.republished).toBe(true);
+
+    const second = await agentWith(reader).get("/api/announcements").expect(200);
+    const item = second.body.items.find((row: { id: string }) => row.id === id);
+    expect(item?.read).toBe(false);
+    expect(item?.publishedAt).toBe("2026-10-02T00:00:00.000Z");
+    expect(item?.content).toContain("明晚");
   });
 
   it("系统配置可读可写", async () => {

@@ -7,7 +7,6 @@ import { exportLogs, getLogs } from "../api";
 import { useFeedback } from "../components/dialogs";
 import {
   Badge,
-  Card,
   Drawer,
   EmptyState,
   ErrorState,
@@ -107,6 +106,7 @@ export function LogsPage() {
   }
 
   const rows = data?.items ?? [];
+  const detailText = detail?.detail || detail?.message || "无更多信息";
 
   return (
     <>
@@ -126,6 +126,13 @@ export function LogsPage() {
       />
 
       <Tabs items={TABS} active={activeTab} onChange={changeTab} />
+
+      <div className="admin-log-summary">
+        <span className="admin-text-xs admin-muted">
+          当前页签：{TABS.find((tab) => tab.key === activeTab)?.label ?? "日志"}
+        </span>
+        <Badge tone="neutral">共 {data?.total ?? 0} 条记录</Badge>
+      </div>
 
       <InfoBanner tone="info">
         {TAB_DESCRIPTIONS[activeTab]} 日志数据由系统自动写入，后台仅支持查询与导出，任何管理员都无法修改或删除。
@@ -210,39 +217,60 @@ export function LogsPage() {
           />
         ) : (
           <div className="admin-table-wrap">
-            <table className="admin-table">
+            <table className="admin-table admin-log-table">
               <thead>
                 <tr>
-                  <th>时间</th>
-                  <th>操作人</th>
-                  <th>操作 / 事件</th>
-                  <th>对象</th>
-                  <th>结果 / 级别</th>
-                  <th>IP</th>
-                  <th>详情</th>
+                  <th className="admin-log-col-time">时间</th>
+                  <th className="admin-log-col-actor">操作人</th>
+                  <th className="admin-log-col-action">操作 / 事件</th>
+                  <th className="admin-log-col-target">对象</th>
+                  <th className="admin-log-col-result">结果 / 级别</th>
+                  <th className="admin-log-col-ip">IP</th>
+                  <th className="admin-log-col-detail">详情</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((log) => (
                   <tr key={log.id}>
-                    <td className="admin-text-sm admin-mono">
+                    <td className="admin-text-sm admin-mono admin-log-col-time">
                       {formatDateTime(log.createdAt)}
                     </td>
-                    <td className="admin-text-sm">{log.actorName || "—"}</td>
-                    <td>
-                      <div className="admin-cell-primary">{log.action || log.type}</div>
+                    <td className="admin-text-sm admin-log-col-actor">
+                      <span
+                        className="admin-truncate"
+                        title={log.actorName || undefined}
+                      >
+                        {log.actorName || "—"}
+                      </span>
+                    </td>
+                    <td className="admin-log-col-action">
+                      <div className="admin-cell-primary admin-truncate">
+                        {log.action || log.type}
+                      </div>
                       <div className="admin-text-xs admin-muted">
                         {logTypeLabel(log.type)}
                       </div>
                     </td>
-                    <td className="admin-text-sm">{log.target || "—"}</td>
-                    <td>
+                    <td className="admin-text-sm admin-log-col-target">
+                      <span
+                        className="admin-truncate"
+                        title={log.target || undefined}
+                      >
+                        {log.target || "—"}
+                      </span>
+                    </td>
+                    <td className="admin-log-col-result">
                       <LogResultCell log={log} />
                     </td>
-                    <td className="admin-text-sm admin-mono">{log.ip || "—"}</td>
-                    <td>
-                      <div className="admin-flex" style={{ gap: 8 }}>
-                        <span className="admin-text-sm admin-muted admin-clamp-2">
+                    <td className="admin-text-sm admin-mono admin-log-col-ip">
+                      {log.ip || "—"}
+                    </td>
+                    <td className="admin-log-col-detail">
+                      <div className="admin-log-detail-cell">
+                        <span
+                          className="admin-text-sm admin-muted admin-clamp-2 admin-log-detail-text"
+                          title={log.detail || log.message || undefined}
+                        >
                           {log.detail || log.message || "—"}
                         </span>
                         <button
@@ -282,26 +310,71 @@ export function LogsPage() {
           subtitle={`${logTypeLabel(detail.type)} · ${formatDateTime(detail.createdAt)}`}
           onClose={() => setDetail(null)}
         >
-          <KVGrid
-            items={[
-              { label: "日志 ID", value: detail.id, mono: true },
-              { label: "日志类型", value: logTypeLabel(detail.type) },
-              { label: "时间", value: formatDateTime(detail.createdAt) },
-              { label: "操作人", value: detail.actorName || "—" },
-              { label: "操作 / 事件", value: detail.action || "—" },
-              { label: "对象", value: detail.target || "—" },
-              { label: "结果", value: detail.result || "—" },
-              { label: "级别", value: detail.level || "—" },
-              { label: "IP 地址", value: detail.ip || "—", mono: true },
-              { label: "User-Agent", value: detail.userAgent || "—" },
-            ]}
-          />
-          <div className="admin-section-title" style={{ marginTop: 18 }}>
-            详细内容
+          <div className="admin-log-detail">
+            <section className="admin-log-section">
+              <div className="admin-section-title">基本信息</div>
+              <KVGrid
+                items={[
+                  { label: "日志 ID", value: detail.id, mono: true },
+                  { label: "日志类型", value: logTypeLabel(detail.type) },
+                  { label: "记录时间", value: formatDateTime(detail.createdAt) },
+                ]}
+              />
+            </section>
+
+            <section className="admin-log-section">
+              <div className="admin-section-title">操作信息</div>
+              <KVGrid
+                items={[
+                  { label: "操作人", value: detail.actorName || "—" },
+                  { label: "操作 / 事件", value: detail.action || "—" },
+                  { label: "对象", value: detail.target || "—" },
+                  {
+                    label: "结果",
+                    value: detail.result ? (
+                      <Badge tone={resultTone(detail.result)}>{detail.result}</Badge>
+                    ) : (
+                      "—"
+                    ),
+                  },
+                  {
+                    label: "级别",
+                    value: detail.level ? (
+                      <Badge tone={logLevelMeta(detail.level).tone} dot>
+                        {logLevelMeta(detail.level).label}
+                      </Badge>
+                    ) : (
+                      "—"
+                    ),
+                  },
+                ]}
+              />
+            </section>
+
+            <section className="admin-log-section">
+              <div className="admin-section-title">请求信息</div>
+              <KVGrid
+                items={[
+                  { label: "IP 地址", value: detail.ip || "—", mono: true },
+                  { label: "User-Agent", value: detail.userAgent || "—" },
+                ]}
+              />
+            </section>
+
+            <section className="admin-log-section">
+              <div className="admin-section-title">详细内容</div>
+              <pre className="admin-pre">{detailText}</pre>
+              {detail.detail && detail.message && detail.detail !== detail.message ? (
+                <>
+                  <div className="admin-section-title" style={{ marginTop: 14 }}>
+                    补充消息
+                  </div>
+                  <pre className="admin-pre">{detail.message}</pre>
+                </>
+              ) : null}
+            </section>
           </div>
-          <p className="admin-text-sm" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
-            {detail.detail || detail.message || "无更多信息"}
-          </p>
+
           <p className="admin-readonly-hint" style={{ marginTop: 16 }}>
             日志为审计留痕数据，不可修改或删除。
           </p>
@@ -311,21 +384,32 @@ export function LogsPage() {
   );
 }
 
+/** 结果文案 → 徽标色调（与 LogResultCell 共用） */
+function resultTone(result: string): "success" | "danger" | "neutral" {
+  const normalized = result.toLowerCase();
+  if (normalized === "success" || normalized === "ok" || normalized === "成功") {
+    return "success";
+  }
+  if (
+    normalized === "failed" ||
+    normalized === "failure" ||
+    normalized === "error" ||
+    normalized === "失败"
+  ) {
+    return "danger";
+  }
+  return "neutral";
+}
+
 function LogResultCell({ log }: { log: AdminLog }) {
   if (log.level) {
     const meta = logLevelMeta(log.level);
-    return <Badge tone={meta.tone}>{meta.label}</Badge>;
+    return (
+      <Badge tone={meta.tone} dot>
+        {meta.label}
+      </Badge>
+    );
   }
   if (!log.result) return <span className="admin-text-sm admin-muted">—</span>;
-  const normalized = log.result.toLowerCase();
-  const tone =
-    normalized === "success" || normalized === "ok" || normalized === "成功"
-      ? "success"
-      : normalized === "failed" ||
-          normalized === "failure" ||
-          normalized === "error" ||
-          normalized === "失败"
-        ? "danger"
-        : "neutral";
-  return <Badge tone={tone}>{log.result}</Badge>;
+  return <Badge tone={resultTone(log.result)}>{log.result}</Badge>;
 }

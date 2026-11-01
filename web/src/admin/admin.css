@@ -300,6 +300,45 @@
   line-height: 1.7;
 }
 
+/* 侧栏底部「返回 Pay 主站」入口 */
+.admin-sidebar-back {
+  margin-top: 8px;
+}
+
+.admin-sidebar-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: -8px;
+  padding: 5px 10px 5px 8px;
+  border-radius: 8px;
+  color: var(--admin-sidebar-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-sidebar-back-link:hover {
+  background: var(--admin-sidebar-active);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-sidebar-back-link:focus-visible {
+  outline: 2px solid var(--admin-sidebar-text);
+  outline-offset: 2px;
+}
+
+.admin-sidebar-back-arrow {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.admin-sidebar-back-link:hover .admin-sidebar-back-arrow {
+  transform: translateX(-2px);
+}
+
 .admin-main {
   display: flex;
   flex-direction: column;
@@ -765,6 +804,138 @@
   color: var(--admin-text-muted);
 }
 
+/* ------------------------------------------------------------ 操作说明 */
+
+/* 卡片内的说明区块：浅底 + 左侧主色竖条 */
+.admin-help {
+  position: relative;
+  margin-bottom: 18px;
+  padding: 12px 14px 12px 16px;
+  border: 1px solid var(--admin-border);
+  border-left: 3px solid var(--admin-primary);
+  border-radius: 10px;
+  background: var(--admin-bg-soft);
+}
+
+.admin-help-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.admin-help-badge {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--admin-primary-soft);
+  color: var(--admin-primary);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1;
+}
+
+/* 有序/无序列表通用排版（管理后台的 ul/ol 默认去掉了内边距） */
+.admin-help-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-help-list > li {
+  position: relative;
+  padding-left: 21px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--admin-text-secondary);
+}
+
+.admin-help-list > li strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+
+/* 有序列表：圆形序号徽标 */
+ol.admin-help-list {
+  counter-reset: admin-help-no;
+}
+
+ol.admin-help-list > li::before {
+  counter-increment: admin-help-no;
+  content: counter(admin-help-no);
+  position: absolute;
+  left: 0;
+  top: 3px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--admin-bg-elevated);
+  border: 1px solid var(--admin-border-strong);
+  color: var(--admin-primary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 无序列表：小圆点 */
+ul.admin-help-list > li::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--admin-text-muted);
+}
+
+/* 折叠的扩展说明：默认收起 */
+.admin-help-details {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--admin-border-strong);
+}
+
+.admin-help-details > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-primary);
+  list-style: none;
+}
+
+.admin-help-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-help-details > summary::before {
+  content: "▸ ";
+}
+
+.admin-help-details[open] > summary::before {
+  content: "▾ ";
+}
+
+.admin-help-details > summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-help-details[open] > summary {
+  margin-bottom: 8px;
+}
+
 .admin-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -979,6 +1150,118 @@
   background: var(--admin-bg-soft);
   color: var(--admin-text-secondary);
   border-color: var(--admin-border);
+}
+
+/* ------------------------------------------------------------ 日志表格与详情 */
+
+.admin-log-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* 列宽固定：时间/IP 不换行，详情列保留弹性宽度，窄屏横向滚动而不挤爆单元格 */
+.admin-log-table {
+  table-layout: fixed;
+  min-width: 940px;
+}
+
+.admin-log-table th,
+.admin-log-table td {
+  overflow: hidden;
+}
+
+.admin-log-col-time {
+  width: 150px;
+  white-space: nowrap;
+}
+
+.admin-log-col-actor {
+  width: 106px;
+}
+
+.admin-log-col-action {
+  width: 208px;
+}
+
+.admin-log-col-target {
+  width: 152px;
+}
+
+.admin-log-col-result {
+  width: 96px;
+}
+
+.admin-log-col-ip {
+  width: 124px;
+  white-space: nowrap;
+}
+
+.admin-log-col-detail {
+  min-width: 180px;
+}
+
+.admin-truncate {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-log-detail-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.admin-log-detail-cell .admin-btn {
+  flex: 0 0 auto;
+}
+
+.admin-log-detail-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.7;
+}
+
+.admin-log-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-log-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-log-section .admin-section-title {
+  margin-bottom: 10px;
+}
+
+/* 堆栈/预格式内容：等宽块，超长自动换行并可纵向滚动 */
+.admin-pre {
+  margin: 0;
+  padding: 12px 14px;
+  max-height: 360px;
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg-soft);
+  color: var(--admin-text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 2;
+}
+
+.admin-root[data-theme="dark"] .admin-pre {
+  background: var(--admin-bg);
 }
 
 .admin-dot {
@@ -2037,32 +2320,119 @@
 
 /* ------------------------------------------------------------ 主题切换 */
 
+/* 胶囊分段控件：底槽 + 滑块 + 图标文案，三项等宽；浅/深主题各自配色 */
 .admin-theme-switch {
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 2px;
+  align-items: stretch;
+  gap: 0;
+  max-width: 200px;
   padding: 3px;
   border: 1px solid var(--admin-border);
-  border-radius: 10px;
+  border-radius: 999px;
   background: var(--admin-bg-soft);
+  box-shadow: inset 0 1px 2px rgba(23, 26, 32, 0.07);
+  user-select: none;
+}
+
+.admin-root[data-theme="dark"] .admin-theme-switch {
+  background: #14161a;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+/* 滑块：宽高等于单项，translateX(i * 100%) 切换 */
+.admin-theme-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  border-radius: 999px;
+  background: var(--admin-bg-elevated);
+  box-shadow: 0 1px 2px rgba(23, 26, 32, 0.12),
+    0 6px 14px -10px rgba(23, 26, 32, 0.5);
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.admin-root[data-theme="dark"] .admin-theme-thumb {
+  background: #2d3138;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5),
+    0 6px 14px -10px rgba(0, 0, 0, 0.9);
 }
 
 .admin-theme-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   height: 26px;
-  padding: 0 9px;
+  padding: 0 7px;
   border: none;
-  border-radius: 7px;
+  border-radius: 999px;
   background: transparent;
   color: var(--admin-text-muted);
+  font-family: inherit;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
+  transition: color 0.16s ease;
+}
+
+.admin-theme-btn:hover {
+  color: var(--admin-text-secondary);
 }
 
 .admin-theme-btn.is-active {
-  background: var(--admin-bg-elevated);
   color: var(--admin-text);
-  box-shadow: var(--admin-shadow-sm);
+}
+
+.admin-theme-btn:focus-visible {
+  outline: 2px solid var(--admin-primary);
+  outline-offset: 1px;
+}
+
+.admin-theme-icon {
+  display: block;
+  flex: 0 0 14px;
+}
+
+.admin-theme-label {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* 顶栏空间不足时收紧内边距；再窄则只留图标（title 仍可提示文案） */
+@media (max-width: 560px) {
+  .admin-theme-switch {
+    padding: 2px;
+  }
+  .admin-theme-btn {
+    gap: 3px;
+    padding: 0 5px;
+    font-size: 11.5px;
+  }
+  .admin-theme-thumb {
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc((100% - 4px) / 3);
+  }
+}
+
+@media (max-width: 460px) {
+  .admin-theme-label {
+    display: none;
+  }
+  .admin-theme-btn {
+    padding: 0 7px;
+  }
 }
 
 /* ------------------------------------------------------------ 杂项 */

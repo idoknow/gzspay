@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { config } from "../config.js";
-import { nowIso, queryAll, queryOne } from "../db/index.js";
+import { nowIso, queryOne } from "../db/index.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
-import type { AnnouncementRow } from "../lib/types.js";
 import { LEGAL_EFFECTIVE_AT, LEGAL_UPDATED_AT, PRIVACY_POLICY, TERMS_OF_SERVICE } from "../content/legal.js";
+import { markAnnouncementRead, userAnnouncements } from "../services/announcements.js";
 import { readChangelog } from "./me.js";
 import { eventStreamHandler } from "../services/events.js";
 
@@ -32,26 +32,23 @@ miscRouter.get("/about", (_req, res) => {
   });
 });
 
-miscRouter.get("/announcements/active", (_req, res) => {
-  const now = nowIso();
-  const rows = queryAll<AnnouncementRow>(
-    `SELECT * FROM announcements
-     WHERE starts_at <= ? AND ends_at >= ?
-     ORDER BY pinned DESC, starts_at DESC LIMIT 10`,
-    now,
-    now,
-  );
-  res.json({
-    items: rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      content: row.content,
-      startsAt: row.starts_at,
-      endsAt: row.ends_at,
-      pinned: row.pinned === 1,
-    })),
-  });
-});
+/** 主站公告列表：置顶优先、发布时间倒序，附带未读数与逐条已读状态 */
+miscRouter.get(
+  "/announcements",
+  requireUser(),
+  asyncHandler((req, res) => {
+    res.json(userAnnouncements(req.auth!.user.id));
+  }),
+);
+
+/** 标记公告已读（幂等），返回剩余未读数 */
+miscRouter.post(
+  "/announcements/:id/read",
+  requireUser(),
+  asyncHandler((req, res) => {
+    res.json(markAnnouncementRead(req.auth!.user.id, String(req.params.id)));
+  }),
+);
 
 /** 实时事件流（SSE）：payment_request、order_update */
 miscRouter.get(

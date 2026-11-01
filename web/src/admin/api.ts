@@ -37,6 +37,7 @@ import type {
   AdminUserDetail,
   Announcement,
   AnnouncementInput,
+  AnnouncementLevel,
   AppealStatus,
   DailyBucket,
   FunnelStep,
@@ -1225,15 +1226,24 @@ export async function getSystemStatus(): Promise<SystemStatus> {
 
 function mapAnnouncement(raw: unknown): Announcement {
   const source = record(raw);
+  const levelText = text(firstText(source, ["level"]));
+  const level: AnnouncementLevel =
+    levelText === "important" || levelText === "warning" ? levelText : "info";
   return {
     id: textOr(firstText(source, ["id"]), ""),
     title: textOr(firstText(source, ["title"]), "未命名公告"),
     content: textOr(firstText(source, ["content", "body"]), ""),
-    startsAt: isoOrNull(firstText(source, ["startsAt", "startAt", "effectiveAt"])),
-    endsAt: isoOrNull(firstText(source, ["endsAt", "endAt", "expiresAt"])),
+    level,
     pinned: firstBoolean(source, ["pinned", "isPinned", "top"]) ?? false,
+    publishedAt: isoOrNull(firstText(source, ["publishedAt", "publishAt"])),
     createdAt: isoOrNull(firstText(source, ["createdAt"])),
     updatedAt: isoOrNull(firstText(source, ["updatedAt", "modifiedAt"])),
+    readCount: firstNumber(source, ["readCount", "read", "readUsers"]) ?? 0,
+    totalUsers: firstNumber(source, ["totalUsers", "users", "audience"]) ?? 0,
+    edited:
+      firstBoolean(source, ["edited", "modified"]) ??
+      (firstText(source, ["updatedAt"]) !== null &&
+        firstText(source, ["updatedAt"]) !== firstText(source, ["createdAt"])),
   };
 }
 
@@ -1254,16 +1264,18 @@ export async function createAnnouncement(
   await postAction("/admin/announcements", input);
 }
 
-/** PATCH /admin/announcements/:id */
+/** PATCH /admin/announcements/:id，返回是否触发重新推送 */
 export async function updateAnnouncement(
   id: string,
   input: AnnouncementInput,
-): Promise<void> {
-  await writeJson<unknown>(
+): Promise<{ republished: boolean }> {
+  const payload = await writeJson<unknown>(
     "PATCH",
     `/admin/announcements/${encodeURIComponent(id)}`,
     input,
   );
+  const source = record(payload);
+  return { republished: firstBoolean(source, ["republished"]) ?? false };
 }
 
 /** DELETE /admin/announcements/:id */

@@ -343,23 +343,6 @@ export function serviceHealthTone(
   }
 }
 
-/** 公告展示状态（按生效/失效时间计算） */
-export function announcementStatus(
-  startsAt: string | null,
-  endsAt: string | null,
-): { label: string; tone: "warning" | "success" | "neutral" } {
-  const now = Date.now();
-  const start = startsAt ? new Date(startsAt).getTime() : null;
-  const end = endsAt ? new Date(endsAt).getTime() : null;
-  if (start !== null && Number.isFinite(start) && now < start) {
-    return { label: "未生效", tone: "warning" };
-  }
-  if (end !== null && Number.isFinite(end) && now > end) {
-    return { label: "已失效", tone: "neutral" };
-  }
-  return { label: "生效中", tone: "success" };
-}
-
 /** 日志级别文案与色系 */
 export function logLevelMeta(level: string | null): {
   label: string;

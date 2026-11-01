@@ -13,7 +13,6 @@ import { pagination, parse, toInt } from "../lib/validate.js";
 import {
   addAdmin,
   adminAppeals,
-  adminAnnouncements,
   adminCloseOrder,
   adminConfigView,
   adminFlagOrder,
@@ -31,17 +30,20 @@ import {
   adminUserDetail,
   adminUsers,
   adminUsersGrowth,
-  createAnnouncement,
-  deleteAnnouncement,
   forceUserLogout,
   handleAppeal,
   removeAdmin,
   resetUserCard,
   saveAdminConfig,
   setUserFrozen,
-  updateAnnouncement,
   type AdminLogType,
 } from "../services/admin.js";
+import {
+  adminAnnouncements,
+  createAnnouncement,
+  deleteAnnouncement,
+  updateAnnouncement,
+} from "../services/announcements.js";
 
 export const adminRouter: Router = Router();
 
@@ -311,12 +313,14 @@ adminRouter.get("/system/status", requireAdmin(), (_req, res) => {
 
 /* -------------------------------------------------------------- 公告 */
 
+const announcementLevelSchema = z.enum(["info", "important", "warning"]);
+
 const announcementSchema = z.object({
   title: z.string().trim().min(1, "请填写公告标题").max(80),
-  content: z.string().trim().min(1, "请填写公告正文").max(4000),
-  startsAt: z.string().nullable().optional(),
-  endsAt: z.string().nullable().optional(),
+  content: z.string().trim().min(1, "请填写公告正文").max(8000),
+  level: announcementLevelSchema.optional(),
   pinned: z.boolean().optional(),
+  publishedAt: z.string().nullable().optional(),
 });
 
 adminRouter.get("/announcements", requireAdmin(), (_req, res) => {
@@ -334,9 +338,9 @@ adminRouter.post(
         {
           title: body.title,
           content: body.content,
-          startsAt: body.startsAt ?? null,
-          endsAt: body.endsAt ?? null,
+          level: body.level ?? "info",
           pinned: body.pinned ?? false,
+          publishedAt: body.publishedAt ?? null,
         },
         requestIp(req),
       ),
@@ -356,9 +360,9 @@ adminRouter.patch(
         {
           title: body.title,
           content: body.content,
-          startsAt: body.startsAt ?? null,
-          endsAt: body.endsAt ?? null,
+          level: body.level ?? "info",
           pinned: body.pinned ?? false,
+          publishedAt: body.publishedAt ?? null,
         },
         requestIp(req),
       ),

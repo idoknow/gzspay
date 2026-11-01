@@ -1,0 +1,140 @@
+/* 公告富文本编辑器（Markdown）样式：独立文件，避免与 admin.css 的大块改动冲突 */
+
+.adm-rte {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-bg-elevated);
+  overflow: hidden;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.adm-rte:focus-within {
+  border-color: var(--admin-border-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-primary) 12%, transparent);
+}
+
+.adm-rte-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-bg-soft);
+}
+
+.adm-rte-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.adm-rte-tool {
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.adm-rte-tool:hover:not(:disabled) {
+  background: var(--admin-bg-elevated);
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+.adm-rte-tool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.adm-rte-tabs {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 9px;
+  background: var(--admin-bg-hover);
+}
+
+.adm-rte-tab {
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.adm-rte-tab.is-active {
+  background: var(--admin-bg-elevated);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-sm);
+}
+
+.adm-rte-input,
+.adm-rte .admin-textarea {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 220px;
+  font-family: var(--admin-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.adm-rte-input:focus,
+.adm-rte .admin-textarea:focus {
+  box-shadow: none;
+}
+
+.adm-rte-preview {
+  min-height: 220px;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 16px 18px;
+  background: var(--admin-bg-elevated);
+}
+
+.adm-rte-preview .markdown {
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: var(--admin-text);
+}
+
+.adm-rte-empty {
+  margin: 0;
+  color: var(--admin-text-muted);
+  font-size: 13px;
+}
+
+.adm-rte-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-bg-soft);
+  color: var(--admin-text-muted);
+  font-size: 11.5px;
+}
+
+.adm-rte-foot .is-warn {
+  color: var(--admin-warning);
+  font-weight: 600;
+}

@@ -226,14 +226,25 @@ CREATE TABLE IF NOT EXISTS announcements (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
+  level TEXT NOT NULL DEFAULT 'info',
   starts_at TEXT NOT NULL,
   ends_at TEXT NOT NULL,
+  published_at TEXT,
   pinned INTEGER NOT NULL DEFAULT 0,
   created_by TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_announcements_window ON announcements(starts_at, ends_at);
+
+-- 公告已读记录：删除记录即代表重新推送（用户会重新看到未读红点）
+CREATE TABLE IF NOT EXISTS announcement_reads (
+  announcement_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  read_at TEXT NOT NULL,
+  PRIMARY KEY (announcement_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_announcement_reads_user ON announcement_reads(user_id);
 
 -- 只增不改的各类日志
 CREATE TABLE IF NOT EXISTS audit_logs (

@@ -44,7 +44,7 @@ export function migrate(): void {
   const schema = readFileSync(resolveSchemaPath(), "utf-8");
   db.exec(schema);
   applyLegacyMigrations();
-  const version = 3;
+  const version = 4;
   const exists = db
     .prepare("SELECT version FROM schema_migrations WHERE version = ?")
     .get(version);
@@ -70,6 +70,18 @@ function applyLegacyMigrations(): void {
   if (!orderColumns.some((column) => column.name === "flag_reason")) {
     db.exec("ALTER TABLE orders ADD COLUMN flag_reason TEXT;");
   }
+  const announcementColumns = db
+    .prepare("PRAGMA table_info(announcements)")
+    .all() as { name: string }[];
+  if (!announcementColumns.some((column) => column.name === "level")) {
+    db.exec("ALTER TABLE announcements ADD COLUMN level TEXT NOT NULL DEFAULT 'info';");
+  }
+  if (!announcementColumns.some((column) => column.name === "published_at")) {
+    db.exec("ALTER TABLE announcements ADD COLUMN published_at TEXT;");
+    db.exec("UPDATE announcements SET published_at = created_at WHERE published_at IS NULL;");
+  }
+  // 索引依赖 published_at 列，必须在补齐列之后再建（旧库直接执行 schema 会报 no such column）
+  db.exec("CREATE INDEX IF NOT EXISTS idx_announcements_published ON announcements(published_at);");
 }
 
 function normalizeParams(params: unknown[]): SQLInputValue[] {

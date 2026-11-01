@@ -142,12 +142,16 @@ export interface OrderEventRow {
   created_at: string;
 }
 
+export type AnnouncementLevel = "info" | "important" | "warning";
+
 export interface AnnouncementRow {
   id: string;
   title: string;
   content: string;
+  level: AnnouncementLevel;
   starts_at: string;
   ends_at: string;
+  published_at: string | null;
   pinned: number;
   created_by: string | null;
   created_at: string;

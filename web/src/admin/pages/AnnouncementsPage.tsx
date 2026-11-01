@@ -1,5 +1,7 @@
 /**
- * 公告发布：公告列表 + 新建/编辑/删除，支持置顶与生效/失效时间。
+ * 公告发布：公告列表 + 新建/编辑/删除。
+ * 公告按「创建即发布」处理：发布日期默认等于创建时间，可手动修改；
+ * 修改标题/正文/级别/发布日期后会清空已读记录，等价于重新推送（用户端再次出现红点）。
  */
 import { useMemo, useState } from "react";
 import {
@@ -8,9 +10,9 @@ import {
   getAnnouncements,
   updateAnnouncement,
 } from "../api";
+import { RichTextEditor } from "../components/RichTextEditor";
 import { useFeedback } from "../components/dialogs";
 import {
-  AnnouncementStatusBadge,
   Badge,
   Button,
   Card,
@@ -31,9 +33,25 @@ import {
 import { useAsync } from "../hooks";
 import { useAdmin } from "../context";
 import { errorMessage } from "../../lib/http";
-import type { Announcement, AnnouncementInput } from "../types";
+import type {
+  Announcement,
+  AnnouncementInput,
+  AnnouncementLevel,
+} from "../types";
 
 type EditorState = { mode: "create" } | { mode: "edit"; announcement: Announcement } | null;
+
+const LEVEL_OPTIONS: { value: AnnouncementLevel; label: string; hint: string }[] = [
+  { value: "info", label: "普通", hint: "日常通知" },
+  { value: "important", label: "重要", hint: "需要用户重点留意" },
+  { value: "warning", label: "警告", hint: "渠道维护、风险提醒等" },
+];
+
+const LEVEL_META: Record<AnnouncementLevel, { label: string; tone: "neutral" | "primary" | "warning" }> = {
+  info: { label: "普通", tone: "neutral" },
+  important: { label: "重要", tone: "primary" },
+  warning: { label: "警告", tone: "warning" },
+};
 
 export function AnnouncementsPage() {
   const { canWrite } = useAdmin();
@@ -49,15 +67,22 @@ export function AnnouncementsPage() {
     const list = [...(data ?? [])];
     list.sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+      return (b.publishedAt ?? b.createdAt ?? "").localeCompare(
+        a.publishedAt ?? a.createdAt ?? "",
+      );
     });
     return list;
   }, [data]);
 
+  const totalRead = useMemo(
+    () => announcements.reduce((acc, item) => acc + item.readCount, 0),
+    [announcements],
+  );
+
   async function handleDelete(announcement: Announcement) {
     const confirmed = await feedback.confirm({
       title: "删除公告",
-      description: `确定删除公告「${announcement.title}」吗？删除后不可恢复，用户将不再看到该公告。`,
+      description: `确定删除公告「${announcement.title}」吗？删除后不可恢复，用户端也会立即消失。`,
       confirmText: "删除",
       danger: true,
     });
@@ -78,7 +103,7 @@ export function AnnouncementsPage() {
     <>
       <PageHeader
         title="公告发布"
-        description="发布全校可见的公告通知，可设置生效时间、失效时间与置顶。"
+        description="发布后主站顶部铃铛旁会显示未读红点，用户读过后红点消失；修改公告会重新推送。"
         actions={
           <>
             <button
@@ -114,8 +139,13 @@ export function AnnouncementsPage() {
 
           <Card
             title="公告列表"
-            subtitle="置顶公告优先展示，其余按创建时间倒序"
-            extra={<Badge tone="neutral">{announcements.length} 条</Badge>}
+            subtitle="置顶公告优先展示，其余按发布日期倒序"
+            extra={
+              <div className="admin-flex" style={{ gap: 8, flexWrap: "wrap" }}>
+                <Badge tone="neutral">{announcements.length} 条</Badge>
+                <Badge tone="primary">累计已读 {totalRead}</Badge>
+              </div>
+            }
             flush
           >
             {announcements.length === 0 ? (
@@ -133,44 +163,48 @@ export function AnnouncementsPage() {
                   <thead>
                     <tr>
                       <th>公告</th>
-                      <th>展示状态</th>
-                      <th>生效时间</th>
-                      <th>失效时间</th>
-                      <th>更新时间</th>
+                      <th>级别</th>
+                      <th>阅读情况</th>
+                      <th>发布日期</th>
+                      <th>修改日期</th>
                       <th>操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     {announcements.map((announcement) => {
-                      const status = announcementStatusInfo(announcement);
+                      const level = LEVEL_META[announcement.level];
+                      const readRatio =
+                        announcement.totalUsers > 0
+                          ? Math.round((announcement.readCount / announcement.totalUsers) * 100)
+                          : 0;
                       return (
                         <tr key={announcement.id}>
                           <td>
                             <div className="admin-flex" style={{ gap: 6, flexWrap: "wrap" }}>
-                              {announcement.pinned ? (
-                                <Badge tone="accent">置顶</Badge>
-                              ) : null}
-                              <span className="admin-cell-primary">
-                                {announcement.title}
-                              </span>
-                              <AnnouncementStatusBadge
-                                startsAt={announcement.startsAt}
-                                endsAt={announcement.endsAt}
-                              />
+                              {announcement.pinned ? <Badge tone="accent">置顶</Badge> : null}
+                              <span className="admin-cell-primary">{announcement.title}</span>
                             </div>
                             <div className="admin-text-sm admin-muted admin-clamp-2">
-                              {announcement.content}
+                              {plainSummary(announcement.content)}
                             </div>
                           </td>
-                          <td className="admin-text-sm">{status.detail}</td>
-                          <td className="admin-text-sm">
-                            {formatDateTime(announcement.startsAt)}
+                          <td>
+                            <Badge tone={level.tone}>{level.label}</Badge>
                           </td>
                           <td className="admin-text-sm">
-                            {formatDateTime(announcement.endsAt)}
+                            <div>
+                              {announcement.readCount} / {announcement.totalUsers}
+                              <span className="admin-muted">（{readRatio}%）</span>
+                            </div>
+                            <div className="admin-text-xs admin-muted">已读 / 全部用户</div>
+                          </td>
+                          <td className="admin-text-sm">
+                            {formatDateTime(announcement.publishedAt ?? announcement.createdAt)}
                           </td>
                           <td className="admin-text-sm admin-muted">
-                            {formatDateTime(announcement.updatedAt)}
+                            {announcement.edited
+                              ? formatDateTime(announcement.updatedAt)
+                              : "未修改"}
                           </td>
                           <td>
                             <div className="admin-cell-actions">
@@ -179,9 +213,7 @@ export function AnnouncementsPage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() =>
-                                      setEditor({ mode: "edit", announcement })
-                                    }
+                                    onClick={() => setEditor({ mode: "edit", announcement })}
                                   >
                                     编辑
                                   </Button>
@@ -225,13 +257,19 @@ export function AnnouncementsPage() {
   );
 }
 
-function announcementStatusInfo(announcement: Announcement): { detail: string } {
-  const now = Date.now();
-  const starts = Date.parse(announcement.startsAt ?? "");
-  const ends = Date.parse(announcement.endsAt ?? "");
-  if (Number.isFinite(starts) && now < starts) return { detail: "到达生效时间后展示" };
-  if (Number.isFinite(ends) && now > ends) return { detail: "已超过失效时间" };
-  return { detail: "正在向全校展示" };
+/** 列表摘要：去掉 Markdown 标记，避免显示一堆符号 */
+function plainSummary(content: string): string {
+  return content
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^>\s?/gm, "")
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/^\d+\.\s+/gm, "")
+    .replace(/[*_`~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 interface AnnouncementEditorProps {
@@ -245,15 +283,21 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
   const isEdit = announcement !== null;
   const [title, setTitle] = useState(announcement?.title ?? "");
   const [content, setContent] = useState(announcement?.content ?? "");
-  const [startsAt, setStartsAt] = useState(
-    announcement ? toDateTimeInputValue(announcement.startsAt) : "",
-  );
-  const [endsAt, setEndsAt] = useState(
-    announcement ? toDateTimeInputValue(announcement.endsAt) : "",
-  );
+  const [level, setLevel] = useState<AnnouncementLevel>(announcement?.level ?? "info");
   const [pinned, setPinned] = useState(announcement?.pinned ?? false);
+  const [publishedAt, setPublishedAt] = useState(
+    toDateTimeInputValue(
+      announcement?.publishedAt ?? announcement?.createdAt ?? new Date().toISOString(),
+    ),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const createdAtLabel = isEdit
+    ? formatDateTime(announcement.createdAt)
+    : "保存时自动记录";
+  const updatedAtLabel =
+    isEdit && announcement.edited ? formatDateTime(announcement.updatedAt) : "保存修改后记录";
 
   async function handleSubmit() {
     const trimmedTitle = title.trim();
@@ -266,38 +310,33 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
       setFormError("请填写公告正文。");
       return;
     }
-    if (!startsAt || !endsAt) {
-      setFormError("请填写生效时间与失效时间。");
-      return;
-    }
-    const startsIso = fromDateTimeInputValue(startsAt);
-    const endsIso = fromDateTimeInputValue(endsAt);
-    if (!startsIso || !endsIso) {
-      setFormError("生效时间或失效时间格式不正确。");
-      return;
-    }
-    if (Date.parse(endsIso) <= Date.parse(startsIso)) {
-      setFormError("失效时间必须晚于生效时间。");
+    const publishedIso = publishedAt ? fromDateTimeInputValue(publishedAt) : null;
+    if (publishedAt && !publishedIso) {
+      setFormError("发布日期格式不正确。");
       return;
     }
 
     const input: AnnouncementInput = {
       title: trimmedTitle,
       content: trimmedContent,
-      startsAt: startsIso,
-      endsAt: endsIso,
+      level,
       pinned,
+      publishedAt: publishedIso,
     };
 
     setSubmitting(true);
     setFormError(null);
     try {
       if (isEdit) {
-        await updateAnnouncement(announcement.id, input);
-        feedback.success("公告已更新");
+        const result = await updateAnnouncement(announcement.id, input);
+        feedback.success(
+          result.republished
+            ? "公告已更新并重新推送，用户端会重新出现未读红点"
+            : "公告已更新",
+        );
       } else {
         await createAnnouncement(input);
-        feedback.success("公告已发布");
+        feedback.success("公告已发布，用户端会出现未读红点");
       }
       onSaved();
     } catch (err) {
@@ -312,7 +351,7 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
   return (
     <Modal
       title={isEdit ? "编辑公告" : "新建公告"}
-      description="公告内容将展示给全校用户，请仔细核对生效与失效时间。"
+      description="公告内容会展示给全校用户；修改标题、正文、级别或发布日期后会重新推送。"
       onClose={onClose}
       wide
       footer={
@@ -341,51 +380,70 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
           <input
             className="admin-input"
             value={title}
-            maxLength={100}
+            maxLength={80}
             placeholder="例如：关于双十一期间支付渠道维护的通知"
             onChange={(event) => setTitle(event.target.value)}
           />
         </Field>
+
         <Field label="公告正文" required className="admin-field-full">
-          <textarea
-            className="admin-textarea"
-            rows={8}
-            value={content}
-            placeholder="填写公告正文，支持换行。"
-            onChange={(event) => setContent(event.target.value)}
-          />
+          <RichTextEditor value={content} onChange={setContent} maxLength={8000} />
         </Field>
-        <Field label="生效时间" required>
+
+        <Field
+          label="公告级别"
+          hint="重要与警告会在用户端用不同颜色标记，方便快速识别。"
+        >
+          <select
+            className="admin-select"
+            value={level}
+            onChange={(event) => setLevel(event.target.value as AnnouncementLevel)}
+          >
+            {LEVEL_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}（{option.hint}）
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field
+          label="发布日期"
+          hint="默认等于创建时间，可以修改成更早或更晚的时间。"
+        >
           <input
             type="datetime-local"
             className="admin-input"
-            value={startsAt}
-            onChange={(event) => setStartsAt(event.target.value)}
+            value={publishedAt}
+            onChange={(event) => setPublishedAt(event.target.value)}
           />
         </Field>
-        <Field label="失效时间" required>
-          <input
-            type="datetime-local"
-            className="admin-input"
-            value={endsAt}
-            onChange={(event) => setEndsAt(event.target.value)}
-          />
+
+        <Field label="时间记录" className="admin-field-full">
+          <div className="admin-flex admin-text-sm admin-muted" style={{ gap: 16, flexWrap: "wrap" }}>
+            <span>创建时间：{createdAtLabel}</span>
+            <span>修改时间：{updatedAtLabel}</span>
+          </div>
         </Field>
+
         <Field
           label="置顶展示"
-          hint="置顶公告在校园墙公告列表顶部优先展示。"
+          hint="置顶公告在用户端公告列表顶部优先展示。"
           className="admin-field-full"
         >
           <Switch checked={pinned} onChange={setPinned} label="置顶该公告" />
         </Field>
       </div>
+
       {formError ? (
         <div className="admin-inline-alert is-danger" style={{ marginTop: 12 }}>
           {formError}
         </div>
       ) : null}
+
       <p className="admin-readonly-hint" style={{ marginTop: 12 }}>
-        提示：生效时间早于当前时间时公告会立即展示；失效后自动隐藏但记录保留。
+        提示：修改已发布公告的标题、正文、级别或发布日期后，已读记录会被清空，
+        所有用户会重新收到未读红点。
       </p>
     </Modal>
   );

@@ -16,7 +16,6 @@ import { revokeUserSessions } from "../lib/session.js";
 import type {
   AdminRole,
   AdminRow,
-  AnnouncementRow,
   AppealRow,
   OrderEventRow,
   OrderRow,
@@ -960,118 +959,6 @@ export function adminSystemStatus() {
     alerts,
     updatedAt: nowIso(),
   };
-}
-
-/* ------------------------------------------------------------------ 公告 */
-
-function announcementStatus(row: AnnouncementRow): "scheduled" | "active" | "expired" {
-  const now = nowIso();
-  if (row.starts_at > now) return "scheduled";
-  if (row.ends_at < now) return "expired";
-  return "active";
-}
-
-export function adminAnnouncements() {
-  const rows = queryAll<AnnouncementRow>(
-    "SELECT * FROM announcements ORDER BY pinned DESC, created_at DESC",
-  );
-  return {
-    items: rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      content: row.content,
-      startsAt: row.starts_at,
-      endsAt: row.ends_at,
-      pinned: row.pinned === 1,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      status: announcementStatus(row),
-    })),
-  };
-}
-
-export interface AnnouncementInput {
-  title: string;
-  content: string;
-  startsAt: string | null;
-  endsAt: string | null;
-  pinned: boolean;
-}
-
-export function createAnnouncement(actorId: string, input: AnnouncementInput, ip: string) {
-  const id = newId();
-  const timestamp = nowIso();
-  db.prepare(
-    `INSERT INTO announcements (id, title, content, starts_at, ends_at, pinned, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    input.title,
-    input.content,
-    input.startsAt ?? timestamp,
-    input.endsAt ?? new Date(Date.now() + 7 * 86400 * 1000).toISOString(),
-    input.pinned ? 1 : 0,
-    actorId,
-    timestamp,
-    timestamp,
-  );
-  writeAudit({
-    actorId,
-    actorRole: "admin",
-    action: "admin.announcement.created",
-    targetType: "announcement",
-    targetId: id,
-    detail: input.title,
-    ip,
-  });
-  return { ok: true, id };
-}
-
-export function updateAnnouncement(
-  actorId: string,
-  id: string,
-  input: AnnouncementInput,
-  ip: string,
-) {
-  const row = queryOne<AnnouncementRow>("SELECT * FROM announcements WHERE id = ?", id);
-  if (!row) throw errors.notFound("公告不存在");
-  db.prepare(
-    `UPDATE announcements SET title = ?, content = ?, starts_at = ?, ends_at = ?, pinned = ?, updated_at = ? WHERE id = ?`,
-  ).run(
-    input.title,
-    input.content,
-    input.startsAt ?? row.starts_at,
-    input.endsAt ?? row.ends_at,
-    input.pinned ? 1 : 0,
-    nowIso(),
-    id,
-  );
-  writeAudit({
-    actorId,
-    actorRole: "admin",
-    action: "admin.announcement.updated",
-    targetType: "announcement",
-    targetId: id,
-    detail: input.title,
-    ip,
-  });
-  return { ok: true };
-}
-
-export function deleteAnnouncement(actorId: string, id: string, ip: string) {
-  const row = queryOne<AnnouncementRow>("SELECT * FROM announcements WHERE id = ?", id);
-  if (!row) throw errors.notFound("公告不存在");
-  db.prepare("DELETE FROM announcements WHERE id = ?").run(id);
-  writeAudit({
-    actorId,
-    actorRole: "admin",
-    action: "admin.announcement.deleted",
-    targetType: "announcement",
-    targetId: id,
-    detail: row.title,
-    ip,
-  });
-  return { ok: true };
 }
 
 /* ------------------------------------------------------------------ 日志 */

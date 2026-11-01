@@ -4,6 +4,7 @@ import { api, openEventStream, ApiError } from "./http";
 import { PAY_CHANNEL_LABELS } from "./types";
 import type {
   AboutResponse,
+  AnnouncementReadResponse,
   AnnouncementsResponse,
   CardQrResponse,
   CreateOrderPayload,
@@ -587,6 +588,12 @@ export function exportStatsCsv(query: StatsQuery): Promise<Blob> {
 /* 11. 公告                                                            */
 /* ------------------------------------------------------------------ */
 
-export function getActiveAnnouncements(): Promise<AnnouncementsResponse> {
-  return api.get<AnnouncementsResponse>("/announcements/active");
+/** 公告列表（列表页 / 详情页 / 顶部红点共用，含当前用户未读数） */
+export function getAnnouncements(): Promise<AnnouncementsResponse> {
+  return api.get<AnnouncementsResponse>("/announcements");
+}
+
+/** 标记单条公告已读（幂等，重复调用不报错） */
+export function markAnnouncementRead(id: string): Promise<AnnouncementReadResponse> {
+  return api.post<AnnouncementReadResponse>(`/announcements/${encodeURIComponent(id)}/read`);
 }

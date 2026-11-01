@@ -311,26 +311,32 @@ export interface SystemStatus {
 
 /* ------------------------------------------------------------------ 公告 */
 
-export type AnnouncementStatus = "scheduled" | "active" | "expired";
+export type AnnouncementLevel = "info" | "important" | "warning";
 
 export interface Announcement {
   id: string;
   title: string;
   content: string;
-  startsAt: string | null;
-  endsAt: string | null;
+  level: AnnouncementLevel;
   pinned: boolean;
+  /** 发布日期（默认等于创建时间，可由管理员修改） */
+  publishedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  /** 已读人数 / 用户总数 */
+  readCount: number;
+  totalUsers: number;
+  /** 创建后是否被修改过（用于展示「修改于」） */
+  edited: boolean;
 }
 
 /** 新建/编辑公告入参 */
 export interface AnnouncementInput {
   title: string;
   content: string;
-  startsAt: string | null;
-  endsAt: string | null;
+  level: AnnouncementLevel;
   pinned: boolean;
+  publishedAt: string | null;
 }
 
 /* ------------------------------------------------------------------ 日志 */

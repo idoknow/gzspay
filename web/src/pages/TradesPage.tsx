@@ -1,8 +1,8 @@
-/** 交易页：待付款 / 待收款 + 状态筛选（待处理 / 已结算，点按钮弹出菜单）+ 订单列表 + 公告 + 空态。 */
+/** 交易页：待付款 / 待收款 + 状态筛选（待处理 / 已结算，点按钮弹出菜单）+ 订单列表 + 公告红点 + 空态。 */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { AnnouncementBanner } from "../components/AnnouncementBanner";
+import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { EmptyState } from "../components/EmptyState";
@@ -135,9 +135,12 @@ export function TradesPage(): ReactNode {
       <header className="sticky top-0 z-30 border-b border-line glass safe-top">
         <div className="page flex items-center justify-between py-3 watch:py-2">
           <Logo size={watch ? 26 : 30} wordmark />
-          <button type="button" aria-label="我的" className="rounded-full" onClick={() => navigate("/me")}>
-            <Avatar name={me?.displayName ?? "我"} avatarUrl={me?.avatarUrl ?? null} size={watch ? 28 : 34} />
-          </button>
+          <div className="flex items-center gap-2 watch:gap-1.5">
+            <AnnouncementBell />
+            <button type="button" aria-label="我的" className="rounded-full" onClick={() => navigate("/me")}>
+              <Avatar name={me?.displayName ?? "我"} avatarUrl={me?.avatarUrl ?? null} size={watch ? 28 : 34} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -230,66 +233,64 @@ export function TradesPage(): ReactNode {
         </div>
 
         <div className="mt-4 watch:mt-3">
-          <AnnouncementBanner />
-        </div>
-
-        {error && orders.length === 0 ? (
-          <ErrorBlock
-            message={error}
-            onRetry={() => {
-              setReloadKey((value) => value + 1);
-            }}
-          />
-        ) : loading && orders.length === 0 ? (
-          <LoadingBlock text="正在加载订单…" />
-        ) : orders.length === 0 ? (
-          <EmptyState
-            title={EMPTY_TEXT[scope][status]}
-            description="扫码付款或让对方向你发起收款，订单会出现在这里"
-            action={
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate("/pay")}>
-                去收付款
-              </button>
-            }
-          />
-        ) : (
-          <div className="space-y-3 watch:space-y-2">
-            {orders.map((order, index) => (
-              <div
-                key={order.id}
-                className="animate-slide-up"
-                style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
-              >
-                <OrderCard order={order} onClick={() => navigate(`/orders/${order.id}`)} />
-              </div>
-            ))}
-            {hasMore ? (
-              <button
-                type="button"
-                className="btn btn-secondary btn-block"
-                disabled={loading}
-                onClick={() => setPage((value) => value + 1)}
-              >
-                {loading ? <Spinner size={18} /> : null}
-                加载更多
-              </button>
-            ) : orders.length > 0 ? (
-              <p className="pt-1 text-center text-[11px] text-muted">没有更多了</p>
-            ) : null}
-            {error ? (
-              <p className="pt-1 text-center text-xs text-danger">
-                {error}
+          {error && orders.length === 0 ? (
+            <ErrorBlock
+              message={error}
+              onRetry={() => {
+                setReloadKey((value) => value + 1);
+              }}
+            />
+          ) : loading && orders.length === 0 ? (
+            <LoadingBlock text="正在加载订单…" />
+          ) : orders.length === 0 ? (
+            <EmptyState
+              title={EMPTY_TEXT[scope][status]}
+              description="扫码付款或让对方向你发起收款，订单会出现在这里"
+              action={
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate("/pay")}>
+                  去收付款
+                </button>
+              }
+            />
+          ) : (
+            <div className="space-y-3 watch:space-y-2">
+              {orders.map((order, index) => (
+                <div
+                  key={order.id}
+                  className="animate-slide-up"
+                  style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
+                >
+                  <OrderCard order={order} onClick={() => navigate(`/orders/${order.id}`)} />
+                </div>
+              ))}
+              {hasMore ? (
                 <button
                   type="button"
-                  className="ml-2 font-semibold text-brand"
-                  onClick={() => setReloadKey((value) => value + 1)}
+                  className="btn btn-secondary btn-block"
+                  disabled={loading}
+                  onClick={() => setPage((value) => value + 1)}
                 >
-                  重试
+                  {loading ? <Spinner size={18} /> : null}
+                  加载更多
                 </button>
-              </p>
-            ) : null}
-          </div>
-        )}
+              ) : orders.length > 0 ? (
+                <p className="pt-1 text-center text-[11px] text-muted">没有更多了</p>
+              ) : null}
+              {error ? (
+                <p className="pt-1 text-center text-xs text-danger">
+                  {error}
+                  <button
+                    type="button"
+                    className="ml-2 font-semibold text-brand"
+                    onClick={() => setReloadKey((value) => value + 1)}
+                  >
+                    重试
+                  </button>
+                </p>
+              ) : null}
+            </div>
+          )}
+        </div>
       </main>
 
       <BottomNav />

@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { PageHeader } from "../components/PageHeader";
@@ -127,19 +128,22 @@ export function MePage(): ReactNode {
       <PageHeader
         title="我的"
         right={
-          <button
-            type="button"
-            className="btn btn-sm btn-outline gap-1.5"
-            onClick={() => navigate("/dynamic-code")}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="3" y="3" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
-              <rect x="14" y="3" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
-              <rect x="3" y="14" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
-              <path d="M14 14h2.5v2.5H14zM18.5 18.5H21V21h-2.5z" fill="currentColor" />
-            </svg>
-            我的收付款码
-          </button>
+          <>
+            <AnnouncementBell />
+            <button
+              type="button"
+              className="btn btn-sm btn-outline gap-1.5"
+              onClick={() => navigate("/dynamic-code")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
+                <rect x="14" y="3" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
+                <rect x="3" y="14" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M14 14h2.5v2.5H14zM18.5 18.5H21V21h-2.5z" fill="currentColor" />
+              </svg>
+              我的收付款码
+            </button>
+          </>
         }
       />
 

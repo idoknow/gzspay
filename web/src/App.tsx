@@ -11,6 +11,8 @@ import { getSetupStatus } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/session";
 import type { SessionResponse, SetupStatus } from "./lib/types";
 import { AboutPage } from "./pages/AboutPage";
+import { AnnouncementDetailPage } from "./pages/AnnouncementDetailPage";
+import { AnnouncementsPage } from "./pages/AnnouncementsPage";
 import { BootPage } from "./pages/BootPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { DynamicCodePage } from "./pages/DynamicCodePage";
@@ -123,6 +125,8 @@ const router = createBrowserRouter([
     element: <BusinessLayout />,
     children: [
       { path: "/trades", element: <TradesPage /> },
+      { path: "/announcements", element: <AnnouncementsPage /> },
+      { path: "/announcements/:id", element: <AnnouncementDetailPage /> },
       { path: "/orders/:id", element: <OrderDetailPage /> },
       { path: "/pay", element: <PayPage /> },
       { path: "/dynamic-code", element: <DynamicCodePage /> },

@@ -11,7 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  announcementStatus,
   appealStatusLabel,
   appealStatusTone,
   orderStatusLabel,
@@ -231,18 +230,6 @@ export function AppealStatusBadge({ status }: { status: string }) {
   return (
     <Badge tone={appealStatusTone(status)}>{appealStatusLabel(status)}</Badge>
   );
-}
-
-/** 公告展示状态：根据生效/失效时间实时计算 */
-export function AnnouncementStatusBadge({
-  startsAt,
-  endsAt,
-}: {
-  startsAt: string | null;
-  endsAt: string | null;
-}) {
-  const status = announcementStatus(startsAt, endsAt);
-  return <Badge tone={status.tone}>{status.label}</Badge>;
 }
 
 /* -------------------------------------------------------------- 空/错/载 */
@@ -518,8 +505,18 @@ const THEME_OPTIONS: Array<{ key: ThemeMode; label: string; title: string }> = [
 ];
 
 export function ThemeSwitch({ mode, onChange }: ThemeSwitchProps) {
+  const activeIndex = Math.max(
+    0,
+    THEME_OPTIONS.findIndex((option) => option.key === mode),
+  );
   return (
     <div className="admin-theme-switch" role="group" aria-label="主题切换">
+      {/* 滑块指示器：三项等宽，按选中下标平移 */}
+      <span
+        className="admin-theme-thumb"
+        style={{ transform: `translateX(${activeIndex * 100}%)` }}
+        aria-hidden="true"
+      />
       {THEME_OPTIONS.map((option) => (
         <button
           key={option.key}
@@ -529,11 +526,59 @@ export function ThemeSwitch({ mode, onChange }: ThemeSwitchProps) {
           className={cx("admin-theme-btn", mode === option.key && "is-active")}
           onClick={() => onChange(option.key)}
         >
-          {option.label}
+          <ThemeIcon mode={option.key} />
+          <span className="admin-theme-label">{option.label}</span>
         </button>
       ))}
     </div>
   );
+}
+
+/** 主题图标：14px 内联 SVG，跟随文字颜色 */
+function ThemeIcon({ mode }: { mode: ThemeMode }) {
+  const common = {
+    width: 14,
+    height: 14,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+    focusable: false,
+  };
+  switch (mode) {
+    case "auto":
+      // 半圆对半：跟随系统
+      return (
+        <svg {...common} className="admin-theme-icon">
+          <circle cx="12" cy="12" r="8.4" />
+          <path
+            d="M12 3.6a8.4 8.4 0 0 1 0 16.8Z"
+            fill="currentColor"
+            stroke="none"
+          />
+        </svg>
+      );
+    case "light":
+      // 太阳
+      return (
+        <svg {...common} className="admin-theme-icon">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2.4v2.4M12 19.2v2.4M2.4 12h2.4M19.2 12h2.4M5.2 5.2l1.7 1.7M17.1 17.1l1.7 1.7M18.8 5.2l-1.7 1.7M6.9 17.1l-1.7 1.7" />
+        </svg>
+      );
+    case "dark":
+      // 月亮
+      return (
+        <svg {...common} className="admin-theme-icon">
+          <path d="M20.4 14.6A8.6 8.6 0 0 1 9.4 3.6a8.6 8.6 0 1 0 11 11Z" />
+        </svg>
+      );
+    default:
+      return null;
+  }
 }
 
 /* ---------------------------------------------------------------- 弹窗/抽屉 */

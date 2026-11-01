@@ -137,12 +137,16 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
                 ? "超级管理员：全部权限"
                 : "运营：可处理业务，不可改配置"}
           </div>
-          <div style={{ marginTop: 6 }}>
+          <div className="admin-sidebar-back">
             <a
               href="/"
-              style={{ color: "var(--admin-sidebar-text)", fontSize: 11.5 }}
+              className="admin-sidebar-back-link"
+              title="返回 gzspay 主站首页"
             >
-              ← 返回校园墙
+              <span className="admin-sidebar-back-arrow" aria-hidden="true">
+                ←
+              </span>
+              返回 Pay 主站
             </a>
           </div>
         </div>

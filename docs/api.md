@@ -291,9 +291,29 @@ interface SSEOrderUpdate {
 
 ## 9. 公告
 
+公告按「创建即发布」处理：`publishedAt` 默认等于创建时间，管理员可以手动修改；公告正文为
+Markdown，用户端按 Markdown 渲染。每个用户对每条公告有独立的已读记录。
+
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/api/announcements/active` | 生效期内公告（置顶优先）：`{ items: [{ id, title, content, startsAt, endsAt, pinned }] }` |
+| `GET` | `/api/announcements` | 全部公告（置顶优先、按发布日期倒序）：`{ items: Announcement[], unreadCount }` |
+| `POST` | `/api/announcements/:id/read` | 标记已读（幂等）：`{ ok: true, unreadCount }`；公告不存在 404 |
+
+`Announcement`（用户端）：
+
+```ts
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;          // Markdown
+  level: "info" | "important" | "warning";
+  pinned: boolean;
+  publishedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  read: boolean;            // 当前用户是否已读
+}
+```
 
 ## 10. 管理后台
 
@@ -335,9 +355,9 @@ interface SSEOrderUpdate {
 | `POST` | `/api/admin/appeals/:id/handle` | `{ status: "resolved"|"rejected", note }`（super/ops） |
 | `GET` | `/api/admin/stats` | `AdminStats`：趋势、商家排行、支付方式占比、转化漏斗、平均确认时长（分钟） |
 | `GET` | `/api/admin/system/status` | `SystemStatus`：服务、邮件成功率、校园墙连通性、存储、队列、`alerts` |
-| `GET` | `/api/admin/announcements` | `{ items: Announcement[] }` |
-| `POST` | `/api/admin/announcements` | `{ title, content, startsAt?, endsAt?, pinned? }`（super/ops） |
-| `PATCH` | `/api/admin/announcements/:id` | 同上 |
+| `GET` | `/api/admin/announcements` | `{ items: AdminAnnouncement[] }`：`AdminAnnouncement` = `Announcement` 去掉 `read`，另含 `readCount`（已读人数）、`totalUsers`（用户总数）、`edited`（创建后是否修改过） |
+| `POST` | `/api/admin/announcements` | `{ title, content, level?, pinned?, publishedAt? }` → `{ ok: true, id }`；`publishedAt` 缺省为创建时间（super/ops） |
+| `PATCH` | `/api/admin/announcements/:id` | 同上 → `{ ok: true, republished }`；标题/正文/级别/发布日期任一变化会清空已读记录（`republished: true`，用户端重新出现未读红点） |
 | `DELETE` | `/api/admin/announcements/:id` | 删除（super/ops） |
 | `GET` | `/api/admin/logs?type=audit|login|risk|error&from&to&query&page&pageSize` | `{ items: AdminLog[], ... }` |
 | `GET` | `/api/admin/logs/export?type&from&to&query` | 日志 CSV |

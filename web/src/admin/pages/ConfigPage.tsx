@@ -2,7 +2,7 @@
  * 系统配置：系统发件邮箱（SMTP）与安全防护设置。
  * 仅超级管理员可保存；其他角色只读查看。
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { getConfig, updateConfig } from "../api";
 import { useFeedback } from "../components/dialogs";
 import {
@@ -204,6 +204,43 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           )
         }
       >
+        <HelpPanel title="操作说明">
+          <ol className="admin-help-list">
+            <li>
+              <strong>填写服务器与端口：</strong>端口 465 一般开启 SSL/TLS，端口
+              587 一般使用 STARTTLS，具体以邮箱服务商文档为准。
+            </li>
+            <li>
+              <strong>填写发件人名称与发件邮箱地址：</strong>
+              收件人看到的发件人信息即取自此处的两项设置。
+            </li>
+            <li>
+              <strong>填写 SMTP 用户名与密码：</strong>用户名通常与发件邮箱一致；
+              密码请填写邮箱的「授权码」，不是邮箱登录密码。
+            </li>
+            <li>
+              <strong>密码留空表示保持不变：</strong>
+              已配置 SMTP 密码时，只有填写新值才会覆盖原密码。
+            </li>
+            <li>
+              <strong>保存后立即生效：</strong>
+              发送成功率与失败数量可在「系统状态 → 邮件服务」查看，失败原因可在「日志查看 →
+              系统错误」排查。
+            </li>
+          </ol>
+          <details className="admin-help-details">
+            <summary>邮件发送失败时按什么顺序排查？</summary>
+            <ul className="admin-help-list">
+              <li>核对服务器地址、端口与 SSL/TLS 开关是否与邮箱服务商文档一致。</li>
+              <li>确认密码填的是授权码，且邮箱后台已开启 SMTP 服务。</li>
+              <li>
+                保存后到「系统状态 → 邮件服务」看成功率与失败数，再到「日志查看 →
+                系统错误」查看具体错误信息。
+              </li>
+            </ul>
+          </details>
+        </HelpPanel>
+
         <div className="admin-form-grid">
           <Field label="SMTP 服务器地址" required>
             <input
@@ -297,6 +334,35 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
       </Card>
 
       <Card title="安全防护设置" subtitle="支付安全策略与登录会话策略">
+        <HelpPanel title="操作说明">
+          <ol className="admin-help-list">
+            <li>
+              <strong>支付密码最大错误次数：</strong>
+              同一用户在锁定周期内允许输错的上限，达到上限后临时锁定支付功能。
+            </li>
+            <li>
+              <strong>锁定分钟数：</strong>
+              触发上述上限后的锁定时长，锁定期间用户无法进行支付密码验证。
+            </li>
+            <li>
+              <strong>单笔 / 每日支付上限：</strong>
+              以元为单位填写，保存时自动换算为分存储；填 0 表示不限制。
+            </li>
+            <li>
+              <strong>动态码 / 邮箱验证码有效期：</strong>
+              验证码从签发到失效的时长，过短会增加重复获取，过长会降低安全性。
+            </li>
+            <li>
+              <strong>管理员登录态有效期：</strong>
+              后台登录状态的最长保留天数，超期需重新登录主站。
+            </li>
+            <li>
+              <strong>修改后立即生效：</strong>
+              只影响之后的行为，不会追溯改变已产生的订单或已签发的会话。
+            </li>
+          </ol>
+        </HelpPanel>
+
         <div className="admin-form-grid">
           <Field label="支付密码最大错误次数" hint="超过次数后账号支付功能将被锁定。">
             <input
@@ -326,7 +392,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field label="单笔支付上限（元）" hint="0 表示不限制。">
+          <Field label="单笔支付上限（元）" hint="以元填写，0 表示不限制。">
             <input
               className="admin-input"
               inputMode="decimal"
@@ -340,7 +406,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field label="每日支付上限（元）" hint="0 表示不限制。">
+          <Field label="每日支付上限（元）" hint="以元填写，0 表示不限制。">
             <input
               className="admin-input"
               inputMode="decimal"
@@ -356,7 +422,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           </Field>
           <Field
             label="动态码有效期（秒）"
-            hint={`当前：${formatTtlSeconds(Number(security.dynamicCodeTtl) || 0)}`}
+            hint={`当前：${formatTtlSeconds(Number(security.dynamicCodeTtl) || 0)}。`}
           >
             <input
               className="admin-input"
@@ -373,7 +439,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           </Field>
           <Field
             label="邮箱验证码有效期（秒）"
-            hint={`当前：${formatTtlSeconds(Number(security.emailCodeTtl) || 0)}`}
+            hint={`当前：${formatTtlSeconds(Number(security.emailCodeTtl) || 0)}。`}
           >
             <input
               className="admin-input"
@@ -440,15 +506,40 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
       </Card>
 
       <div className="admin-card">
-        <SectionTitle>操作说明</SectionTitle>
-        <ul className="admin-text-sm admin-secondary" style={{ lineHeight: 2, marginTop: 10 }}>
-          <li>修改 SMTP 配置后建议先在「系统状态」页确认邮件发送成功率是否恢复。</li>
-          <li>单笔与每日限额以元为单位填写，保存时自动转换为分存储，0 表示不限制。</li>
-          <li>支付密码错误次数与锁定时间同时作用于用户端支付验证，请谨慎调整。</li>
-          <li>所有配置变更会写入操作日志，可在「日志查看 → 操作日志」中追溯。</li>
+        <SectionTitle>保存与追溯</SectionTitle>
+        <ul
+          className="admin-help-list admin-text-sm admin-secondary"
+          style={{ marginTop: 10 }}
+        >
+          <li>保存后立即生效，无需重启服务或重新登录。</li>
+          <li>
+            所有配置变更会写入操作日志，可在「日志查看 → 操作日志」中按时间追溯。
+          </li>
+          <li>「恢复为已保存配置」只还原表单，不会修改服务端已保存的值。</li>
         </ul>
       </div>
     </div>
+  );
+}
+
+/** 卡片内的「操作说明」区块：浅底 + 左侧竖条 + 圆形徽标标题 */
+function HelpPanel({
+  title = "操作说明",
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="admin-help" aria-label={title}>
+      <div className="admin-help-title">
+        <span className="admin-help-badge" aria-hidden="true">
+          i
+        </span>
+        {title}
+      </div>
+      {children}
+    </section>
   );
 }
 
