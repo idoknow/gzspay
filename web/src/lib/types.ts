@@ -125,7 +125,6 @@ export interface Product {
   name: string;
   priceCents: number;
   description: string | null;
-  imageUrl: string | null;
   active: boolean;
   sortOrder: number;
 }

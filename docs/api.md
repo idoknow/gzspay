@@ -150,7 +150,7 @@ interface Me {
 | `PATCH` | `/api/merchant/channels/:channel` | `{ enabled }` 启用/停用；至少保留一个启用 |
 | `GET` | `/api/merchant/channels/:channel/qr` | 返回重生成的二维码 PNG（`image/png`） |
 | `GET` | `/api/merchant/products` | 商品列表（含下架） |
-| `POST` | `/api/merchant/products` | `{ name, priceCents, description?, active?, imageUrl? }` |
+| `POST` | `/api/merchant/products` | `{ name, priceCents, description?, active? }`（商品不含图片） |
 | `PATCH` | `/api/merchant/products/:id` | 同上字段可选 |
 | `DELETE` | `/api/merchant/products/:id` | 删除商品 |
 | `PATCH` | `/api/merchant/products/sort` | `{ ids: string[] }` 按顺序重排 |

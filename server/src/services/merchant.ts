@@ -37,7 +37,6 @@ export interface ProductDto {
   name: string;
   priceCents: number;
   description: string | null;
-  imageUrl: string | null;
   active: boolean;
   sortOrder: number;
   createdAt: string;
@@ -290,7 +289,6 @@ function productDtoOf(row: ProductRow): ProductDto {
     name: row.name,
     priceCents: row.price_cents,
     description: row.description,
-    imageUrl: row.image_url,
     active: row.active === 1,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
@@ -309,7 +307,6 @@ function validateProductFields(input: {
   name?: string;
   priceCents?: number;
   description?: string | null;
-  imageUrl?: string | null;
   active?: boolean;
 }): void {
   if (input.name !== undefined && !input.name.trim()) throw errors.validation("商品名称不能为空");
@@ -324,7 +321,6 @@ export function createProduct(
     name: string;
     priceCents: number;
     description?: string | null;
-    imageUrl?: string | null;
     active?: boolean;
   },
 ): ProductDto {
@@ -337,14 +333,13 @@ export function createProduct(
   const id = newId();
   const now = nowIso();
   execute(
-    `INSERT INTO products (id, merchant_id, name, price_cents, description, image_url, active, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO products (id, merchant_id, name, price_cents, description, active, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     user.id,
     input.name.trim().slice(0, 40),
     input.priceCents,
     (input.description ?? "").slice(0, 500),
-    input.imageUrl ?? null,
     input.active === false ? 0 : 1,
     (maxSort?.value ?? 0) + 1,
     now,
@@ -361,7 +356,6 @@ export function updateProduct(
     name?: string;
     priceCents?: number;
     description?: string | null;
-    imageUrl?: string | null;
     active?: boolean;
   },
 ): ProductDto {
@@ -386,10 +380,6 @@ export function updateProduct(
   if (input.description !== undefined) {
     sets.push("description = ?");
     params.push(input.description ?? "");
-  }
-  if (input.imageUrl !== undefined) {
-    sets.push("image_url = ?");
-    params.push(input.imageUrl);
   }
   if (input.active !== undefined) {
     sets.push("active = ?");

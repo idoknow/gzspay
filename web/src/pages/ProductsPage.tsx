@@ -28,11 +28,10 @@ interface ProductDraft {
   name: string;
   priceYuan: string;
   description: string;
-  imageUrl: string;
   active: boolean;
 }
 
-const EMPTY_DRAFT: ProductDraft = { id: null, name: "", priceYuan: "", description: "", imageUrl: "", active: true };
+const EMPTY_DRAFT: ProductDraft = { id: null, name: "", priceYuan: "", description: "", active: true };
 
 function draftFromProduct(product: Product): ProductDraft {
   return {
@@ -40,7 +39,6 @@ function draftFromProduct(product: Product): ProductDraft {
     name: product.name,
     priceYuan: centsToYuan(product.priceCents),
     description: product.description ?? "",
-    imageUrl: product.imageUrl ?? "",
     active: product.active,
   };
 }
@@ -95,14 +93,13 @@ export function ProductsPage(): ReactNode {
         name,
         priceCents,
         description: draft.description.trim(),
-        imageUrl: draft.imageUrl.trim() || null,
         active: draft.active,
       };
       if (draft.id) {
         await updateProduct(draft.id, payload);
         toast.success("商品已更新");
       } else {
-        await createProduct({ ...payload, imageUrl: payload.imageUrl ?? undefined, description: payload.description });
+        await createProduct(payload);
         toast.success("商品已创建");
       }
       setDraft(null);
@@ -337,18 +334,6 @@ export function ProductsPage(): ReactNode {
                 maxLength={120}
                 placeholder="口味、规格等补充说明"
                 onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="product-image">
-                图片链接（可选）
-              </label>
-              <input
-                id="product-image"
-                className="input"
-                value={draft.imageUrl}
-                placeholder="https://"
-                onChange={(event) => setDraft({ ...draft, imageUrl: event.target.value })}
               />
             </div>
             <div className="flex items-center justify-between rounded-2xl bg-surface-2 px-3 py-2.5">

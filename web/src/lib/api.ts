@@ -335,7 +335,6 @@ export function createProduct(payload: {
   priceCents: number;
   description?: string;
   active?: boolean;
-  imageUrl?: string;
 }): Promise<Product> {
   return api.post<Product>("/merchant/products", payload);
 }
@@ -347,7 +346,6 @@ export function updateProduct(
     priceCents: number;
     description: string | null;
     active: boolean;
-    imageUrl: string | null;
   }>,
 ): Promise<Product> {
   return api.patch<Product>(`/merchant/products/${id}`, payload);

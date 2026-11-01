@@ -165,7 +165,6 @@ const productSchema = z.object({
   name: z.string().trim().min(1, "请填写商品名称").max(40),
   priceCents: z.number().int().positive("商品价格必须大于 0"),
   description: z.string().max(500).nullable().optional(),
-  imageUrl: z.string().max(500).nullable().optional(),
   active: z.boolean().optional(),
 });
 

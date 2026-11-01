@@ -57,18 +57,9 @@ export function ProductPicker({ products, selected, onChange, disabled = false }
               quantity > 0 ? "border-text/80 bg-surface-2" : "border-line bg-surface",
             )}
           >
-            {product.imageUrl ? (
-              <img
-                src={product.imageUrl}
-                alt=""
-                className="h-11 w-11 shrink-0 rounded-xl object-cover"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-lg">
-                {product.name.slice(0, 1)}
-              </span>
-            )}
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-lg">
+              {product.name.slice(0, 1)}
+            </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-text">{product.name}</p>
               {product.description ? (
