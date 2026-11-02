@@ -136,9 +136,9 @@ export function payChannelLabel(channel: PayChannel | null | undefined): string 
 export function orderStatusLabel(status: OrderStatus): string {
   switch (status) {
     case "pending_payment":
-      return "待付款";
+      return "待处理";
     case "paid":
-      return "已支付";
+      return "待确认";
     case "completed":
       return "已完成";
     case "cancelled":
@@ -166,9 +166,9 @@ export function orderStatusTone(status: OrderStatus): "warning" | "brand" | "suc
 export function orderFilterLabel(filter: "pending" | "paid" | "closed" | "all"): string {
   switch (filter) {
     case "pending":
-      return "待处理";
+      return "进行中";
     case "paid":
-      return "已支付";
+      return "待确认";
     case "closed":
       return "已结束";
     default:

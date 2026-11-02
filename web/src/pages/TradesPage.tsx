@@ -1,4 +1,4 @@
-/** 交易页：待付款 / 待收款 + 关键词搜索 + 状态筛选（待处理 / 已结算，点按钮弹出菜单）+ 订单列表 + 公告红点 + 空态。 */
+/** 交易页：我发起的 / 我收到的 + 关键词搜索 + 状态筛选（进行中 / 已结束，点按钮弹出菜单）+ 订单列表 + 公告红点 + 空态。 */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -21,16 +21,16 @@ type StatusFilter = "pending" | "settled";
 
 const PAGE_SIZE = 20;
 
-const SCOPE_LABELS: Record<Scope, string> = { pay: "待付款", receive: "待收款" };
-/** 「待付款 / 待收款」下面只分两项，点按钮才展开菜单选择 */
+const SCOPE_LABELS: Record<Scope, string> = { pay: "我发起的", receive: "我收到的" };
+/** 「我发起的 / 我收到的」下面只分两项，点按钮才展开菜单选择 */
 const STATUS_OPTIONS: { value: StatusFilter; label: string; hint: string }[] = [
-  { value: "pending", label: "待处理", hint: "买家还没付款" },
-  { value: "settled", label: "已结算", hint: "已支付、已完成或已取消" },
+  { value: "pending", label: "进行中", hint: "还没有完成的订单" },
+  { value: "settled", label: "已结束", hint: "已完成或已取消的订单" },
 ];
-const STATUS_LABELS: Record<StatusFilter, string> = { pending: "待处理", settled: "已结算" };
+const STATUS_LABELS: Record<StatusFilter, string> = { pending: "进行中", settled: "已结束" };
 const EMPTY_TEXT: Record<Scope, Record<StatusFilter, string>> = {
-  pay: { pending: "暂无待处理订单", settled: "暂无已结算订单" },
-  receive: { pending: "暂无待处理订单", settled: "暂无已结算订单" },
+  pay: { pending: "暂无进行中的订单", settled: "暂无已结束的订单" },
+  receive: { pending: "暂无进行中的订单", settled: "暂无已结束的订单" },
 };
 
 function ChevronIcon({ open }: { open: boolean }): ReactNode {
@@ -309,10 +309,10 @@ export function TradesPage(): ReactNode {
             ) : (
               <EmptyState
                 title={EMPTY_TEXT[scope][status]}
-                description="扫码付款或让对方向你发起收款，订单会出现在这里"
+                description="扫描对方的校园卡，或让对方扫描你的动态码，订单会出现在这里"
                 action={
                   <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate("/pay")}>
-                    去收付款
+                    去扫码
                   </button>
                 }
               />

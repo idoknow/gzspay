@@ -1,4 +1,4 @@
-/** 全局收款请求弹窗：商家扫描我的动态码发起收款请求后，通过 SSE 实时弹出，核对后输入支付密码确认或拒绝。 */
+/** 全局确认请求弹窗：商家扫描我的动态码发起请求后，通过 SSE 实时弹出，核对后输入密码确认或拒绝。 */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -49,7 +49,7 @@ export function PaymentRequestDialog(): ReactNode {
     setAccepting(true);
     try {
       const { orderId } = await acceptPaymentRequest(request.id, password);
-      toast.success("已确认付款");
+      toast.success("已确认");
       setRequest(null);
       setPhase("detail");
       navigate(`/orders/${orderId}`);
@@ -74,7 +74,7 @@ export function PaymentRequestDialog(): ReactNode {
     setBusy(true);
     try {
       await rejectPaymentRequest(request.id);
-      toast.info("已拒绝该收款请求");
+      toast.info("已拒绝该请求");
       setRequest(null);
       setPhase("detail");
     } catch (cause) {
@@ -88,8 +88,8 @@ export function PaymentRequestDialog(): ReactNode {
     <Dialog
       open={request !== null}
       onClose={close}
-      title={expired ? "收款请求已过期" : "收到收款请求"}
-      description={expired ? "该请求已过期，如需付款请让商家重新发起。" : "请核对商家信息与金额，确认无误后输入支付密码。"}
+      title={expired ? "请求已过期" : "收到确认请求"}
+      description={expired ? "该请求已过期，如需处理请让商家重新发起。" : "请核对商家信息与金额，确认无误后输入密码。"}
       footer={
         phase === "detail" ? (
           expired ? (
@@ -103,7 +103,7 @@ export function PaymentRequestDialog(): ReactNode {
                 拒绝
               </button>
               <button type="button" className="btn btn-primary flex-1" onClick={() => setPhase("password")}>
-                确认支付
+                确认提交
               </button>
             </div>
           )
@@ -116,8 +116,8 @@ export function PaymentRequestDialog(): ReactNode {
     >
       {phase === "password" ? (
         <BuiltInKeypad
-          title="输入支付密码"
-          description={`向 ${merchantName} 支付 ¥${formatCents(request.amountCents)}`}
+          title="输入密码"
+          description={`向 ${merchantName} 确认 ¥${formatCents(request.amountCents)}`}
           onSubmit={handleAccept}
           onCancel={() => setPhase("detail")}
           footerExtra={
@@ -145,7 +145,7 @@ export function PaymentRequestDialog(): ReactNode {
 
           <div className="flex flex-col items-center rounded-2xl bg-surface-2/70 py-4">
             <MoneyText cents={request.amountCents} size="xl" />
-            <p className="mt-1 text-xs text-muted">{request.title || "收款请求"}</p>
+            <p className="mt-1 text-xs text-muted">{request.title || "确认请求"}</p>
           </div>
 
           {request.items && request.items.length > 0 ? (
@@ -169,7 +169,7 @@ export function PaymentRequestDialog(): ReactNode {
           ) : null}
 
           <p className="text-center text-[11px] leading-relaxed text-muted">
-            请核对收款方信息。资金通过第三方收款码流转，gzspay 不代收代付。
+            请核对对方信息与金额，确认后再提交。
           </p>
         </div>
       )}

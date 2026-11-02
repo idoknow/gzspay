@@ -21,7 +21,7 @@ export function OrderCard({ order, onClick }: OrderCardProps): ReactNode {
     "对方";
   const summary = order.items && order.items.length > 0
     ? order.items.map((item) => `${item.name}×${item.quantity}`).join("、")
-    : "自定义付款";
+    : "自定义金额";
 
   return (
     <button

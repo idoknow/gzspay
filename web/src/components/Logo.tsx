@@ -70,10 +70,10 @@ export interface TaglineProps {
   className?: string;
 }
 
-/** 「CAMPUS PAYMENT」字距副标。 */
+/** 「CAMPUS SERVICE」字距副标（中性文案，不出现支付类字样）。 */
 export function Tagline({ animated = false, className }: TaglineProps): ReactNode {
   return (
-    <span className={cn("logo-tagline", animated && "wordmark-in", className)}>CAMPUS PAYMENT</span>
+    <span className={cn("logo-tagline", animated && "wordmark-in", className)}>CAMPUS SERVICE</span>
   );
 }
 

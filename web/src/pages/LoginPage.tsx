@@ -68,7 +68,7 @@ export function LoginPage(): ReactNode {
           <LogoMark size={watch ? 64 : 96} animated />
           <Wordmark size={watch ? "md" : "xl"} animated className="mt-5 watch:mt-3" />
           <Tagline animated className="mt-3 watch:mt-1.5" />
-          <p className="mt-2 text-sm text-muted watch:mt-1 watch:text-[11px]">桂中校园收付款</p>
+          <p className="mt-2 text-sm text-muted watch:mt-1 watch:text-[11px]">桂中校园服务</p>
         </div>
 
         <div className="mt-10 w-full max-w-[360px] space-y-3 watch:mt-5 watch:space-y-2">

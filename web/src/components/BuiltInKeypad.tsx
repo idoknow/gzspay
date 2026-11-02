@@ -139,7 +139,7 @@ export function BuiltInKeypad({
             {error}
           </span>
         ) : (
-          <span className="text-xs text-muted watch:text-[10px]">支付密码只在本机输入</span>
+          <span className="text-xs text-muted watch:text-[10px]">密码只在本机输入</span>
         )}
       </div>
 

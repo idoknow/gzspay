@@ -1,4 +1,4 @@
-/** 底部导航：交易｜收付款（中间凸起主按钮）｜我的。 */
+/** 底部导航：交易｜扫码（中间凸起主按钮）｜我的。 */
 
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
@@ -69,7 +69,7 @@ export function BottomNav(): ReactNode {
           <div className="flex flex-col items-center">
             <NavLink
               to="/pay"
-              aria-label="收付款"
+              aria-label="扫码"
               className="-mt-7 flex h-[54px] w-[54px] items-center justify-center rounded-full text-white ring-4 ring-bg transition active:scale-95 watch:-mt-3 watch:h-9 watch:w-9"
               style={{
                 background: "var(--brand-gradient)",
@@ -93,7 +93,7 @@ export function BottomNav(): ReactNode {
               </svg>
             </NavLink>
             <span className="mt-0.5 text-[10px] font-semibold tracking-wide text-brand watch:mt-0 watch:text-[8px]">
-              Pay
+              扫码
             </span>
           </div>
 
