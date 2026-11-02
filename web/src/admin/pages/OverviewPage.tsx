@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { getOverview } from "../api";
 import { DualAxisTrendChart } from "../components/charts";
+import { ExportableCard } from "../components/ExportableCard";
 import {
   Badge,
   Button,
@@ -98,9 +99,19 @@ export function OverviewPage() {
           </div>
 
           <div className="admin-grid-main-aside">
-            <Card
+            <ExportableCard
               title="近 12 个月交易趋势"
               subtitle="柱状为交易额，折线为订单数；点击图例可隐藏系列，点击柱子或圆点查看该月明细"
+              filename="总览-近12个月交易趋势"
+              csv={{
+                headers: ["月份", "交易额（元）", "订单数"],
+                rows: data.trend.map((bucket) => [
+                  bucket.label,
+                  (bucket.amountCents / 100).toFixed(2),
+                  bucket.orderCount,
+                ]),
+              }}
+              json={data.trend}
               extra={
                 <Link className="admin-btn admin-btn-link admin-btn-sm" to="/admin/monthly">
                   查看每月交易额
@@ -119,7 +130,7 @@ export function OverviewPage() {
                 onClearSelect={() => setTrendKey(null)}
                 emptyText="暂无交易数据"
               />
-            </Card>
+            </ExportableCard>
 
             <Card
               title="待处理事项"

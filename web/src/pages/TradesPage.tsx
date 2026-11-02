@@ -157,7 +157,7 @@ export function TradesPage(): ReactNode {
   const hasMore = orders.length < total;
 
   return (
-    <div className="bg-app min-h-[100dvh]">
+    <div className="bg-app min-h-[100dvh] overflow-x-clip">
       <header className="sticky top-0 z-30 border-b border-line glass safe-top">
         <div className="page flex items-center justify-between py-3 watch:py-2">
           <Logo size={watch ? 26 : 30} wordmark />
@@ -242,7 +242,7 @@ export function TradesPage(): ReactNode {
                 <div
                   role="menu"
                   aria-label="订单状态筛选"
-                  className="absolute top-full left-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-line bg-surface p-1 shadow-[var(--shadow-float)] watch:mt-1.5 watch:w-44 watch:p-0.5"
+                  className="absolute top-full right-0 z-40 mt-2 w-52 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-line bg-surface p-1 shadow-[var(--shadow-float)] watch:mt-1.5 watch:w-44 watch:p-0.5"
                 >
                   {STATUS_OPTIONS.map((option) => {
                     const active = option.value === status;

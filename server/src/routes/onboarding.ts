@@ -12,7 +12,7 @@ import type { OnboardStep, UserRow } from "../lib/types.js";
 import {
   bindCampusCard,
   completeOnboarding,
-  isValidEmailValue,
+  isQqEmailValue,
   onboardStepLabel,
   setPaymentPassword,
   setRealName,
@@ -114,7 +114,9 @@ onboardingRouter.post(
     if (stepIndex(user.onboard_step) < stepIndex("email")) {
       throw errors.orderStatusInvalid("请先完成校学号填写");
     }
-    if (!isValidEmailValue(body.email)) throw errors.validation("邮箱格式不正确");
+    if (!isQqEmailValue(body.email)) {
+      throw errors.validation("只能绑定 QQ 邮箱，格式为「QQ号@qq.com」，且 QQ 号必须为纯数字");
+    }
     const issued = await issueEmailCode({
       user,
       purpose: "email_verify",

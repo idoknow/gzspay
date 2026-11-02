@@ -42,6 +42,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/server/assets ./server/assets
 COPY --from=build /app/web/dist ./web/dist
+# 关于页的更新日志直接读仓库根的 CHANGELOG.md，运行时也要带上
+COPY --from=build /app/CHANGELOG.md ./CHANGELOG.md
 
 # SQLite 与可能的运行时文件都放在 /data，挂载卷即可持久化；/app 保持只读更安全
 RUN mkdir -p /data && chown -R node:node /data

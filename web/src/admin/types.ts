@@ -19,6 +19,7 @@ export type BadgeTone =
 export interface AdminIdentity {
   id: string;
   displayName: string;
+  avatarUrl: string | null;
   emailMasked: string | null;
   role: AdminRole;
   createdAt: string | null;
@@ -227,6 +228,7 @@ export interface AdminMember {
   id: string;
   userId: string;
   displayName: string;
+  avatarUrl: string | null;
   emailMasked: string | null;
   role: AdminRole;
   createdAt: string | null;

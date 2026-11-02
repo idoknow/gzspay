@@ -18,7 +18,7 @@ import {
   verifyOnboardingEmail,
 } from "../lib/api";
 import { errorMessage } from "../lib/http";
-import { isEmail, isSixDigitCode, isStudentNo } from "../lib/format";
+import { isQqEmail, isSixDigitCode, isStudentNo } from "../lib/format";
 import { useCountdown, useAsync } from "../lib/hooks";
 import { extractCardContent } from "../lib/scan";
 import { useAuth } from "../lib/session";
@@ -198,8 +198,8 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
 
   const sendCode = async (): Promise<void> => {
     if (sending) return;
-    if (!isEmail(email)) {
-      toast.error("请输入正确的邮箱地址");
+    if (!isQqEmail(email)) {
+      toast.error("请输入 QQ 邮箱，格式为 QQ号@qq.com（QQ 号需为纯数字）");
       return;
     }
     setSending(true);
@@ -217,8 +217,8 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
   };
 
   const submit = async (): Promise<void> => {
-    if (!isEmail(email)) {
-      toast.error("请输入正确的邮箱地址");
+    if (!isQqEmail(email)) {
+      toast.error("请输入 QQ 邮箱，格式为 QQ号@qq.com（QQ 号需为纯数字）");
       return;
     }
     if (!isSixDigitCode(code)) {
@@ -236,7 +236,10 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
   };
 
   return (
-    <StepShell title={STEP_TITLES.email} description="验证邮箱用于找回支付密码和接收交易通知。验证码 10 分钟内有效。">
+    <StepShell
+      title={STEP_TITLES.email}
+      description="绑定 QQ 邮箱用于找回支付密码和接收交易通知：@qq.com 前填纯数字 QQ 号。验证码 10 分钟内有效。"
+    >
       <form
         className="space-y-4"
         onSubmit={(event) => {
@@ -256,7 +259,7 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
               type="email"
               inputMode="email"
               autoComplete="email"
-              placeholder="请输入邮箱地址"
+              placeholder="QQ号@qq.com"
               onChange={(event) => setEmail(event.target.value)}
             />
             <button

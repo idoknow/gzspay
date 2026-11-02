@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getMonthly, getMonthlyDays } from "../api";
 import { BarChart, DualAxisTrendChart } from "../components/charts";
+import { ExportableCard } from "../components/ExportableCard";
 import {
   Card,
   EmptyState,
@@ -178,9 +179,19 @@ export function MonthlyPage() {
             />
           </div>
 
-          <Card
+          <ExportableCard
             title={`${year} 年每月交易额`}
             subtitle="点击柱状图查看该月每日趋势"
+            filename={`每月交易额-${year}年`}
+            csv={{
+              headers: ["月份", "交易额（元）", "订单数"],
+              rows: months.map((month) => [
+                month.label || formatMonthLabel(month.key),
+                (month.amountCents / 100).toFixed(2),
+                month.orderCount,
+              ]),
+            }}
+            json={months}
             extra={
               <span className="admin-text-sm admin-muted">
                 单位：元 · 当前选中：
@@ -201,16 +212,26 @@ export function MonthlyPage() {
               emptyText="暂无月度数据"
               ariaLabel={`${year} 年每月交易额`}
             />
-          </Card>
+          </ExportableCard>
 
           <div className="admin-grid-main-aside">
-            <Card
+            <ExportableCard
               title={
                 activeMonth
                   ? `${formatMonthLabel(activeMonth.key)}每日交易趋势`
                   : "每日交易趋势"
               }
               subtitle="柱状为交易额，折线为订单数；点击图例可隐藏系列，点击柱子或圆点查看该日明细"
+              filename={activeMonth ? `每日交易-${activeMonth.key}` : "每日交易趋势"}
+              csv={{
+                headers: ["日期", "交易额（元）", "订单数"],
+                rows: days.map((day) => [
+                  day.label || day.key,
+                  (day.amountCents / 100).toFixed(2),
+                  day.orderCount,
+                ]),
+              }}
+              json={days}
             >
               {daysLoading ? (
                 <TableSkeleton rows={4} cols={3} />
@@ -228,7 +249,7 @@ export function MonthlyPage() {
                   emptyText="该月暂无每日明细"
                 />
               )}
-            </Card>
+            </ExportableCard>
 
             <Card title="所选月份概览">
               {monthStats ? (

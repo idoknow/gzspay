@@ -60,7 +60,8 @@ async function completeOnboarding(
   const api = agentWith(session);
   await api.post("/api/onboarding/name").send({ surname: "张", givenName: "三" }).expect(200);
   await api.post("/api/onboarding/student-no").send({ studentNo: options.studentNo }).expect(200);
-  const email = `${options.studentNo}@example.com`;
+  // 绑定邮箱只接受「纯数字 QQ 号@qq.com」，学号为纯数字，可直接拼出合法地址
+  const email = `${options.studentNo}@qq.com`;
   const started = await api.post("/api/onboarding/email/start").send({ email }).expect(200);
   expect(started.body.devCode).toMatch(/^\d{6}$/);
   await api.post("/api/onboarding/email/verify").send({ email, code: started.body.devCode }).expect(200);
@@ -193,7 +194,7 @@ describe("新用户引导", () => {
     expect(me.body.studentNo).toBe("20230001");
     expect(me.body.cardNo).toBe("CARD-GUIDE-0001");
     expect(me.body.cardNoMasked).toContain("0001");
-    expect(me.body.email).toBe("20230001@example.com");
+    expect(me.body.email).toBe("20230001@qq.com");
   });
 
   it("引导接口返回步骤 key 列表并随进度推进", async () => {
@@ -215,6 +216,24 @@ describe("新用户引导", () => {
     const response = await api.post("/api/onboarding/student-no").send({ studentNo: "20230001" });
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe("CONFLICT");
+  });
+  it("绑定邮箱只接受纯数字 QQ 号@qq.com", async () => {
+    const { session } = await login("qq-email", "QQ 邮箱用户");
+    const api = agentWith(session);
+    await api.post("/api/onboarding/name").send({ surname: "赵", givenName: "六" }).expect(200);
+    await api.post("/api/onboarding/student-no").send({ studentNo: "20231234" }).expect(200);
+
+    for (const email of ["20231234@example.com", "abc@qq.com", "20231234@qq.com.cn"]) {
+      const response = await api.post("/api/onboarding/email/start").send({ email });
+      expect(response.status).toBe(400);
+      expect(String(response.body.error.message)).toContain("QQ 邮箱");
+    }
+
+    const accepted = await api
+      .post("/api/onboarding/email/start")
+      .send({ email: "20231234@qq.com" })
+      .expect(200);
+    expect(accepted.body.devCode).toMatch(/^\d{6}$/);
   });
 });
 

@@ -24,7 +24,7 @@ import {
 import {
   bindCampusCard,
   findUserByEmail,
-  isValidEmailValue,
+  isQqEmailValue,
   setPaymentPassword,
   setRealName,
   setStudentNo,
@@ -91,7 +91,9 @@ meRouter.post(
     const user = req.auth!.user;
     const body = parse(emailStartSchema, req.body);
     verifyPaymentPassword(user, body.paymentPassword, requestIp(req));
-    if (!isValidEmailValue(body.email)) throw errors.validation("邮箱格式不正确");
+    if (!isQqEmailValue(body.email)) {
+      throw errors.validation("只能绑定 QQ 邮箱，格式为「QQ号@qq.com」，且 QQ 号必须为纯数字");
+    }
     const taken = findUserByEmail(body.email);
     if (taken && taken.id !== user.id) throw errors.conflict("该邮箱已被其他账号使用");
     const issued = await issueEmailCode({

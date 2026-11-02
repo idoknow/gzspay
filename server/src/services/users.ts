@@ -431,6 +431,14 @@ export function isValidEmailValue(value: string): boolean {
   return isValidEmail(value.trim());
 }
 
+/**
+ * 绑定邮箱只支持 QQ 邮箱，且 QQ 号必须是纯数字（如 123456789@qq.com）。
+ * 校园场景里同学基本都用 QQ 邮箱，统一后缀也能避免把验证码发到不常用的邮箱。
+ */
+export function isQqEmailValue(value: string): boolean {
+  return /^\d{5,12}@qq\.com$/i.test(value.trim());
+}
+
 export const ONBOARD_STEP_LABELS: Record<OnboardStep, string> = {
   name: "填写姓名",
   studentNo: "填写校学号",

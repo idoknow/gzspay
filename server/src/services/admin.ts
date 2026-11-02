@@ -850,14 +850,23 @@ export interface AdminMemberDto {
   id: string;
   userId: string;
   displayName: string;
+  avatarUrl: string | null;
   emailMasked: string | null;
   role: AdminRole;
   createdAt: string | null;
 }
 
 export function adminMembers() {
-  const rows = queryAll<AdminRow & { surname: string | null; given_name: string | null; campux_username: string | null; email: string | null }>(
-    `SELECT a.*, u.surname, u.given_name, u.campux_username, u.email
+  const rows = queryAll<
+    AdminRow & {
+      surname: string | null;
+      given_name: string | null;
+      campux_username: string | null;
+      email: string | null;
+      avatar_url: string | null;
+    }
+  >(
+    `SELECT a.*, u.surname, u.given_name, u.campux_username, u.email, u.avatar_url
      FROM admins a LEFT JOIN users u ON u.id = a.user_id
      ORDER BY a.created_at ASC`,
   );
@@ -865,6 +874,7 @@ export function adminMembers() {
     id: row.user_id,
     userId: row.user_id,
     displayName: nameOf(row),
+    avatarUrl: row.avatar_url ?? null,
     emailMasked: row.email ? maskEmail(row.email) : null,
     role: row.role,
     createdAt: row.created_at,
@@ -1702,6 +1712,7 @@ export function adminIdentity(user: UserRow, admin: AdminRow) {
   return {
     id: user.id,
     displayName: nameOf(user),
+    avatarUrl: user.avatar_url || null,
     emailMasked: user.email ? maskEmail(user.email) : null,
     role: admin.role,
     createdAt: admin.created_at,

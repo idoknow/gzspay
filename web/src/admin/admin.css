@@ -398,6 +398,14 @@
   font-weight: 700;
   font-size: 14px;
   flex: 0 0 34px;
+  overflow: hidden;
+}
+
+.admin-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .admin-avatar-sm {
@@ -3895,4 +3903,72 @@
   .admin-grid-main-aside {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* 图表导出菜单 */
+.admin-card-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.admin-export {
+  position: relative;
+}
+
+.admin-export-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 196px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 12px;
+  background: var(--admin-bg-elevated);
+  border: 1px solid var(--admin-border);
+  box-shadow: var(--admin-shadow-lg);
+}
+
+.admin-export-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-text);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.admin-export-item:hover:not(.is-disabled) {
+  background: var(--admin-bg-hover);
+}
+
+.admin-export-item.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-export-item-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-export-item-hint {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+.admin-export-error {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  color: var(--admin-danger);
 }

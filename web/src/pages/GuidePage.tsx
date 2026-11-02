@@ -90,7 +90,7 @@ export function GuidePage(): ReactNode {
               校园收付款使用说明
             </h1>
             <p className="mt-2 text-[13px] leading-relaxed text-[color:var(--hero-fg)]/85 watch:text-xs">
-              从登录、收付款到商家收款与后台管理的完整说明。本页无需登录即可查看，也可以直接把链接分享给同学。
+              从登录、收付款到商家收款与后台管理的完整说明，也可以直接把链接分享给同学。
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)]">
@@ -98,9 +98,6 @@ export function GuidePage(): ReactNode {
               </span>
               <span className="inline-flex items-center rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)]">
                 共 {GUIDE_SECTIONS.length} 节
-              </span>
-              <span className="inline-flex items-center rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)]">
-                无需登录
               </span>
             </div>
           </div>

@@ -14,6 +14,7 @@ import {
   unfreezeUser,
 } from "../api";
 import { BarChart } from "../components/charts";
+import { AdminAvatar } from "../components/AdminAvatar";
 import {
   Badge,
   Button,
@@ -233,9 +234,7 @@ export function UsersPage() {
                     <tr key={user.id}>
                       <td>
                         <div className="admin-flex" style={{ gap: 10 }}>
-                          <div className="admin-avatar admin-avatar-sm" aria-hidden="true">
-                            {user.displayName.slice(0, 1)}
-                          </div>
+                          <AdminAvatar name={user.displayName} avatarUrl={user.avatarUrl} />
                           <div>
                             <div className="admin-cell-primary">{user.displayName}</div>
                             <div className="admin-cell-sub admin-text-xs">
@@ -322,9 +321,7 @@ export function UsersPage() {
                     <tr key={user.id}>
                       <td>
                         <div className="admin-flex" style={{ gap: 10 }}>
-                          <div className="admin-avatar admin-avatar-sm" aria-hidden="true">
-                            {user.displayName.slice(0, 1)}
-                          </div>
+                          <AdminAvatar name={user.displayName} avatarUrl={user.avatarUrl} />
                           <div>
                             <div className="admin-cell-primary">{user.displayName}</div>
                             <div className="admin-cell-sub admin-text-xs">
@@ -493,9 +490,7 @@ function UserRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {
     <tr>
       <td>
         <div className="admin-flex" style={{ gap: 10 }}>
-          <div className="admin-avatar admin-avatar-sm" aria-hidden="true">
-            {user.displayName.slice(0, 1)}
-          </div>
+          <AdminAvatar name={user.displayName} avatarUrl={user.avatarUrl} />
           <div>
             <div className="admin-cell-primary">{user.displayName}</div>
             <div className="admin-cell-sub admin-text-xs">

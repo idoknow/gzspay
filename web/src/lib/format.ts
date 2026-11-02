@@ -226,6 +226,11 @@ export function isEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 }
 
+/** QQ 邮箱校验：只接受「纯数字 QQ 号@qq.com」，系统用它发验证码与通知 */
+export function isQqEmail(value: string): boolean {
+  return /^\d{5,12}@qq\.com$/i.test(value.trim());
+}
+
 /** 校学号格式校验（字母数字，4-20 位） */
 export function isStudentNo(value: string): boolean {
   return /^[A-Za-z0-9]{4,20}$/.test(value.trim());

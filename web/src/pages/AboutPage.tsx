@@ -249,7 +249,7 @@ export function AboutPage(): ReactNode {
               使用文档
             </span>
             <span className="flex items-center gap-1.5 text-[11px] text-muted">
-              无需登录查看
+              查看
               <ExternalIcon />
             </span>
           </a>

@@ -16,6 +16,7 @@ import {
   SectionTitle,
   TableSkeleton,
 } from "../components/ui";
+import { AdminAvatar } from "../components/AdminAvatar";
 import { useFeedback } from "../components/dialogs";
 import { useAdmin } from "../context";
 import { formatDateTime, formatNumber, roleLabel } from "../format";
@@ -140,9 +141,7 @@ export function AdminsPage() {
                       <tr key={member.userId || member.id}>
                         <td>
                           <div className="admin-flex" style={{ gap: 10 }}>
-                            <div className="admin-avatar admin-avatar-sm" aria-hidden="true">
-                              {member.displayName.slice(0, 1)}
-                            </div>
+                            <AdminAvatar name={member.displayName} avatarUrl={member.avatarUrl} />
                             <div>
                               <div className="admin-cell-primary">
                                 {member.displayName}

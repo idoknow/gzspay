@@ -12,6 +12,7 @@ import {
   FunnelBars,
   HourlyChart,
 } from "../components/charts";
+import { ExportableCard } from "../components/ExportableCard";
 import {
   Badge,
   Card,
@@ -115,9 +116,19 @@ export function StatsPage() {
         <div className="admin-stack">
           <StatsSummary stats={data} />
 
-          <Card
+          <ExportableCard
             title="交易额与订单数趋势"
             subtitle="柱状为交易额，折线为订单数；点击图例可隐藏系列，点击柱子或圆点查看该点明细"
+            filename="数据统计-交易趋势"
+            csv={{
+              headers: ["时间", "交易额（元）", "订单数"],
+              rows: data.trend.map((bucket) => [
+                bucket.label,
+                (bucket.amountCents / 100).toFixed(2),
+                bucket.orderCount,
+              ]),
+            }}
+            json={data.trend}
           >
             <DualAxisTrendChart
               points={data.trend.map((bucket) => ({
@@ -131,12 +142,22 @@ export function StatsPage() {
               onClearSelect={() => setTrendKey(null)}
               emptyText="暂无趋势数据"
             />
-          </Card>
+          </ExportableCard>
 
           <div className="admin-grid-3">
-            <Card
+            <ExportableCard
               title="金额区间分布"
               subtitle="按成交订单金额分档汇总，点击区间查看单数与金额"
+              filename="数据统计-金额区间"
+              csv={{
+                headers: ["金额区间", "订单数", "交易额（元）"],
+                rows: (data.amountDistribution ?? []).map((item) => [
+                  item.label || item.key,
+                  item.count,
+                  (item.amountCents / 100).toFixed(2),
+                ]),
+              }}
+              json={data.amountDistribution ?? []}
             >
               <AmountDistributionChart
                 items={data.amountDistribution ?? []}
@@ -144,11 +165,21 @@ export function StatsPage() {
                 selectedKey={amountKey}
                 onClearSelect={() => setAmountKey(null)}
               />
-            </Card>
+            </ExportableCard>
 
-            <Card
+            <ExportableCard
               title="交易时段分布"
               subtitle="按小时汇总交易额，点击柱体查看该时段明细"
+              filename="数据统计-时段分布"
+              csv={{
+                headers: ["时段", "订单数", "交易额（元）"],
+                rows: (data.hourly ?? []).map((item) => [
+                  `${item.hour} 点`,
+                  item.count,
+                  (item.amountCents / 100).toFixed(2),
+                ]),
+              }}
+              json={data.hourly ?? []}
             >
               <HourlyChart
                 items={data.hourly ?? []}
@@ -156,11 +187,17 @@ export function StatsPage() {
                 selectedHour={selectedHour}
                 onClearSelect={() => setSelectedHour(null)}
               />
-            </Card>
+            </ExportableCard>
 
-            <Card
+            <ExportableCard
               title="订单状态分布"
               subtitle="按订单状态统计；点击扇区或图例查看、隐藏状态"
+              filename="数据统计-订单状态"
+              csv={{
+                headers: ["订单状态", "订单数"],
+                rows: statusCounts.map((item) => [item.label || item.status, item.count]),
+              }}
+              json={statusCounts}
             >
               {statusCounts.length === 0 || statusTotal === 0 ? (
                 <EmptyState
@@ -204,7 +241,7 @@ export function StatsPage() {
                   />
                 </div>
               )}
-            </Card>
+            </ExportableCard>
           </div>
 
           <div className="admin-grid-2">
@@ -251,9 +288,19 @@ export function StatsPage() {
               )}
             </Card>
 
-            <Card
+            <ExportableCard
               title="支付方式占比"
               subtitle="按订单数统计；点击扇区或图例查看、隐藏支付方式"
+              filename="数据统计-支付方式"
+              csv={{
+                headers: ["支付方式", "订单数", "交易额（元）"],
+                rows: (data.paymentMethods ?? []).map((method) => [
+                  method.label || method.method,
+                  method.count,
+                  (method.amountCents / 100).toFixed(2),
+                ]),
+              }}
+              json={data.paymentMethods ?? []}
             >
               {(data.paymentMethods ?? []).length === 0 ? (
                 <EmptyState title="暂无支付数据" description="还没有已支付订单。" />
@@ -297,7 +344,7 @@ export function StatsPage() {
                   />
                 </div>
               )}
-            </Card>
+            </ExportableCard>
           </div>
 
           <Card

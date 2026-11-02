@@ -29,9 +29,10 @@ logs
 .vscode
 .idea
 
-# 文档与协作文件（镜像不需要，构建阶段用不到）
+# 文档与协作文件（镜像只需要 README 与更新日志；CHANGELOG.md 供关于页读取）
 *.md
 !README.md
+!CHANGELOG.md
 LICENSE
 
 # 平台与工具缓存

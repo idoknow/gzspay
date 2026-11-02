@@ -11,7 +11,7 @@ import { QrScanner } from "../components/QrScanner";
 import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { bindCard, startEmailChange, updateProfile, verifyEmailChange } from "../lib/api";
-import { cn, isEmail, isSixDigitCode, isStudentNo } from "../lib/format";
+import { cn, isQqEmail, isSixDigitCode, isStudentNo } from "../lib/format";
 import { useCountdown, useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 import { extractCardContent } from "../lib/scan";
@@ -281,8 +281,8 @@ export function ProfilePage(): ReactNode {
 
   const sendEmailCode = (): void => {
     const target = email.trim();
-    if (!isEmail(target)) {
-      toast.error("请输入正确的邮箱地址");
+    if (!isQqEmail(target)) {
+      toast.error("只能绑定 QQ 邮箱，格式为 QQ号@qq.com（QQ 号需为纯数字）");
       return;
     }
     if (sendingEmail) return;
@@ -330,7 +330,7 @@ export function ProfilePage(): ReactNode {
     });
   };
 
-  const startedEmail = (target: string): boolean => emailStarted && isEmail(target);
+  const startedEmail = (target: string): boolean => emailStarted && isQqEmail(target);
 
   const bindWithContent = (content: string): void => {
     withPassword(async (password) => {
@@ -644,7 +644,7 @@ export function ProfilePage(): ReactNode {
               inputMode="email"
               autoComplete="email"
               value={email}
-              placeholder="name@example.com"
+              placeholder="QQ号@qq.com"
               onChange={(event) => {
                 setEmail(event.target.value);
                 setEmailStarted(false);
@@ -688,7 +688,9 @@ export function ProfilePage(): ReactNode {
           {devCode ? (
             <p className="rounded-xl bg-accent-soft px-3 py-2 text-[11px] text-warning">开发环境验证码：{devCode}</p>
           ) : (
-            <p className="text-[11px] leading-relaxed text-muted">验证码会发送到新邮箱，验证通过后才会替换当前邮箱。</p>
+            <p className="text-[11px] leading-relaxed text-muted">
+              只支持 QQ 邮箱（QQ号@qq.com，QQ 号需为纯数字）。验证码会发送到新邮箱，验证通过后才会替换当前邮箱。
+            </p>
           )}
         </div>
       </Dialog>

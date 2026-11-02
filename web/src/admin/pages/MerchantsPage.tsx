@@ -27,6 +27,7 @@ import {
   TableSkeleton,
   Tabs,
 } from "../components/ui";
+import { AdminAvatar } from "../components/AdminAvatar";
 import { useFeedback } from "../components/dialogs";
 import { useAdmin } from "../context";
 import {
@@ -289,9 +290,7 @@ function MerchantRow({
     <tr>
       <td>
         <div className="admin-flex" style={{ gap: 10 }}>
-          <div className="admin-avatar admin-avatar-sm" aria-hidden="true">
-            {merchant.merchantName.slice(0, 1)}
-          </div>
+          <AdminAvatar name={merchant.merchantName} avatarUrl={merchant.avatarUrl} />
           <div>
             <div className="admin-cell-primary">{merchant.merchantName}</div>
             <div className="admin-cell-sub admin-text-xs">

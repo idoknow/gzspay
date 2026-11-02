@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAdmin } from "./context";
+import { AdminAvatar } from "./components/AdminAvatar";
 import { useFeedback } from "./components/dialogs";
 import { ThemeSwitch, cx } from "./components/ui";
 import { roleLabel } from "./format";
@@ -280,9 +281,7 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
           <div className="admin-topbar-actions">
             <ThemeSwitch mode={themeMode} onChange={onThemeChange} />
             <div className="admin-topbar-user">
-              <div className="admin-avatar" aria-hidden="true">
-                {admin.displayName.slice(0, 1)}
-              </div>
+              <AdminAvatar name={admin.displayName} avatarUrl={admin.avatarUrl} />
               <div className="admin-user-meta">
                 <span className="admin-user-name">{admin.displayName}</span>
                 <span className="admin-user-role">

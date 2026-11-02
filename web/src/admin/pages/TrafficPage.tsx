@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { getTraffic } from "../api";
 import { BarChart, DonutChart } from "../components/charts";
+import { ExportableCard } from "../components/ExportableCard";
 import {
   Card,
   EmptyState,
@@ -166,9 +167,20 @@ export function TrafficPage() {
             />
           </div>
 
-          <Card
+          <ExportableCard
             title="请求量趋势"
             subtitle="柱状为每日请求数，副轴数据为当日扫码次数；点击柱子查看当天明细"
+            filename="访问统计-请求量趋势"
+            csv={{
+              headers: ["日期", "请求数", "扫码次数", "安全拦截"],
+              rows: data.series.map((point) => [
+                point.label || point.day,
+                point.requests,
+                point.scans,
+                point.security,
+              ]),
+            }}
+            json={data.series}
           >
             <BarChart
               points={seriesPoints}
@@ -177,13 +189,22 @@ export function TrafficPage() {
               emptyText="最近还没有请求数据"
               ariaLabel="每日请求量柱状图"
             />
-          </Card>
+          </ExportableCard>
 
           <div className="admin-grid-main-aside">
             <Card title="路由请求排行" subtitle="按接口 / 页面统计的请求次数（前 15）">
               <ShareList items={data.routes} emptyText="暂无路由请求数据" />
             </Card>
-            <Card title="访问设备" subtitle="按 User-Agent 粗分类">
+            <ExportableCard
+              title="访问设备"
+              subtitle="按 User-Agent 粗分类"
+              filename="访问统计-访问设备"
+              csv={{
+                headers: ["设备", "请求数", "占比（%）"],
+                rows: data.devices.map((item) => [item.label, item.count, item.share]),
+              }}
+              json={data.devices}
+            >
               <DonutChart
                 slices={deviceSlices}
                 centerLabel="请求"
@@ -192,11 +213,20 @@ export function TrafficPage() {
                 )}
                 emptyText="暂无设备数据"
               />
-            </Card>
+            </ExportableCard>
           </div>
 
           <div className="admin-grid-2">
-            <Card title="HTTP 状态码" subtitle="响应状态分布，关注 4xx / 5xx 占比">
+            <ExportableCard
+              title="HTTP 状态码"
+              subtitle="响应状态分布，关注 4xx / 5xx 占比"
+              filename="访问统计-状态码"
+              csv={{
+                headers: ["状态码", "请求数", "占比（%）"],
+                rows: data.statuses.map((item) => [item.label || item.key, item.count, item.share]),
+              }}
+              json={data.statuses}
+            >
               <BarChart
                 points={data.statuses.map((item) => ({
                   key: item.key,
@@ -208,7 +238,7 @@ export function TrafficPage() {
                 emptyText="暂无状态码数据"
                 ariaLabel="HTTP 状态码分布图"
               />
-            </Card>
+            </ExportableCard>
             <Card title="访问地区" subtitle="按 IP 归属地粗分类（不保存具体 IP）">
               <ShareList items={data.regions} emptyText="暂无地区数据" />
             </Card>
@@ -221,7 +251,16 @@ export function TrafficPage() {
                 emptyText="暂无客户端数据"
               />
             </Card>
-            <Card title="扫码统计" subtitle="校园卡与平台动态码被扫次数">
+            <ExportableCard
+              title="扫码统计"
+              subtitle="校园卡与平台动态码被扫次数"
+              filename="访问统计-扫码统计"
+              csv={{
+                headers: ["扫码方式", "次数", "占比（%）"],
+                rows: data.scans.items.map((item) => [item.label || item.key, item.count, item.share]),
+              }}
+              json={data.scans.items}
+            >
               <BarChart
                 points={data.scans.items.map((item) => ({
                   key: item.key,
@@ -233,7 +272,7 @@ export function TrafficPage() {
                 emptyText="暂无扫码数据"
                 ariaLabel="扫码次数统计图"
               />
-            </Card>
+            </ExportableCard>
           </div>
 
           <Card

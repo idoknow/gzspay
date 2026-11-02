@@ -430,10 +430,15 @@ img {
 }
 @keyframes gz-scan {
   0% {
-    transform: translateY(-100%);
+    top: 8px;
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
   }
   100% {
-    transform: translateY(1000%);
+    top: calc(100% - 10px);
+    opacity: 0.85;
   }
 }
 @keyframes gz-fade-in {
