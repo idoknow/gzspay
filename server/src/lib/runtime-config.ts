@@ -520,10 +520,10 @@ export function isSystemReady(): boolean {
   return value;
 }
 
-/** 校园墙登录是否可用（运行期配置优先，环境变量兜底） */
+/** 校园墙登录是否可用（运行期配置优先，环境变量兜底；后台保存的密钥同样算已配置） */
 export function isCampuxReady(): boolean {
   const campux = readCampuxConfig();
-  return Boolean(campux.clientId && config.campux.clientSecret);
+  return Boolean(campux.clientId && campux.clientSecretConfigured);
 }
 
 /** 邮件服务是否可用（运行期配置优先） */

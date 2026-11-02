@@ -6,6 +6,7 @@ import { execute, migrate, queryOne, resetDatabaseForTests } from "../src/db/ind
 import { buildCardQrContent, hashToken, randomToken } from "../src/lib/crypto.js";
 import { generateQrPngBuffer } from "../src/lib/qr.js";
 import { resetRateLimits } from "../src/lib/rate-limit.js";
+import { applyRuntimeConfig } from "../src/lib/runtime-config.js";
 import { loginOrRegister } from "../src/services/users.js";
 
 const CSRF = { "X-Requested-With": "gzspay" };
@@ -75,6 +76,7 @@ function initializeSystem(): void {
     ["system.siteName", "桂中校园支付"],
     ["campux.baseUrl", "https://campux.test"],
     ["campux.clientId", "test-client"],
+    ["campux.clientSecret", "test-secret"],
   ];
   for (const [key, value] of rows) {
     execute(
@@ -84,6 +86,8 @@ function initializeSystem(): void {
       now,
     );
   }
+  // 与生产启动流程一致：把库里的运行期配置写回内存，避免依赖仓库外的 .env
+  applyRuntimeConfig();
 }
 
 beforeAll(() => {
