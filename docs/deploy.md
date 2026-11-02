@@ -115,8 +115,14 @@ server {
     proxy_buffering off;
     proxy_read_timeout 3600s;
   }
+
+  # 静态资源已由服务端输出 br/gzip（Content-Encoding），不要再开 gzip，
+  # 否则会被二次压缩或协商冲突。若想交给 Nginx 压缩，请先关闭应用的预压缩产物。
+  gzip off;
 }
 ```
+
+> 静态资源压缩在构建期完成（`scripts/compress-dist.mjs` 生成 `.br` / `.gz`，服务端按 `Accept-Encoding` 协商），首屏主包从约 377KB 降到约 101KB。部署后可用 `curl -sI -H 'Accept-Encoding: br' https://你的域名/assets/xxx.js | grep -i content-encoding` 确认。
 
 ## 6. Docker 部署
 

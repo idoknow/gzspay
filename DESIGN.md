@@ -374,6 +374,7 @@ gzspay/
 - 实时推送：SSE 单用户最多 5 条、全站最多 2000 条连接，超限返回 `429`；写入时检查背压，慢连接直接跳过该事件。
 - 进程与连接：`keepAliveTimeout = 65s`、`headersTimeout = 66s`、`requestTimeout = 60s`，与 Nginx 默认 keep-alive 对齐；退出时先 flush 指标缓冲再关库。
 - 前端按路由懒加载：首屏只加载启动、登录与错误兜底页，交易统计、收付款、商家、使用文档等页面进入对应路由时才下载；扫码解码库（`jsqr`）单独成块，只有真正扫码时加载。主包从约 767KB 降到约 377KB（gzip 243KB → 121KB）。
+- 静态资源预压缩：`npm run build` 末尾的 `scripts/compress-dist.mjs` 为 `web/dist` 下的 js/css/html/svg/json/webmanifest 生成 `.br`（brotli 质量 11）与 `.gz` 同名文件，`server/src/lib/static-assets.ts` 按 `Accept-Encoding` 选择（br 优先），把 `Vary: Accept-Encoding`、`Content-Encoding` 与正确的 `Content-Type` 一起下发；没有预压缩文件的资源回退为即时 gzip。主包 377KB → br 101KB，CSS 74KB → br 11KB，`index.html` 10KB → br 2.2KB。`/assets/*` 带一年 `immutable` 强缓存，`index.html` 用 `no-cache`，其余静态 1 小时，并支持 `ETag` / `304`。反向代理不要再开压缩，避免二次压缩/重复协商。
 - 管理后台同样按页面懒加载：进入 `/admin` 只加载登录/初始化与布局，总览、用户、商家、订单、统计、系统等页面在切换导航时再下载（后台主包从约 197KB 降到约 82KB，gzip 52KB → 24KB）；页面切换时先显示指标卡与表格骨架占位，避免白屏。
 
 ### 10.9 部署

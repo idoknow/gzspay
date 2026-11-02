@@ -16,6 +16,7 @@ import {
 import { createAdminEntryGuard } from "./lib/admin-entry.js";
 import { createGeoGuard } from "./lib/geo.js";
 import { recordRequestMetric } from "./lib/metrics.js";
+import { createStaticAssets, sendAsset } from "./lib/static-assets.js";
 import { createTrafficMiddleware } from "./lib/traffic.js";
 import { geoGuardConfig } from "./lib/runtime-config.js";
 import { adminRouter } from "./routes/admin.js";
@@ -163,18 +164,10 @@ export function createApp(): Express {
 
   // 生产环境托管前端构建产物（开发环境由 Vite 提供）
   const hasWebDist = existsSync(path.join(config.webDistDir, "index.html"));
+  const indexFile = path.join(config.webDistDir, "index.html");
   if (config.isProduction && hasWebDist) {
-    app.use(
-      express.static(config.webDistDir, {
-        index: false,
-        maxAge: "1h",
-        setHeaders: (res, filePath) => {
-          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
-            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-          }
-        },
-      }),
-    );
+    // 静态资源优先发送构建期预压缩的 .br / .gz 变体，主包 377KB → 约 100KB
+    app.use(createStaticAssets(config.webDistDir));
     app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.method !== "GET" && req.method !== "HEAD") {
         next();
@@ -184,9 +177,8 @@ export function createApp(): Express {
         next();
         return;
       }
-      res.sendFile(path.join(config.webDistDir, "index.html"), (error) => {
-        if (error) next(error);
-      });
+      // SPA 兜底：同样走内容协商，避免 index.html 未压缩
+      sendAsset(req, res, next, indexFile, "/index.html", { cacheControl: "no-cache" });
     });
   }
 

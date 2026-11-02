@@ -7,6 +7,10 @@
 
 > 下一个版本的改动记录在这里：发布时把本小节标题改成 `## [版本号] - 日期`。
 
+### 变更
+
+- 静态资源改为构建期预压缩：`npm run build` 末尾的 `scripts/compress-dist.mjs` 会为 `web/dist` 下的 js/css/html/svg/json 等生成 `.br` 与 `.gz` 变体，服务端 `server/src/lib/static-assets.ts` 按 `Accept-Encoding` 协商返回（br 优先），补上 `Vary: Accept-Encoding`、`Content-Encoding`、`ETag` 与 `304`；主包从 377KB 降到约 101KB、CSS 从 74KB 降到约 11KB、首屏 HTML 从 10KB 降到约 2.2KB，缺少预压缩文件的资源回退为即时 gzip。`/assets/*` 保持一年 `immutable` 强缓存，`index.html` 改为 `no-cache`，`docs/deploy.md` 补充「反向代理不要再开 gzip」的说明。
+
 ## [0.3.0] - 2026-11-03
 
 ### 新增

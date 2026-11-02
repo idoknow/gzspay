@@ -15,7 +15,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:server": "npm run dev -w @gzspay/server",
     "dev:web": "npm run dev -w @gzspay/web",
-    "build": "npm run build -w @gzspay/server && npm run build -w @gzspay/web",
+    "build": "npm run build -w @gzspay/server && npm run build -w @gzspay/web && node scripts/compress-dist.mjs",
     "typecheck": "npm run typecheck -w @gzspay/server && npm run typecheck -w @gzspay/web",
     "test": "npm run test -w @gzspay/server",
     "check:changelog": "node scripts/check-changelog.mjs",
