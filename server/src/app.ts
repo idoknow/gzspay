@@ -12,6 +12,7 @@ import {
   securityHeaders,
   systemGate,
 } from "./lib/http.js";
+import { createGeoGuard } from "./lib/geo.js";
 import { recordRequestMetric } from "./lib/metrics.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
@@ -119,6 +120,8 @@ export function createApp(): Express {
   app.disable("x-powered-by");
   app.set("trust proxy", parseTrustProxy(config.trustProxy));
   app.use(securityHeaders);
+  // 地区访问限制：放在最前面，境外请求连接口与静态资源都不必再解析
+  app.use(createGeoGuard());
   app.use(jsonCompression);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));

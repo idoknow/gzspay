@@ -42,10 +42,15 @@ npm test                # 可选：运行接口测试
 | `ALERT_WEBHOOK_URL` | 可选：严重系统错误的 Webhook 推送地址（企业微信 / 钉钉 / 飞书群机器人），接收 JSON POST |
 | `ALERT_EMAIL_ENABLED` | 是否通过邮件通知已绑定邮箱的管理员（默认 `1`，需要 SMTP 已配置） |
 | `ALERT_THROTTLE_MINUTES` / `ALERT_MAX_PER_HOUR` | 同一类错误的告警合并窗口（默认 10 分钟）与每小时最多告警次数（默认 30） |
+| `GEO_BLOCK_NON_CHINA` | 设为 `1` 后只允许中国大陆 IP 访问，境外请求返回 `403 REGION_BLOCKED`（默认 `0` 关闭） |
+| `GEO_IP_WHITELIST` / `GEO_BYPASS_PATHS` | 白名单 IP / CIDR，以及始终放行的路径（默认含 `/api/health`） |
+| `GEO_UNKNOWN_POLICY` / `GEO_TRUST_HEADER` | 归属未知时 `deny`（默认拦截）或 `allow`；CDN 回源国家码请求头（如 `CF-IPCountry`，确认回源可信才配） |
 
 > 启动时会做安全自检：生产环境下若 `SESSION_SECRET` 仍是示例值、短于 32 字符，或站点地址不是 https（且未设置 `ALLOW_INSECURE_BASE_URL=1`），服务会打印原因后直接退出。完整安全说明见 [security.md](./security.md)。
 >
 > 严重系统错误（接口 5xx、进程未捕获异常、启动迁移失败、定时清理失败、邮件发送失败）会写入 `system_errors` 并主动告警：邮件发给有邮箱的管理员，同时推送到 `ALERT_WEBHOOK_URL`（若配置）。告警通道是否就绪可在后台「系统状态 → 严重错误告警」查看。
+>
+> 只对中国大陆开放时：先确认反向代理已把真实客户端 IP 传进来（`TRUST_PROXY=1`），再设置 `GEO_BLOCK_NON_CHINA=1`。IP 归属数据随仓库提供（`server/assets/cn-ip-ranges.json`），想更新时执行 `node scripts/geo/build-cn-ranges.mjs` 后重新构建；数据文件缺失时服务照常启动，但会打印告警并按 `GEO_UNKNOWN_POLICY` 处理。
 
 校园墙后台只需登记一个回调地址：
 

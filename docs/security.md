@@ -85,7 +85,21 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 - 告警内容包含来源、上下文（方法 + 路径）、错误文案、堆栈与管理后台地址，属于内部信息，只发给管理员与管理员配置的 Webhook，不返回给客户端。
 - 告警通道是否就绪可在后台「系统状态 → 严重错误告警」查看；未配置任何通道时该页会给出提示。
 
-## 9. 上线检查清单
+## 9. 地区访问限制
+
+- 默认关闭，设置 `GEO_BLOCK_NON_CHINA=1` 后只放行中国大陆 IP；境外请求一律返回 `403 REGION_BLOCKED`（接口返回 JSON，页面请求返回一段中文提示页）。
+- 归属判断依据 `server/assets/cn-ip-ranges.json`（由 `node scripts/geo/build-cn-ranges.mjs` 从 APNIC 的 CN 分配段生成，IPv4 区间 + IPv6 CIDR，零第三方依赖）。这份数据能覆盖境内运营商与校园网，但无法识别具体国家，也无法防 VPN / 机场 / 代理。
+- 例外与放行：
+  - 本机与内网地址（`127.0.0.0/8`、`10/8`、`172.16/12`、`192.168/16`、`::1`、`fc00::/7` 等）始终放行；
+  - `GEO_BYPASS_PATHS`（默认 `/api/health`、`/theme-boot.js`、`/sw.js`、`/manifest.webmanifest`、`/favicon.ico`）始终放行，健康检查不会被误拦；
+  - `GEO_IP_WHITELIST` 可放行固定出口 / 海外管理员 IP 或 CIDR。
+- 归属未知（数据缺失、地址无法解析）时按 `GEO_UNKNOWN_POLICY` 处理：`deny`（默认）拦截、`allow` 放行。
+- 前面有 CDN 时可在 `GEO_TRUST_HEADER` 填 CDN 的国家码请求头（如 `CF-IPCountry`）。只有确认回源请求一定来自 CDN 时才启用，否则客户端可伪造该头绕过限制。
+- 生效依赖真实客户端 IP：放在反向代理后面时要设置 `TRUST_PROXY=1`，否则所有请求都会被当成代理 IP（内网地址，直接放行）。
+- 被拦截的请求只打印节流日志（同一 IP 10 分钟一次），不写数据库，避免被刷库；后台「系统状态」不展示拦截计数。
+- 注意副作用：校园墙登录回调与站点同域，海外用户将无法登录；教育网个别海外出口可能被误判，必要时加入白名单。
+
+## 10. 上线检查清单
 
 1. `SESSION_SECRET` 用 `openssl rand -hex 32` 生成，至少 32 字符。
 2. `APP_BASE_URL`、`PUBLIC_BASE_URL` 都是 `https://`；没有证书的内网部署才设置 `ALLOW_INSECURE_BASE_URL=1`。
@@ -95,3 +109,4 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 6. 验证 `curl -I https://<域名>/api/health` 能看到 HSTS、CSP 与 `Cache-Control: no-store`。
 7. 跑一遍 `npm run verify` 与 `node scripts/e2e-smoke.mjs`（冒烟脚本要求全新数据库）。
 8. 配置告警通道并自测：设置 `ALERT_WEBHOOK_URL`，或配置 SMTP 并给管理员绑定邮箱；在后台「系统状态」确认告警显示为「已启用」。
+9. 需要只对中国大陆开放时：设置 `GEO_BLOCK_NON_CHINA=1`，确认 `/api/health` 仍 200、境外 IP 返回 `403 REGION_BLOCKED`，并把运维出口加入 `GEO_IP_WHITELIST`。

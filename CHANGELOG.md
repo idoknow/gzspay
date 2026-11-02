@@ -32,6 +32,7 @@
 - 管理后台新增「商家管理」页：展示商家总数 / 可正常收款 / 已暂停收款 / 本月新增，可按商家名称、负责人、学号搜索并按「可收款 / 已暂停」筛选；列表显示收款方式图标、商品上架数、收款笔数与累计收款；详情抽屉可逐个启用/停用支付宝、微信、QQ 收款方式，查看商品与最近收款订单，并可暂停 / 恢复商家收款（暂停后付款人下单会被拒绝，恢复只启用已上传收款码的渠道）；新增 `GET /api/admin/merchants`、`GET /api/admin/merchants/summary`、`GET /api/admin/merchants/:userId`、`POST /api/admin/merchants/:userId/channels`、`POST /api/admin/merchants/:userId/receiving`。
 - 严重系统错误主动告警：接口 5xx、进程未捕获异常、启动迁移失败、定时清理失败与邮件发送失败，除了写入系统错误日志，还会通过邮件通知已绑定邮箱的管理员，并可推送 `ALERT_WEBHOOK_URL`（JSON POST，可对接企业微信 / 钉钉 / 飞书群机器人）；同一类错误按来源与归一化文案合并，默认 10 分钟内只告警一次、每小时最多 30 次（`ALERT_THROTTLE_MINUTES` / `ALERT_MAX_PER_HOUR` 可调），告警邮件或 Webhook 自身失败只记录不再触发告警；后台「系统状态」新增「严重错误告警」卡展示通道配置、收件管理员人数、最近一次告警与最近一小时次数。
 - 管理后台页面改为按路由懒加载：进入 `/admin` 只加载登录/初始化与整体布局，总览、用户、商家、订单、统计、系统、公告、日志与配置等页面在切换导航时才按需下载，页面切换期间显示指标卡与表格骨架占位；后台主包从约 197KB 降到约 82KB（gzip 52KB → 24KB），弱网下进入后台更快。
+- 地区访问限制（默认关闭）：设置 `GEO_BLOCK_NON_CHINA=1` 后只允许中国大陆 IP 访问，境外请求返回 `403 REGION_BLOCKED`（接口返回 JSON，页面请求返回中文提示页）；归属判断依据仓库内 APNIC CN 分配段数据（`server/assets/cn-ip-ranges.json`，可用 `node scripts/geo/build-cn-ranges.mjs` 更新，不引入第三方 IP 库），本机 / 内网地址、`GEO_BYPASS_PATHS`（默认含 `/api/health` 与 PWA 静态资源）与 `GEO_IP_WHITELIST` 始终放行，归属未知按 `GEO_UNKNOWN_POLICY` 处理；前面有 CDN 时可用 `GEO_TRUST_HEADER`（如 `CF-IPCountry`）读取 CDN 判断结果。
 
 ### 变更
 

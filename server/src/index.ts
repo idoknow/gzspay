@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { cleanupExpired, closeDatabase, execute, migrate, optimizeDatabase } from "./db/index.js";
 import { flushRequestMetrics } from "./lib/metrics.js";
 import { backfillQqAvatars } from "./lib/avatar.js";
+import { geoDataError, geoDataMeta } from "./lib/geo.js";
 import { applyRuntimeConfig, isSystemReady, readAdminConfig } from "./lib/runtime-config.js";
 import { assertSecureConfig } from "./lib/security.js";
 import { reportSystemError } from "./lib/alerts.js";
@@ -94,6 +95,16 @@ function main(): void {
   const server = app.listen(config.port, () => {
     // eslint-disable-next-line no-console
     console.log(`[gzspay] 服务已启动: http://localhost:${config.port} (${config.nodeEnv})`);
+    if (config.geo.blockNonChina) {
+      const meta = geoDataMeta();
+      const error = geoDataError();
+      // eslint-disable-next-line no-console
+      console.log(
+        error
+          ? `[gzspay] 地区限制已开启，但 IP 归属数据加载失败（${error}），未知归属将按 GEO_UNKNOWN_POLICY=${config.geo.unknownPolicy} 处理`
+          : `[gzspay] 地区限制已开启：仅放行中国大陆 IP（数据更新于 ${meta.updatedAt ?? "未知"}，IPv4 ${meta.ipv4Count} 段 / IPv6 ${meta.ipv6Count} 条）`,
+      );
+    }
   });
   // keep-alive 比反向代理的空闲超时略长，避免代理复用连接时拿到已关闭的 socket；
   // headersTimeout 必须大于 keepAliveTimeout，否则 Node 会先掐掉请求头。

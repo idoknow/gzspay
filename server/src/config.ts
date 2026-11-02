@@ -121,6 +121,28 @@ export const config = {
     maxPerHour: int("ALERT_MAX_PER_HOUR", 30),
   },
 
+  /**
+   * 地区访问限制：默认关闭；打开后只放行中国大陆 IP（依据 APNIC CN 分配段）。
+   * 数据由 scripts/geo/build-cn-ranges.mjs 生成到 server/src/data/cn-ip-ranges.json。
+   */
+  geo: {
+    blockNonChina: bool("GEO_BLOCK_NON_CHINA", false),
+    /** CDN 回源国家码请求头（如 CF-IPCountry）；确认回源可信时才配置，否则可被伪造 */
+    trustHeader: str("GEO_TRUST_HEADER", ""),
+    /** 例外路径，逗号分隔；以 `/` 结尾表示前缀匹配，以 `*` 结尾表示通配 */
+    bypassPaths: str(
+      "GEO_BYPASS_PATHS",
+      "/api/health,/theme-boot.js,/sw.js,/manifest.webmanifest,/favicon.ico",
+    )
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+    /** 白名单 IP 或 CIDR，逗号分隔（例如运维出口 / 海外管理员固定 IP） */
+    ipWhitelist: str("GEO_IP_WHITELIST", ""),
+    /** 归属未知时：deny = 拦截（默认），allow = 放行 */
+    unknownPolicy: str("GEO_UNKNOWN_POLICY", "deny"),
+  },
+
   security: {
     paymentLockMinutes: int("PAYMENT_LOCK_MINUTES", 30),
     paymentMaxAttempts: int("PAYMENT_MAX_ATTEMPTS", 5),

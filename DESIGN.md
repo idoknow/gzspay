@@ -395,6 +395,14 @@ gzspay/
 - 防刷屏：同一类错误按「来源 + 归一化文案（数字与 UUID 归一）」合并，`ALERT_THROTTLE_MINUTES`（默认 10 分钟）内只告警一次，重复次数合并到下一次；每小时最多 `ALERT_MAX_PER_HOUR`（默认 30）次。告警邮件/Webhook 自身失败只记录，不再触发告警。
 - 后台「系统状态 → 严重错误告警」展示通道是否就绪、收件管理员人数、最近一次告警与最近一小时次数。
 
+### 10.12 地区访问限制
+
+- 可选功能，默认关闭；设置 `GEO_BLOCK_NON_CHINA=1` 后只允许中国大陆 IP 访问，境外请求返回 `403 REGION_BLOCKED`（接口返回 JSON，页面请求返回中文提示页）。
+- 归属判断在 `server/src/lib/geo.ts` 内完成：数据来自 `server/assets/cn-ip-ranges.json`（由 `node scripts/geo/build-cn-ranges.mjs` 从 APNIC 的 CN 分配段生成，IPv4 为排序闭区间二分查找、IPv6 为 CIDR 前缀匹配），**不引入第三方 IP 库依赖**；数据缺失时打印告警并按 `GEO_UNKNOWN_POLICY` 处理。
+- 中间件 `createGeoGuard()` 挂在 `securityHeaders` 之后、业务路由之前；本机与内网地址、`GEO_BYPASS_PATHS`（默认含 `/api/health` 与 PWA 静态资源）、`GEO_IP_WHITELIST` 始终放行。
+- 有 CDN 时可配 `GEO_TRUST_HEADER`（如 `CF-IPCountry`）用 CDN 判断结果；仅在确认回源请求一定来自 CDN 时启用，否则可伪造。
+- 被拦截请求只打印节流日志（同一 IP 10 分钟一次），不写数据库，避免被刷库。副作用：校园墙登录回调同域，海外用户无法登录。
+
 ## 11. 里程碑
 
 | 阶段 | 内容 |

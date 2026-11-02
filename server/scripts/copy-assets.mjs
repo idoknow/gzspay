@@ -1,4 +1,5 @@
 // 构建后把非 TypeScript 资源复制到 dist（当前只需要 database schema）。
+// IP 归属地数据放在 server/assets，dist 与源码引用同一份，无需复制。
 import { copyFileSync, mkdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

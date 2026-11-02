@@ -67,3 +67,4 @@ node scripts/bench.mjs        # 可选：并发压测关键只读接口，输出
 - 生产环境启动会做配置自检（SESSION_SECRET 强度、https 站点地址），不合格直接退出；不要把示例密钥带上线。
 - 管理后台接口复用主站会话：账号必须在 `admins` 表内，写操作再按角色（`super`/`ops`/`auditor`）限制；没有独立的管理会话或二次验证。
 - 系统未初始化（无管理员且未标记 `system.initialized`）时，除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外的接口必须返回 `503`。
+- 地区限制（`GEO_BLOCK_NON_CHINA=1`，默认关闭）由 `server/src/lib/geo.ts` 的中间件实现：只放行中国大陆 IP，本机 / 内网地址、`GEO_BYPASS_PATHS` 与 `GEO_IP_WHITELIST` 例外；IP 归属数据在 `server/assets/cn-ip-ranges.json`（`node scripts/geo/build-cn-ranges.mjs` 更新，零第三方依赖），不要在业务路由里另写一套 IP 判断。

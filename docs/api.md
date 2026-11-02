@@ -26,6 +26,7 @@
 | `UNAUTHENTICATED` | 401 | 未登录或会话过期 |
 | `FORBIDDEN` | 403 | 无权限 |
 | `CSRF_REJECTED` | 403 | 缺少请求头或来源不合法 |
+| `REGION_BLOCKED` | 403 | 站点只对中国大陆开放时，境外 IP 的请求会被拦截（不计入业务错误，不影响浏览器缓存之外的任何状态） |
 | `VALIDATION_FAILED` | 400 | 参数校验失败（`message` 为可直接展示的中文提示；开发/测试环境额外返回 `details.issues`，生产环境不返回字段路径） |
 | `BAD_REQUEST` | 400 | 请求体不是合法 JSON、请求体过大等，`message` 为中文提示 |
 | `NOT_FOUND` | 404 | 资源不存在 |
