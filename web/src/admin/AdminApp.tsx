@@ -2,7 +2,16 @@
  * 管理后台入口：自带认证状态机、后台路由与整体布局。
  * 手机端 shell 以 /admin/* 懒加载本组件，因此本文件默认导出 AdminApp。
  */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import {
   Navigate,
   Route,
@@ -17,24 +26,61 @@ import {
 } from "./api";
 import { AdminContext, useAdmin, type AdminContextValue } from "./context";
 import { FeedbackProvider } from "./components/dialogs";
-import { InfoBanner } from "./components/ui";
+import { InfoBanner, SkeletonCards, TableSkeleton } from "./components/ui";
 import { useTheme, type ThemeMode } from "./hooks";
 import { AdminLayout } from "./Layout";
 import { errorMessage } from "../lib/http";
 import type { AdminIdentity } from "./types";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupWizard } from "./pages/SetupWizard";
-import { OverviewPage } from "./pages/OverviewPage";
-import { MonthlyPage } from "./pages/MonthlyPage";
-import { UsersPage } from "./pages/UsersPage";
-import { MerchantsPage } from "./pages/MerchantsPage";
-import { AdminsPage } from "./pages/AdminsPage";
-import { OrdersPage } from "./pages/OrdersPage";
-import { StatsPage } from "./pages/StatsPage";
-import { SystemPage } from "./pages/SystemPage";
-import { AnnouncementsPage } from "./pages/AnnouncementsPage";
-import { LogsPage } from "./pages/LogsPage";
-import { ConfigPage } from "./pages/ConfigPage";
+
+/**
+ * 后台页面按路由懒加载：登录后只加载当前页面的代码，
+ * 其余页面在切换导航时再按需下载，避免一次性下载整个后台。
+ */
+function lazyAdminPage(
+  load: () => Promise<Record<string, unknown>>,
+  exportName: string,
+): ComponentType {
+  return lazy(async () => {
+    const module = await load();
+    const component = module[exportName] as ComponentType | undefined;
+    if (!component) {
+      throw new Error(`页面模块缺少导出：${exportName}`);
+    }
+    return { default: component };
+  });
+}
+
+const OverviewPage = lazyAdminPage(() => import("./pages/OverviewPage"), "OverviewPage");
+const MonthlyPage = lazyAdminPage(() => import("./pages/MonthlyPage"), "MonthlyPage");
+const UsersPage = lazyAdminPage(() => import("./pages/UsersPage"), "UsersPage");
+const MerchantsPage = lazyAdminPage(() => import("./pages/MerchantsPage"), "MerchantsPage");
+const AdminsPage = lazyAdminPage(() => import("./pages/AdminsPage"), "AdminsPage");
+const OrdersPage = lazyAdminPage(() => import("./pages/OrdersPage"), "OrdersPage");
+const StatsPage = lazyAdminPage(() => import("./pages/StatsPage"), "StatsPage");
+const SystemPage = lazyAdminPage(() => import("./pages/SystemPage"), "SystemPage");
+const AnnouncementsPage = lazyAdminPage(
+  () => import("./pages/AnnouncementsPage"),
+  "AnnouncementsPage",
+);
+const LogsPage = lazyAdminPage(() => import("./pages/LogsPage"), "LogsPage");
+const ConfigPage = lazyAdminPage(() => import("./pages/ConfigPage"), "ConfigPage");
+
+/** 懒加载页面的统一占位：标题区 + 指标卡 + 表格骨架，避免切换时白屏 */
+function AdminPageFallback(): ReactNode {
+  return (
+    <div className="admin-stack" aria-busy="true">
+      <SkeletonCards count={3} />
+      <TableSkeleton rows={5} cols={4} />
+    </div>
+  );
+}
+
+/** 后台页面懒加载的 Suspense 边界 */
+function PageSuspense({ children }: { children: ReactNode }): ReactNode {
+  return <Suspense fallback={<AdminPageFallback />}>{children}</Suspense>;
+}
 
 /** 登录页需要区分的两种未进入后台原因 */
 type AnonymousReason = "anonymous" | "not_admin";
@@ -187,24 +233,26 @@ function AuthenticatedApp({
             index
             element={<Navigate to="/admin/overview" replace />}
           />
-          <Route path="overview" element={<OverviewPage />} />
-          <Route path="monthly" element={<MonthlyPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="merchants" element={<MerchantsPage />} />
-          <Route path="orders" element={<OrdersPage />} />
-          <Route path="announcements" element={<AnnouncementsPage />} />
-          <Route path="stats" element={<StatsPage />} />
-          <Route path="system" element={<SystemPage />} />
-          <Route path="logs" element={<LogsPage />} />
+          <Route path="overview" element={<PageSuspense><OverviewPage /></PageSuspense>} />
+          <Route path="monthly" element={<PageSuspense><MonthlyPage /></PageSuspense>} />
+          <Route path="users" element={<PageSuspense><UsersPage /></PageSuspense>} />
+          <Route path="merchants" element={<PageSuspense><MerchantsPage /></PageSuspense>} />
+          <Route path="orders" element={<PageSuspense><OrdersPage /></PageSuspense>} />
+          <Route path="announcements" element={<PageSuspense><AnnouncementsPage /></PageSuspense>} />
+          <Route path="stats" element={<PageSuspense><StatsPage /></PageSuspense>} />
+          <Route path="system" element={<PageSuspense><SystemPage /></PageSuspense>} />
+          <Route path="logs" element={<PageSuspense><LogsPage /></PageSuspense>} />
           <Route
             path="admins"
             element={
-              <RequireSuper>
-                <AdminsPage />
-              </RequireSuper>
+              <PageSuspense>
+                <RequireSuper>
+                  <AdminsPage />
+                </RequireSuper>
+              </PageSuspense>
             }
           />
-          <Route path="config" element={<ConfigPage />} />
+          <Route path="config" element={<PageSuspense><ConfigPage /></PageSuspense>} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
