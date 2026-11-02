@@ -57,6 +57,8 @@ node scripts/bench-seed.mjs   # 可选：复制一份库并为测试账号写入
 node scripts/bench.mjs        # 可选：并发压测关键只读接口，输出 req/s 与 p95
 ```
 
+持续集成：`.github/workflows/ci.yml` 在 push / PR 上跑 `npm ci` + `npm run verify` + `npm run build`，并在 `main` 与 `v*` 标签构建 Docker 镜像推送到 GHCR；容器化部署见 [docs/deploy.md](./docs/deploy.md) 第 6 节（`Dockerfile` / `docker-compose.yml`，数据在 `/data` 卷）。
+
 ## 安全边界
 
 - gzspay 不接触资金，不接入任何支付机构资金接口。完整措施与上线检查清单见 [docs/security.md](./docs/security.md)。

@@ -1,0 +1,42 @@
+# 构建上下文只保留运行与构建必需的源码
+
+# 依赖与构建产物由镜像内重新安装/编译
+node_modules
+**/node_modules
+server/dist
+web/dist
+
+# 本地数据、日志与上传文件不能进镜像
+data
+data/
+server/data
+**/data
+**/*.sqlite
+**/*.sqlite-wal
+**/*.sqlite-shm
+*.log
+logs
+
+# 本地环境与密钥
+.env
+.env.*
+!.env.example
+
+# 版本控制与编辑器
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# 文档与协作文件（镜像不需要，构建阶段用不到）
+*.md
+!README.md
+LICENSE
+
+# 平台与工具缓存
+.DS_Store
+Thumbs.db
+.tmp-*
+.probe-*
+.commit-msg-*

@@ -1,0 +1,44 @@
+# gzspay 整站容器化运行示例
+#
+# 1. cp .env.example .env 并按需填写（SESSION_SECRET、APP_BASE_URL 等）
+# 2. docker compose up -d --build
+# 3. 打开 http://服务器地址:3000/admin 完成初始化
+#
+# 数据（SQLite、上传文件、头像）保存在命名卷 gzspay-data 里，
+# 升级镜像后数据不会丢失。
+
+services:
+  gzspay:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gzspay:latest
+    container_name: gzspay
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_PATH: /data/gzspay.sqlite
+      UPLOAD_DIR: /data/uploads
+      AVATAR_DIR: /data/avatars
+      WEB_DIST_DIR: /app/web/dist
+    ports:
+      # 宿主机端口可用 GZSPAY_PORT 覆盖（应用在容器内始终监听 3000）
+      - "${GZSPAY_PORT:-3000}:3000"
+    volumes:
+      - gzspay-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  gzspay-data:

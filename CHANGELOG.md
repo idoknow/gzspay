@@ -37,6 +37,7 @@
 - 管理后台支持自定义安全入口：在「系统配置 → 管理后台安全入口」设置 4–32 位入口名后，后台入口变成 `/<入口名>/admin`，访问后下发 8 小时签名的 `gzs_admin_entry` Cookie 并跳转到 `/admin`；没有凭据直接访问 `/admin` 或 `/admin/*` 时返回普通 404 隐藏后台，同时把访问者 IP、方法、路径、查询串、浏览器与来源写入 `admin_entry_visits`，可在「系统状态 → 后台入口访问尝试」查看最近记录；入口名留空即恢复为直接访问 `/admin`。
 - 管理后台新增「访问统计」页（仅管理员可见）：最近 7 / 30 / 90 天的请求总数、今日请求、日均请求、扫码次数与安全防护拦截次数，请求量按天趋势、路由请求排行、HTTP 状态码分布、访问设备（电脑 / 手机 / 平板 / 机器人）、浏览器与操作系统、访问地区（中国大陆 / 境外 / 本机内网）以及扫码与安全防护明细；新增 `GET /api/admin/traffic` 接口与 `traffic_counters` 表，统计只按天聚合计数、不保存 IP 与 User-Agent，数据保留 400 天。
 - 安全防护增强：新增扫描器路径拦截（`/.env`、`/.git`、`/wp-admin`、`/phpmyadmin`、`/actuator` 等常见探测路径与 `.php/.asp/.aspx/.jsp/.cgi` 扩展名直接返回 404，不进入业务路由）；写接口额外拒绝浏览器标记为 `Sec-Fetch-Site: cross-site` 的请求；响应头补充 `X-DNS-Prefetch-Control: off`、`Origin-Agent-Cluster: ?1`、`X-Download-Options: noopen`，`/admin` 增加 `X-Robots-Tag: noindex, nofollow` 与 `no-store`，生产 CSP 追加 `upgrade-insecure-requests`。
+- 新增 Docker 化部署与 GitHub Actions CI：`Dockerfile` 多阶段构建把前后端打包进单个镜像（运行镜像只含生产依赖与 `server/dist`、`server/assets`、`web/dist`，非 root 运行，`/data` 卷持久化 SQLite、上传与头像，健康检查走 `/api/health`）；配套 `.dockerignore` 与 `docker-compose.yml`（`gzspay-data` 卷、`GZSPAY_PORT` 覆盖宿主机端口）；`.github/workflows/ci.yml` 在 push / PR 上跑 `npm ci`、`npm run verify`、`npm run build`，`main` 与 `v*` 标签额外构建并推送 `ghcr.io/idoknow/gzspay` 镜像（PR 只构建）；`docs/deploy.md` 新增「6. Docker 部署」并顺延后续小节，README 补充 Docker 快速开始与 CI 徽标。
 
 ### 变更
 

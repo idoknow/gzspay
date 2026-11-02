@@ -8,6 +8,8 @@
 - 反向代理（Nginx / Caddy）负责 HTTPS 与转发
 - 一个公网可访问的域名，例如 `https://pay.example.com`
 
+用容器部署时宿主机不需要安装 Node.js，只要有 Docker 24+（含 compose v2），见第 6 节。
+
 ## 2. 构建
 
 ```bash
@@ -115,7 +117,79 @@ server {
 }
 ```
 
-## 6. 首次初始化与管理员
+## 6. Docker 部署
+
+前后端可以打包成一个镜像运行，镜像由根目录的 `Dockerfile` 多阶段构建：
+
+- 构建阶段：`npm ci` 安装全部依赖后执行 `npm run build`（后端 `tsc` + 前端 Vite）
+- 运行阶段：只安装生产依赖，保留 `server/dist`、`server/assets`、`web/dist`，以非 root 的 `node` 用户运行并监听 3000
+
+镜像内不包含 `.env`、数据库与源码；配置通过环境变量传入，数据放在 `/data` 卷里。
+
+### 6.1 用 compose 启动（推荐）
+
+```bash
+cp .env.example .env      # 至少填 SESSION_SECRET 与 APP_BASE_URL / PUBLIC_BASE_URL
+docker compose up -d --build
+docker compose logs -f gzspay
+```
+
+- 数据（SQLite、上传文件、头像）都在命名卷 `gzspay-data` 的 `/data` 下，重建镜像不会丢
+- 宿主机端口默认 3000，可用 `GZSPAY_PORT=8080 docker compose up -d` 覆盖（容器内始终是 3000）
+- 首次打开 `http://<服务器地址>:3000/admin` 走初始化向导；容器健康检查走 `GET /api/health`
+
+### 6.2 只用 docker 命令
+
+```bash
+docker build -t gzspay:latest .
+docker run -d --name gzspay --restart unless-stopped \
+  -p 3000:3000 \
+  --env-file .env \
+  -v gzspay-data:/data \
+  gzspay:latest
+```
+
+`DATABASE_PATH`、`UPLOAD_DIR`、`AVATAR_DIR`、`WEB_DIST_DIR` 在镜像里已经指向 `/data` 与 `/app/web/dist`，一般不需要再改；如果要换路径，记得同步调整卷挂载。
+
+### 6.3 使用 CI 构建的镜像
+
+推送到 `main` 分支或打 `v*` 标签时，GitHub Actions 会校验代码并把镜像推送到 GHCR（见 `.github/workflows/ci.yml`）：
+
+```bash
+docker pull ghcr.io/<owner>/<repo>:latest
+docker run -d --name gzspay --restart unless-stopped \
+  -p 3000:3000 --env-file .env -v gzspay-data:/data \
+  ghcr.io/<owner>/<repo>:latest
+```
+
+公开仓库的镜像默认公开；私有仓库拉取前需要 `docker login ghcr.io`。
+
+### 6.4 反向代理与 HTTPS
+
+容器只监听 HTTP 3000，HTTPS 仍由 Nginx / Caddy 负责（见第 5 节）。反代到容器时注意：
+
+- 保持 `TRUST_PROXY=1`，让真实客户端 IP 传进应用（限流、地区限制、审计都依赖它）
+- SSE（`/api/events/stream`）需要 `proxy_buffering off` 与较长的 `proxy_read_timeout`
+- 校园墙回调地址填 `https://<域名>/api/auth/callback`
+
+### 6.5 升级与备份
+
+```bash
+docker compose pull && docker compose up -d          # 用 CI 镜像
+# 或者本地重新构建
+git pull && docker compose up -d --build
+```
+
+备份数据卷（SQLite 与上传文件都在 `/data`）：
+
+```bash
+docker run --rm -v gzspay-data:/data -v "$PWD:/backup" alpine \
+  tar czf /backup/gzspay-data.tgz -C /data .
+```
+
+删除卷（`docker compose down -v`）会同时删除数据库与上传文件，操作前先备份。
+
+## 7. 首次初始化与管理员
 
 部署完成后的第一次打开：
 
@@ -134,13 +208,13 @@ npm run admin:grant -- --sub <sub> --revoke                    # 撤销
 
 角色：`super`（全部权限，可改系统配置）、`ops`（运营，不能改系统配置）、`auditor`（只读审计）。脚本默认读取 `.env` 里的 `DATABASE_PATH`（相对路径按 `server/` 解析），也可用 `--db <路径>` 指定。手工授权过管理员的旧库无需再走初始化向导（`admins` 表非空即视为已初始化）。
 
-## 7. 备份与维护
+## 8. 备份与维护
 
-- 备份：定期复制 SQLite 文件（`DATABASE_PATH`）与上传目录（`UPLOAD_DIR`，默认 `server/data/uploads`）。
+- 备份：定期复制 SQLite 文件（`DATABASE_PATH`）与上传目录（`UPLOAD_DIR`，默认 `server/data/uploads`；容器部署时都在 `/data` 卷里，备份命令见 6.5）。
 - 日志清理：服务每小时自动清理过期的会话、验证码、动态码、幂等记录，并删除 7 天前的接口指标。
 - 监控：`GET /api/health` 返回服务与数据库状态；后台「系统状态」页展示邮件、校园墙、存储与错误告警。
 
-## 8. 安全清单
+## 9. 安全清单
 
 - 全站 HTTPS；`SESSION_SECRET` 随机且妥善保管。
 - 收款码只保存解码后的内容，展示时由服务端重新生成二维码。

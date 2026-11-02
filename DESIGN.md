@@ -378,6 +378,7 @@ gzspay/
 - 前端由 Vite 构建为静态资源，由服务端静态托管（`web/dist`），同源避免跨域与 Cookie 问题。
 - 定时任务：清理过期会话/验证码/动态码（每小时）。
 - 备份：SQLite 文件 + `data/` 目录定时快照。
+- 容器化：根目录 `Dockerfile` 用多阶段构建（`node:24-bookworm-slim`），构建阶段装全量依赖并 `npm run build`，运行阶段只装生产依赖并复制 `server/dist`、`server/assets`、`web/dist`；以 `node` 用户运行，`/data` 卷存 SQLite、上传与头像，健康检查用 Node `fetch` 打 `/api/health`。配套 `docker-compose.yml`（`gzspay-data` 命名卷、`GZSPAY_PORT` 覆盖宿主机端口）与 `.dockerignore`；GitHub Actions（`.github/workflows/ci.yml`）在 push/PR 上跑 `npm ci` + `npm run verify` + `npm run build`，main 与 `v*` 标签额外构建并推送 `ghcr.io/<repo>` 镜像（PR 只构建不推送）。
 
 ### 10.10 安全加固
 

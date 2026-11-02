@@ -8,6 +8,8 @@
 
 完整设计见 [DESIGN.md](./DESIGN.md)，接口契约见 [docs/api.md](./docs/api.md)，品牌与图标规范见 [docs/brand.md](./docs/brand.md)，安全防护与上线检查清单见 [docs/security.md](./docs/security.md)。
 
+[![CI](https://github.com/idoknow/gzspay/actions/workflows/ci.yml/badge.svg)](https://github.com/idoknow/gzspay/actions/workflows/ci.yml)
+
 ## 技术栈
 
 - 后端：Node.js ≥ 22、Express 5、TypeScript、SQLite（`node:sqlite`）
@@ -32,6 +34,22 @@ npm run dev
 # 5. 第一次使用打开 http://localhost:5173/admin 完成初始化向导（校园墙 → 发件 → 站点信息 → 完成）
 #    第一个登录的账号会自动成为超级管理员
 ```
+
+### 用 Docker 运行（整站容器化）
+
+前后端会一起打包进一个镜像，宿主机只需要 Docker 24+（含 compose v2），不需要安装 Node.js：
+
+```bash
+cp .env.example .env                 # 至少填 SESSION_SECRET、APP_BASE_URL / PUBLIC_BASE_URL
+docker compose up -d --build
+# 打开 http://<服务器地址>:3000/admin 完成初始化
+```
+
+- 数据（SQLite、上传文件、头像）保存在命名卷 `gzspay-data` 的 `/data` 下，升级镜像不会丢
+- 宿主机端口可用 `GZSPAY_PORT=8080` 覆盖
+- 推送到 `main` 或打 `v*` 标签时，GitHub Actions 会自动校验并推送镜像到 GHCR（`ghcr.io/idoknow/gzspay`）
+
+完整的 Docker 部署、反向代理、备份与升级说明见 [docs/deploy.md](./docs/deploy.md) 第 6 节。
 
 ### 在局域网里预览（真机调试）
 
