@@ -1,6 +1,6 @@
 /** 关于：版本号、更新日志、隐私协议与服务条款。 */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
@@ -77,12 +77,6 @@ export function AboutPage(): ReactNode {
 
   const version = data?.version ?? "";
 
-  // 默认只展开最新一个版本，其余收起
-  useEffect(() => {
-    const first = data?.changelog[0];
-    setOpenEntries(first ? [`${first.version}-${first.date}`] : []);
-  }, [data]);
-
   const allEntriesOpen = data ? data.changelog.length > 0 && openEntries.length === data.changelog.length : false;
 
   function toggleEntry(id: string): void {
@@ -101,17 +95,36 @@ export function AboutPage(): ReactNode {
       <PageHeader title="关于" back />
 
       <main className="page space-y-4 pb-10 pt-4">
-        <section className="card flex flex-col items-center p-6 text-center">
-          <LogoMark size={72} />
-          <Wordmark size="lg" className="mt-3" />
-          <Tagline className="mt-2" />
-          <p className="mt-2 text-xs text-muted">桂中校园收付款</p>
-          <p className="mt-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] text-muted">版本 {version || "-"}</p>
-          <p className="mt-3 text-[11px] leading-relaxed text-muted">
-            gzspay 提供校园内的收付款记录与沟通工具。
-            <br />
-            资金通过第三方收款码流转，gzspay 不代收代付。
-          </p>
+        <section className="hero-gradient relative overflow-hidden rounded-[26px] p-6 text-center shadow-[var(--shadow-card)] watch:rounded-2xl watch:p-5">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-20 -right-16 h-48 w-48 rounded-full bg-white/40 blur-2xl"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-20 -left-14 h-44 w-44 rounded-full bg-white/25 blur-2xl"
+          />
+          <div className="relative flex flex-col items-center">
+            <span className="grid h-[86px] w-[86px] place-items-center rounded-[26px] bg-[color:var(--hero-chip)] shadow-[0_18px_36px_-22px_rgba(70,48,8,0.55)] ring-1 ring-[color:var(--hero-ring)] watch:h-[74px] watch:w-[74px] watch:rounded-[22px]">
+              <LogoMark size={60} />
+            </span>
+            <Wordmark size="lg" className="mt-4" />
+            <Tagline className="mt-1.5" />
+            <p className="mt-2.5 text-[10.5px] font-semibold tracking-[0.24em] text-[color:var(--hero-fg-soft)] uppercase watch:text-[9.5px]">
+              桂中校园收付款
+            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+              <span className="inline-flex items-center rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)]">
+                版本 {version || "-"}
+              </span>
+              <span className="inline-flex items-center rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)]">
+                开源可自托管
+              </span>
+            </div>
+            <p className="mt-3.5 max-w-[19rem] text-[11px] leading-relaxed text-[color:var(--hero-fg-faint)]">
+              gzspay 提供校园内的收付款记录与沟通工具，资金通过第三方收款码流转，不代收代付。
+            </p>
+          </div>
         </section>
 
         <section className="card p-4">
