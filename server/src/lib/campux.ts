@@ -35,16 +35,25 @@ function authorizeEndpoint(): string {
   return `${config.campux.baseUrl}/oauth/authorize`;
 }
 
+/**
+ * 服务端直连校园墙时用的地址：默认与 CAMPUX_BASE_URL 相同，
+ * 配置了 CAMPUX_INTERNAL_BASE_URL（内网/集群内地址）时优先用它。
+ * 浏览器跳转的授权地址仍走 baseUrl，保证用户能打开。
+ */
+function serverBaseUrl(): string {
+  return config.campux.internalBaseUrl || config.campux.baseUrl;
+}
+
 function tokenEndpoint(): string {
-  return `${config.campux.baseUrl}/oauth/token`;
+  return `${serverBaseUrl()}/oauth/token`;
 }
 
 function userinfoEndpoint(): string {
-  return `${config.campux.baseUrl}/oauth/userinfo`;
+  return `${serverBaseUrl()}/oauth/userinfo`;
 }
 
 function revokeEndpoint(): string {
-  return `${config.campux.baseUrl}/oauth/revoke`;
+  return `${serverBaseUrl()}/oauth/revoke`;
 }
 
 export function oauthRedirectUri(): string {

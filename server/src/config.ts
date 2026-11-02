@@ -89,6 +89,9 @@ export const config = {
 
   campux: {
     baseUrl: optionalStr("CAMPUX_BASE_URL") ?? "",
+    // 服务端调用校园墙接口（token / userinfo / revoke）时使用的地址。
+    // 浏览器访问公网入口、但服务器无法直连该入口（例如同集群内反向解析）时可指向内网地址。
+    internalBaseUrl: (optionalStr("CAMPUX_INTERNAL_BASE_URL") ?? "").replace(/\/+$/, ""),
     clientId: str("CAMPUX_CLIENT_ID", ""),
     clientSecret: str("CAMPUX_CLIENT_SECRET", ""),
     redirectUri: str("CAMPUX_REDIRECT_URI", `${publicBaseUrl}/api/auth/callback`),
