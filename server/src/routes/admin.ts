@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
 import { asyncHandler, attachAdmin, requireAdmin } from "../lib/http.js";
+import { listAdminEntryVisits, normalizeEntryPath } from "../lib/admin-entry.js";
+import { parseCidr } from "../lib/geo.js";
 import { isSystemReady } from "../lib/runtime-config.js";
+import { errors } from "../lib/errors.js";
 import {
   clearSessionCookie,
   revokeSessionByToken,
@@ -574,9 +577,32 @@ const configSchema = z
         publicBaseUrl: configUrlSchema,
       })
       .optional(),
+    geo: z
+      .object({
+        blockNonChina: z.boolean(),
+        bypassPaths: z.array(z.string().trim().max(120)).max(50),
+        ipWhitelist: z.string().trim().max(1000),
+        unknownPolicy: z.enum(["deny", "allow"]),
+        trustHeader: z.string().trim().max(64),
+      })
+      .optional(),
+    securityEntry: z
+      .object({
+        /** 空字符串表示关闭安全入口 */
+        entryPath: z.string().trim().max(32),
+      })
+      .optional(),
   })
   .refine(
-    (value) => Boolean(value.campux || value.mail || value.security || value.system),
+    (value) =>
+      Boolean(
+        value.campux ||
+          value.mail ||
+          value.security ||
+          value.system ||
+          value.geo ||
+          value.securityEntry,
+      ),
     "没有需要保存的配置",
   );
 
@@ -603,12 +629,65 @@ adminRouter.put(
       (body.system.siteName || body.system.adminQq || body.system.publicBaseUrl)
         ? body.system
         : undefined;
+
+    let geo: {
+      blockNonChina: boolean;
+      bypassPaths: string[];
+      ipWhitelist: string;
+      unknownPolicy: "deny" | "allow";
+      trustHeader: string;
+    } | undefined;
+    if (body.geo) {
+      const ipWhitelist = body.geo.ipWhitelist
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .join(",");
+      const invalid = ipWhitelist
+        .split(",")
+        .filter(Boolean)
+        .find((item) => parseCidr(item) === null);
+      if (invalid) {
+        throw errors.validation(`IP 白名单格式不正确：${invalid}`);
+      }
+      geo = {
+        blockNonChina: body.geo.blockNonChina,
+        bypassPaths: body.geo.bypassPaths.map((item) => item.trim()).filter(Boolean),
+        ipWhitelist,
+        unknownPolicy: body.geo.unknownPolicy,
+        trustHeader: body.geo.trustHeader.trim(),
+      };
+    }
+
+    let securityEntry: { entryPath: string } | undefined;
+    if (body.securityEntry) {
+      const raw = body.securityEntry.entryPath.trim();
+      if (raw === "") {
+        securityEntry = { entryPath: "" };
+      } else {
+        const normalized = normalizeEntryPath(raw);
+        if (!normalized) {
+          throw errors.validation(
+            "安全入口需为 4–32 位字母、数字、下划线或短横线，且不能与站点已有路径相同",
+          );
+        }
+        securityEntry = { entryPath: normalized };
+      }
+    }
+
     saveAdminConfig(
       req.admin!.user.id,
-      { campux, mail: body.mail, security: body.security, system },
+      { campux, mail: body.mail, security: body.security, system, geo, securityEntry },
       requestIp(req),
     );
     res.json(adminConfigView());
   }),
 );
+
+/* -------------------------------------------------- 后台入口访问记录 */
+
+adminRouter.get("/security/entry-visits", requireAdmin(), (req, res) => {
+  const limit = toInt(req.query.limit, 20);
+  res.json(listAdminEntryVisits(limit));
+});
 

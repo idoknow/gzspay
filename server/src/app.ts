@@ -12,8 +12,10 @@ import {
   securityHeaders,
   systemGate,
 } from "./lib/http.js";
+import { createAdminEntryGuard } from "./lib/admin-entry.js";
 import { createGeoGuard } from "./lib/geo.js";
 import { recordRequestMetric } from "./lib/metrics.js";
+import { geoGuardConfig } from "./lib/runtime-config.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { dynamicRouter } from "./routes/dynamic.js";
@@ -120,12 +122,15 @@ export function createApp(): Express {
   app.disable("x-powered-by");
   app.set("trust proxy", parseTrustProxy(config.trustProxy));
   app.use(securityHeaders);
-  // 地区访问限制：放在最前面，境外请求连接口与静态资源都不必再解析
-  app.use(createGeoGuard());
+  // 地区访问限制：放在最前面，境外请求连接口与静态资源都不必再解析；
+  // 配置从 app_config 每请求读取，后台保存后立即生效
+  app.use(createGeoGuard({ resolve: geoGuardConfig }));
   app.use(jsonCompression);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
   app.use(cookieParser());
+  // 管理后台安全入口：配置后 /admin 需先经 `/{入口}/admin` 进入，否则记录并返回 404
+  app.use(createAdminEntryGuard());
   app.use(metricsMiddleware);
 
   // 头像与上传文件

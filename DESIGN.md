@@ -232,7 +232,7 @@ logo、当前版本号、更新日志（按版本倒序，未发布的记录按�
 8. **系统状态**：服务可用性、接口耗时与错误率、邮件发送成功率、校园墙授权连通性、存储与队列，异常时告警；「严重错误告警」卡展示 Webhook 与邮件通道是否已配置、收件管理员人数、最近一次主动告警与最近一小时告警次数，未配置任何通道时给出提示。
 9. **公告发布**：标题、正文（Markdown 富文本编辑 + 预览）、级别（普通/重要/警告）、置顶、发布日期；创建即发布（发布日期默认等于创建时间，可手动修改）；列表显示已读人数 / 用户总数与创建、修改时间；修改标题、正文、级别或发布日期会清空已读记录，等同于重新推送（用户端重新出现未读红点）。用户端在交易页右上角有公告按钮，未读时显示红点，公告列表最前是独立的「置顶」分组（暖黄高亮卡片 + 图钉），其余区分未读/已读，详情页按 Markdown 渲染。
 10. **日志查看**：操作日志（谁在何时改了什么）、登录日志、支付密码错误与风控日志、系统错误日志；可筛选、导出，不可修改或删除。
-11. **系统配置**：配置校园墙 OAuth 登录（站点地址、Client ID、Client Secret、授权范围与回调地址提示）、系统发件邮箱、安全防护设置与站点信息；四块配置可分别保存，密钥留空表示保持不变。
+11. **系统配置**：配置校园墙 OAuth 登录（站点地址、Client ID、Client Secret、授权范围与回调地址提示）、系统发件邮箱、安全防护设置、站点信息、地区访问限制（开关、例外路径、IP 白名单、未知归属策略、CDN 国家码头、数据版本）与管理后台安全入口（入口名、当前入口地址）；各块配置可分别保存，密钥留空表示保持不变。
 
 ## 9. 安全与风控要点
 
@@ -397,11 +397,20 @@ gzspay/
 
 ### 10.12 地区访问限制
 
-- 可选功能，默认关闭；设置 `GEO_BLOCK_NON_CHINA=1` 后只允许中国大陆 IP 访问，境外请求返回 `403 REGION_BLOCKED`（接口返回 JSON，页面请求返回中文提示页）。
-- 归属判断在 `server/src/lib/geo.ts` 内完成：数据来自 `server/assets/cn-ip-ranges.json`（由 `node scripts/geo/build-cn-ranges.mjs` 从 APNIC 的 CN 分配段生成，IPv4 为排序闭区间二分查找、IPv6 为 CIDR 前缀匹配），**不引入第三方 IP 库依赖**；数据缺失时打印告警并按 `GEO_UNKNOWN_POLICY` 处理。
-- 中间件 `createGeoGuard()` 挂在 `securityHeaders` 之后、业务路由之前；本机与内网地址、`GEO_BYPASS_PATHS`（默认含 `/api/health` 与 PWA 静态资源）、`GEO_IP_WHITELIST` 始终放行。
-- 有 CDN 时可配 `GEO_TRUST_HEADER`（如 `CF-IPCountry`）用 CDN 判断结果；仅在确认回源请求一定来自 CDN 时启用，否则可伪造。
+- 可选功能，默认关闭。管理后台「系统配置 → 地区访问限制」保存到 `app_config` 后立即生效（`geoGuardConfig()` 每请求读取，环境变量 `GEO_BLOCK_NON_CHINA` 等仅作为默认值）；开启后只允许中国大陆 IP 访问，境外请求返回 `403 REGION_BLOCKED`（接口返回 JSON，页面请求返回中文提示页）。
+- 归属判断在 `server/src/lib/geo.ts` 内完成：数据来自 `server/assets/cn-ip-ranges.json`（由 `node scripts/geo/build-cn-ranges.mjs` 从 APNIC 的 CN 分配段生成，IPv4 为排序闭区间二分查找、IPv6 为 CIDR 前缀匹配），**不引入第三方 IP 库依赖**；数据缺失时打印告警并按未知归属策略处理。
+- 中间件 `createGeoGuard({ resolve })` 挂在 `securityHeaders` 之后、业务路由之前；本机与内网地址、例外路径（默认含 `/api/health` 与 PWA 静态资源）、IP 白名单始终放行；白名单逐项校验 IP / CIDR，非法时保存返回 400。
+- 有 CDN 时可填 CDN 的国家码请求头（如 `CF-IPCountry`）用 CDN 判断结果；仅在确认回源请求一定来自 CDN 时启用，否则可伪造。
 - 被拦截请求只打印节流日志（同一 IP 10 分钟一次），不写数据库，避免被刷库。副作用：校园墙登录回调同域，海外用户无法登录。
+
+### 10.13 管理后台安全入口
+
+- 目标：后台登录页不暴露在固定路径，扫描器/路人直接访问 `/admin` 时看不到任何后台痕迹，同时记录尝试者信息。
+- 配置：后台「系统配置 → 管理后台安全入口」填写入口名（4–32 位字母、数字、下划线或短横线，不能与 `api`、`assets`、`login` 等已有路径冲突），存 `app_config` 的 `admin.entryPath`；留空表示关闭，行为与以前一致（`/admin` 可直接访问）。
+- 入口：配置后访问 `/<入口名>/admin` → 下发 `gzs_admin_entry` Cookie（HMAC 签名 `admin-entry:<入口名>`、`HttpOnly`、`SameSite=Lax`、生产 `Secure`、8 小时）并 302 到 `/admin`。
+- 拦截：无有效 Cookie 直接访问 `/admin` 或 `/admin/*` → 写 `admin_entry_visits`（IP、方法、路径、查询串、UA、Referer、时间）并返回普通 404「页面不存在」；记录保留最近约 3000 条，后台「系统状态 → 后台入口访问尝试」可查看。
+- 实现：`server/src/lib/admin-entry.ts` 的 `createAdminEntryGuard()`，挂在 `cookieParser()` 之后、业务路由之前；只处理 GET/HEAD 页面导航，接口请求不受影响。
+- 边界：安全入口只是隐藏入口地址，不替代鉴权；真正的权限仍由 `admins` 表、主站会话与角色控制。
 
 ## 11. 里程碑
 

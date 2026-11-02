@@ -278,6 +278,24 @@ function parseIpWhitelist(value: string): Cidr[] {
     .filter((item): item is Cidr => item !== null);
 }
 
+function splitWhitelist(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/** 白名单解析结果按原始字符串缓存：后台配置变化时键也会变 */
+let whitelistCache: { key: string; value: Cidr[] } | null = null;
+
+function whitelistFrom(values: string[]): Cidr[] {
+  const key = values.join(",");
+  if (whitelistCache && whitelistCache.key === key) return whitelistCache.value;
+  const value = parseIpWhitelist(key);
+  whitelistCache = { key, value };
+  return value;
+}
+
 /** 阻断日志节流：同一 IP 10 分钟内只打印一次，避免被刷日志 */
 const warnedIps = new Map<string, number>();
 const WARN_WINDOW_MS = 10 * 60 * 1000;
@@ -293,8 +311,8 @@ function warnBlocked(ip: string, logger: (message: string) => void): void {
   logger(`[gzspay] 已拦截非中国大陆 IP 访问：${ip}`);
 }
 
-export interface GeoGuardOptions {
-  /** 是否启用；默认读 GEO_BLOCK_NON_CHINA */
+export interface GeoGuardResolved {
+  /** 是否启用；默认读 GEO_BLOCK_NON_CHINA 或后台配置 */
   enabled?: boolean;
   /** 允许的国家码，默认 CN */
   allowedCountry?: string;
@@ -306,6 +324,11 @@ export interface GeoGuardOptions {
   unknownPolicy?: "deny" | "allow";
   /** CDN 提供的国家码请求头（如 CF-IPCountry）；仅回源可信时启用 */
   trustHeader?: string | null;
+}
+
+export interface GeoGuardOptions extends GeoGuardResolved {
+  /** 每请求读取最新配置（后台改完立即生效）；不提供时使用上面的静态值 */
+  resolve?: () => GeoGuardResolved;
   /** 归属查询注入，便于测试 */
   lookup?: (ip: string) => string | null;
   logger?: (message: string) => void;
@@ -329,24 +352,30 @@ p{margin:0;font-size:13px;line-height:1.7;color:#6b6b66}
 
 /**
  * 创建「仅允许中国大陆访问」中间件。
- * 默认关闭，需要在环境变量里打开 GEO_BLOCK_NON_CHINA=1。
+ * 默认关闭；开关与白名单等可来自环境变量（默认值），也可通过 `resolve`
+ * 每请求读取后台配置，做到保存后立即生效。
  */
 export function createGeoGuard(options: GeoGuardOptions = {}): RequestHandler {
-  const enabled = options.enabled ?? config.geo.blockNonChina;
-  const allowedCountry = normalizeCountry(options.allowedCountry ?? "CN") ?? "CN";
-  const bypassPaths = options.bypassPaths ?? config.geo.bypassPaths;
-  const whitelist = parseIpWhitelist(options.whitelist?.join(",") ?? config.geo.ipWhitelist);
-  const unknownPolicy =
-    options.unknownPolicy ?? (config.geo.unknownPolicy === "allow" ? "allow" : "deny");
-  const trustHeader = options.trustHeader ?? (config.geo.trustHeader || null);
   const lookup = options.lookup ?? defaultLookup;
   const logger = options.logger ?? ((message: string) => console.warn(message));
 
   return function geoGuard(req: Request, res: Response, next: NextFunction): void {
+    const current = options.resolve ? options.resolve() : options;
+    const enabled = current.enabled ?? config.geo.blockNonChina;
     if (!enabled) {
       next();
       return;
     }
+    const allowedCountry = normalizeCountry(current.allowedCountry ?? "CN") ?? "CN";
+    const bypassPaths = current.bypassPaths ?? config.geo.bypassPaths;
+    const whitelist = whitelistFrom(
+      current.whitelist ?? splitWhitelist(config.geo.ipWhitelist),
+    );
+    const unknownPolicy =
+      current.unknownPolicy ?? (config.geo.unknownPolicy === "allow" ? "allow" : "deny");
+    const trustHeader =
+      current.trustHeader !== undefined ? current.trustHeader : config.geo.trustHeader || null;
+
     const pathname = req.path;
     if (bypassPaths.some((entry) => matchesBypassPath(pathname, entry))) {
       next();

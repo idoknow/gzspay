@@ -557,15 +557,61 @@ export interface SiteConfig {
   publicBaseUrl: string;
 }
 
+/** 地区访问限制（仅允许中国大陆 IP） */
+export interface GeoConfig {
+  blockNonChina: boolean;
+  /** 例外路径，精确匹配或以 `/`、`*` 结尾表示前缀 */
+  bypassPaths: string[];
+  /** 白名单 IP / CIDR，逗号分隔 */
+  ipWhitelist: string;
+  /** 归属未知时的策略：deny 拦截、allow 放行 */
+  unknownPolicy: "deny" | "allow";
+  /** CDN 提供的国家码请求头（如 CF-IPCountry） */
+  trustHeader: string;
+  /** IP 段数据更新时间（只读） */
+  dataUpdatedAt: string | null;
+  /** IPv4 段数量（只读） */
+  ipv4Count: number;
+  /** IPv6 段数量（只读） */
+  ipv6Count: number;
+}
+
+/** 管理后台安全入口 */
+export interface AdminEntryConfig {
+  /** 安全入口名，空字符串表示未启用 */
+  entryPath: string;
+  /** 实际入口地址（不含域名），未启用时为 admin */
+  entryUrl: string;
+}
+
+/** 未通过安全入口直接访问后台的尝试记录 */
+export interface AdminEntryVisit {
+  id: string;
+  ip: string | null;
+  method: string;
+  path: string;
+  query: string | null;
+  userAgent: string | null;
+  referer: string | null;
+  createdAt: string;
+}
+
+export interface AdminEntryVisitsPayload {
+  total: number;
+  items: AdminEntryVisit[];
+}
+
 /** GET /admin/config */
 export interface AdminConfig {
   campux: CampuxConfig;
   mail: MailConfig;
   security: SecurityConfig;
   system: SiteConfig;
+  geo: GeoConfig;
+  securityEntry: AdminEntryConfig;
 }
 
-/** PUT /admin/config 入参（四块均可只传其一） */
+/** PUT /admin/config 入参（各块均可只传其一） */
 export interface AdminConfigInput {
   campux?: {
     baseUrl: string;
@@ -589,6 +635,17 @@ export interface AdminConfigInput {
     siteName: string;
     adminQq: string;
     publicBaseUrl: string;
+  };
+  geo?: {
+    blockNonChina: boolean;
+    bypassPaths: string[];
+    ipWhitelist: string;
+    unknownPolicy: "deny" | "allow";
+    trustHeader: string;
+  };
+  securityEntry?: {
+    /** 空字符串表示关闭安全入口 */
+    entryPath: string;
   };
 }
 

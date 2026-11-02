@@ -171,4 +171,23 @@ describe("地区访问中间件", () => {
     expect(response.status).toBe(403);
     expect(response.text).toContain("当前地区暂不支持访问");
   });
+
+  it("配置可在运行时切换（后台保存后立即生效）", async () => {
+    let enabled = false;
+    const app = buildApp({
+      lookup: JP_LOOKUP,
+      resolve: () => ({ enabled, allowedCountry: "CN", bypassPaths: [], whitelist: [] }),
+    });
+
+    const before = await request(app).get("/api/me").set("X-Forwarded-For", "198.51.100.7");
+    expect(before.status).toBe(200);
+
+    enabled = true;
+    const after = await request(app).get("/api/me").set("X-Forwarded-For", "198.51.100.7");
+    expect(after.status).toBe(403);
+
+    enabled = false;
+    const closed = await request(app).get("/api/me").set("X-Forwarded-For", "198.51.100.7");
+    expect(closed.status).toBe(200);
+  });
 });

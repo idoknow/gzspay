@@ -87,19 +87,28 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 
 ## 9. 地区访问限制
 
-- 默认关闭，设置 `GEO_BLOCK_NON_CHINA=1` 后只放行中国大陆 IP；境外请求一律返回 `403 REGION_BLOCKED`（接口返回 JSON，页面请求返回一段中文提示页）。
+- 默认关闭。管理后台「系统配置 → 地区访问限制」保存到 `app_config` 后立即生效（不用重启）；未在后台保存过时使用 `GEO_BLOCK_NON_CHINA` 等环境变量作为默认值。
+- 开启后只放行中国大陆 IP，境外请求一律返回 `403 REGION_BLOCKED`（接口返回 JSON，页面请求返回一段中文提示页）。
 - 归属判断依据 `server/assets/cn-ip-ranges.json`（由 `node scripts/geo/build-cn-ranges.mjs` 从 APNIC 的 CN 分配段生成，IPv4 区间 + IPv6 CIDR，零第三方依赖）。这份数据能覆盖境内运营商与校园网，但无法识别具体国家，也无法防 VPN / 机场 / 代理。
 - 例外与放行：
   - 本机与内网地址（`127.0.0.0/8`、`10/8`、`172.16/12`、`192.168/16`、`::1`、`fc00::/7` 等）始终放行；
-  - `GEO_BYPASS_PATHS`（默认 `/api/health`、`/theme-boot.js`、`/sw.js`、`/manifest.webmanifest`、`/favicon.ico`）始终放行，健康检查不会被误拦；
-  - `GEO_IP_WHITELIST` 可放行固定出口 / 海外管理员 IP 或 CIDR。
-- 归属未知（数据缺失、地址无法解析）时按 `GEO_UNKNOWN_POLICY` 处理：`deny`（默认）拦截、`allow` 放行。
-- 前面有 CDN 时可在 `GEO_TRUST_HEADER` 填 CDN 的国家码请求头（如 `CF-IPCountry`）。只有确认回源请求一定来自 CDN 时才启用，否则客户端可伪造该头绕过限制。
+  - 例外路径（默认 `/api/health`、`/theme-boot.js`、`/sw.js`、`/manifest.webmanifest`、`/favicon.ico`）始终放行，健康检查不会被误拦；
+  - 白名单可放行固定出口 / 海外管理员 IP 或 CIDR（支持单个 IP 与 CIDR，逗号分隔）。
+- 归属未知（数据缺失、地址无法解析）时按「未知归属处理」策略：`deny`（默认）拦截、`allow` 放行。
+- 前面有 CDN 时可在后台填 CDN 的国家码请求头（如 `CF-IPCountry`）。只有确认回源请求一定来自 CDN 时才启用，否则客户端可伪造该头绕过限制。
 - 生效依赖真实客户端 IP：放在反向代理后面时要设置 `TRUST_PROXY=1`，否则所有请求都会被当成代理 IP（内网地址，直接放行）。
 - 被拦截的请求只打印节流日志（同一 IP 10 分钟一次），不写数据库，避免被刷库；后台「系统状态」不展示拦截计数。
 - 注意副作用：校园墙登录回调与站点同域，海外用户将无法登录；教育网个别海外出口可能被误判，必要时加入白名单。
 
-## 10. 上线检查清单
+## 10. 管理后台安全入口
+
+- 默认关闭：不配置时后台仍为 `/admin`。在「系统配置 → 管理后台安全入口」填写 4–32 位字母、数字、下划线或短横线（不能与 `api`、`assets`、`login` 等已有路径冲突）后，入口变为 `/<入口名>/admin`。
+- 访问 `/<入口名>/admin` 会下发 `gzs_admin_entry` Cookie（HMAC 签名、`HttpOnly`、`SameSite=Lax`、生产环境 `Secure`、有效期 8 小时）并 302 跳到 `/admin`；之后 8 小时内直接访问 `/admin` 不再校验入口。
+- 未携带有效凭据直接访问 `/admin` 或 `/admin/*`：写入一条访问记录（IP、方法、路径、查询串、UA、Referer、时间）并返回普通 404「页面不存在」，不暴露后台存在。
+- 记录保留最近约 3000 条，可在后台「系统状态 → 后台入口访问尝试」查看；接口为 `GET /api/admin/security/entry-visits`（仅管理员）。
+- 该入口只隐藏登录页地址，不替代账号权限校验：真正的权限仍由 `admins` 表 + 主站会话 + 角色控制。
+
+## 11. 上线检查清单
 
 1. `SESSION_SECRET` 用 `openssl rand -hex 32` 生成，至少 32 字符。
 2. `APP_BASE_URL`、`PUBLIC_BASE_URL` 都是 `https://`；没有证书的内网部署才设置 `ALLOW_INSECURE_BASE_URL=1`。
@@ -109,4 +118,5 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 6. 验证 `curl -I https://<域名>/api/health` 能看到 HSTS、CSP 与 `Cache-Control: no-store`。
 7. 跑一遍 `npm run verify` 与 `node scripts/e2e-smoke.mjs`（冒烟脚本要求全新数据库）。
 8. 配置告警通道并自测：设置 `ALERT_WEBHOOK_URL`，或配置 SMTP 并给管理员绑定邮箱；在后台「系统状态」确认告警显示为「已启用」。
-9. 需要只对中国大陆开放时：设置 `GEO_BLOCK_NON_CHINA=1`，确认 `/api/health` 仍 200、境外 IP 返回 `403 REGION_BLOCKED`，并把运维出口加入 `GEO_IP_WHITELIST`。
+9. 需要只对中国大陆开放时：在后台开启地区访问限制（或设置 `GEO_BLOCK_NON_CHINA=1`），确认 `/api/health` 仍 200、境外 IP 返回 `403 REGION_BLOCKED`，并把运维出口加入白名单。
+10. 建议在后台设置管理后台安全入口，确认 `/<入口名>/admin` 可进入、直接访问 `/admin` 返回 404 且能在「后台入口访问尝试」看到记录。

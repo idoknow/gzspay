@@ -18,6 +18,7 @@ import {
   Switch,
 } from "../components/ui";
 import {
+  formatDateTime,
   formatTtlSeconds,
   parseYuanToCents,
 } from "../format";
@@ -45,7 +46,7 @@ export function ConfigPage() {
     <>
       <PageHeader
         title="系统配置"
-        description="配置校园墙 OAuth 登录、系统发件邮箱与安全防护策略，保存后立即生效。"
+        description="配置校园墙 OAuth 登录、系统发件邮箱、安全防护、地区访问限制与后台安全入口，保存后立即生效。"
         actions={
           <button
             type="button"
@@ -71,10 +72,10 @@ export function ConfigPage() {
       {error && !data ? (
         <ErrorState message={errorMessage(error)} onRetry={() => refresh()} />
       ) : loading && !data ? (
-        <SkeletonCards count={3} />
+        <SkeletonCards count={5} />
       ) : data ? (
         <ConfigForm
-          key={`${data.campux.baseUrl}:${data.campux.clientId}:${data.campux.clientSecretConfigured}:${data.mail.host}:${data.mail.passwordConfigured}:${data.security.paymentPasswordMaxAttempts}:${data.security.sessionTtlDays}`}
+          key={`${data.campux.baseUrl}:${data.campux.clientId}:${data.campux.clientSecretConfigured}:${data.mail.host}:${data.mail.passwordConfigured}:${data.security.paymentPasswordMaxAttempts}:${data.security.sessionTtlDays}:${data.geo.blockNonChina}:${data.geo.unknownPolicy}:${data.geo.bypassPaths.join(",")}:${data.geo.ipWhitelist}:${data.geo.trustHeader}:${data.securityEntry.entryPath}`}
           config={data}
           readOnly={readOnly}
           onSaved={() => refresh()}
@@ -119,8 +120,22 @@ interface SecurityFormState {
   sessionTtlDays: string;
 }
 
+interface GeoFormState {
+  blockNonChina: boolean;
+  /** 例外路径，逗号分隔 */
+  bypassPaths: string;
+  /** 白名单 IP / CIDR，逗号分隔 */
+  ipWhitelist: string;
+  unknownPolicy: "deny" | "allow";
+  trustHeader: string;
+}
+
+interface EntryFormState {
+  entryPath: string;
+}
+
 function initialState(config: AdminConfig) {
-  const { campux, mail, security } = config;
+  const { campux, mail, security, geo, securityEntry } = config;
   return {
     campux: {
       baseUrl: campux.baseUrl ?? "",
@@ -146,7 +161,50 @@ function initialState(config: AdminConfig) {
       emailCodeTtl: String(security.emailCodeTtlSeconds ?? 600),
       sessionTtlDays: String(security.sessionTtlDays ?? 7),
     } satisfies SecurityFormState,
+    geo: {
+      blockNonChina: geo.blockNonChina,
+      bypassPaths: geo.bypassPaths.join(", "),
+      ipWhitelist: geo.ipWhitelist,
+      unknownPolicy: geo.unknownPolicy,
+      trustHeader: geo.trustHeader,
+    } satisfies GeoFormState,
+    entry: {
+      entryPath: securityEntry.entryPath ?? "",
+    } satisfies EntryFormState,
   };
+}
+
+/** 与站点已有路径冲突、不能作为安全入口的名字 */
+const RESERVED_ENTRY_NAMES = new Set([
+  "api",
+  "admin",
+  "assets",
+  "media",
+  "login",
+  "logout",
+  "auth",
+  "me",
+  "guide",
+  "setup",
+  "health",
+  "docs",
+  "static",
+  "favicon",
+  "theme-boot",
+  "sw",
+  "manifest",
+]);
+
+/** 把逗号/换行分隔的文本拆成去重后的列表 */
+function splitList(value: string): string[] {
+  return Array.from(
+    new Set(
+      value
+        .split(/[,，\s]+/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function centsToYuanInput(cents: number): string {
@@ -161,13 +219,25 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
   const [campux, setCampux] = useState<CampuxFormState>(initial.campux);
   const [mail, setMail] = useState<MailFormState>(initial.mail);
   const [security, setSecurity] = useState<SecurityFormState>(initial.security);
+  const [geo, setGeo] = useState<GeoFormState>(initial.geo);
+  const [entry, setEntry] = useState<EntryFormState>(initial.entry);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const callbackUrl = `${(config.system.publicBaseUrl || "").replace(/\/+$/, "")}/api/auth/callback`;
+  const entryUrlPreview = `${window.location.origin}${
+    entry.entryPath.trim() ? `/${entry.entryPath.trim()}/admin` : "/admin"
+  }`;
 
   async function handleSave() {
-    const validation = validate(campux, mail, security, config.campux.clientSecretConfigured);
+    const validation = validate(
+      campux,
+      mail,
+      security,
+      config.campux.clientSecretConfigured,
+      geo,
+      entry,
+    );
     if (validation.error) {
       setFormError(validation.error);
       feedback.warning(validation.error);
@@ -180,6 +250,9 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
         Boolean(campux.baseUrl.trim()) ||
         Boolean(campux.clientId.trim()) ||
         Boolean(campux.clientSecret);
+      const geoChanged = geoChangedFrom(geo, config.geo);
+      const entryPath = entry.entryPath.trim();
+      const entryChanged = entryPath !== (config.securityEntry.entryPath ?? "");
       const input: AdminConfigInput = {
         ...(campuxFilled
           ? {
@@ -211,6 +284,18 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           emailCodeTtlSeconds: Number(security.emailCodeTtl),
           sessionTtlDays: Number(security.sessionTtlDays),
         },
+        ...(geoChanged
+          ? {
+              geo: {
+                blockNonChina: geo.blockNonChina,
+                bypassPaths: splitList(geo.bypassPaths),
+                ipWhitelist: splitList(geo.ipWhitelist).join(","),
+                unknownPolicy: geo.unknownPolicy,
+                trustHeader: geo.trustHeader.trim(),
+              },
+            }
+          : {}),
+        ...(entryChanged ? { securityEntry: { entryPath } } : {}),
       };
       await updateConfig(input);
       feedback.success("系统配置已保存");
@@ -537,14 +622,181 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
             />
           </Field>
         </div>
+      </Card>
 
+      <Card
+        title="地区访问限制"
+        subtitle="仅允许中国大陆 IP 访问本站，境外请求会被直接拦截"
+        extra={
+          geo.blockNonChina ? (
+            <Badge tone="success" dot>
+              已开启
+            </Badge>
+          ) : (
+            <Badge tone="neutral" dot>
+              未开启
+            </Badge>
+          )
+        }
+      >
+        <div className="admin-form-grid">
+          <Field
+            label="启用地区限制"
+            className="admin-field-full"
+            hint="开启后仅放行中国大陆 IP；本机、内网地址、例外路径与白名单始终放行。"
+          >
+            <Switch
+              checked={geo.blockNonChina}
+              onChange={(value) => setGeo({ ...geo, blockNonChina: value })}
+              label={geo.blockNonChina ? "仅允许中国大陆访问" : "不限制访问地区"}
+              disabled={readOnly}
+            />
+          </Field>
+          <Field
+            label="例外路径"
+            className="admin-field-full"
+            hint="逗号或换行分隔，例如 /api/health；以 * 结尾表示前缀匹配。健康检查路径务必保留。"
+          >
+            <textarea
+              className="admin-input"
+              rows={2}
+              value={geo.bypassPaths}
+              disabled={readOnly}
+              onChange={(event) =>
+                setGeo({ ...geo, bypassPaths: event.target.value })
+              }
+            />
+          </Field>
+          <Field
+            label="IP 白名单"
+            className="admin-field-full"
+            hint="支持单个 IP 或 CIDR，例如 1.2.3.4、10.0.0.0/8；白名单内地址始终放行。"
+          >
+            <textarea
+              className="admin-input"
+              rows={2}
+              placeholder="留空表示不设置白名单"
+              value={geo.ipWhitelist}
+              disabled={readOnly}
+              onChange={(event) =>
+                setGeo({ ...geo, ipWhitelist: event.target.value })
+              }
+            />
+          </Field>
+          <Field
+            label="未知归属处理"
+            hint="IP 不在归属数据文件中时采取的策略。"
+          >
+            <select
+              className="admin-input"
+              value={geo.unknownPolicy}
+              disabled={readOnly}
+              onChange={(event) =>
+                setGeo({
+                  ...geo,
+                  unknownPolicy: event.target.value === "allow" ? "allow" : "deny",
+                })
+              }
+            >
+              <option value="deny">拦截（更严格）</option>
+              <option value="allow">放行（更宽松）</option>
+            </select>
+          </Field>
+          <Field
+            label="CDN 国家码请求头"
+            hint="例如 CF-IPCountry；仅在确认回源请求来自可信 CDN 时填写，否则可被伪造。"
+          >
+            <input
+              className="admin-input"
+              placeholder="留空则按 IP 数据判断"
+              value={geo.trustHeader}
+              disabled={readOnly}
+              onChange={(event) =>
+                setGeo({ ...geo, trustHeader: event.target.value })
+              }
+            />
+          </Field>
+          <Field
+            label="IP 归属数据"
+            hint={`IPv4 ${config.geo.ipv4Count} 段 / IPv6 ${config.geo.ipv6Count} 条，可用 node scripts/geo/build-cn-ranges.mjs 更新。`}
+          >
+            <input
+              className="admin-input"
+              readOnly
+              value={
+                config.geo.dataUpdatedAt
+                  ? formatDateTime(config.geo.dataUpdatedAt)
+                  : "未知"
+              }
+            />
+          </Field>
+        </div>
+        <InfoBanner tone="warning">
+          开启前请确认反向代理已设置 TRUST_PROXY，否则所有请求会被识别为同一个 IP；同时注意境外用户将无法访问与登录本站。
+        </InfoBanner>
+      </Card>
+
+      <Card
+        title="管理后台安全入口"
+        subtitle="把后台登录入口改成只有管理员知道的路径"
+        extra={
+          entry.entryPath.trim() ? (
+            <Badge tone="success" dot>
+              已启用
+            </Badge>
+          ) : (
+            <Badge tone="neutral" dot>
+              未启用
+            </Badge>
+          )
+        }
+      >
+        <div className="admin-form-grid">
+          <Field
+            label="安全入口名"
+            className="admin-field-full"
+            hint="4–32 位字母、数字、下划线或短横线；留空表示关闭安全入口，仍可直接访问 /admin。"
+          >
+            <input
+              className="admin-input"
+              placeholder="例如 gzs-secret"
+              value={entry.entryPath}
+              disabled={readOnly}
+              onChange={(event) => setEntry({ entryPath: event.target.value })}
+            />
+          </Field>
+          <Field
+            label="当前后台入口"
+            className="admin-field-full"
+            hint="仅发给管理员使用，注意不要泄露；访问后会写入 8 小时有效的凭据。"
+          >
+            <input
+              className="admin-input"
+              readOnly
+              value={entryUrlPreview}
+              onFocus={(event) => event.target.select()}
+            />
+          </Field>
+        </div>
+        {entry.entryPath.trim() ? (
+          <InfoBanner tone="info">
+            启用后直接打开 /admin 会被记录访问信息并返回 404，需要先访问上面的入口地址。
+          </InfoBanner>
+        ) : (
+          <InfoBanner tone="info">
+            未启用安全入口：任何知道域名的人都能直接打开 /admin 登录页。
+          </InfoBanner>
+        )}
+      </Card>
+
+      <Card title="保存配置" subtitle="修改后点击保存立即生效">
         {formError ? (
-          <div className="admin-inline-alert is-danger" style={{ marginTop: 14 }}>
+          <div className="admin-inline-alert is-danger" style={{ marginBottom: 14 }}>
             {formError}
           </div>
         ) : null}
 
-        <div className="admin-flex" style={{ marginTop: 18, gap: 10 }}>
+        <div className="admin-flex" style={{ gap: 10 }}>
           <Button
             variant="primary"
             onClick={handleSave}
@@ -560,6 +812,8 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               setCampux(reset.campux);
               setMail(reset.mail);
               setSecurity(reset.security);
+              setGeo(reset.geo);
+              setEntry(reset.entry);
               setFormError(null);
             }}
             disabled={readOnly || submitting}
@@ -584,11 +838,24 @@ function yuanToCentsOrZero(value: string): number {
   return cents === null ? 0 : cents;
 }
 
+/** 地区限制是否被改动过（避免把环境变量默认值固化进库） */
+function geoChangedFrom(geo: GeoFormState, saved: AdminConfig["geo"]): boolean {
+  return (
+    geo.blockNonChina !== saved.blockNonChina ||
+    geo.unknownPolicy !== saved.unknownPolicy ||
+    splitList(geo.bypassPaths).join(",") !== saved.bypassPaths.join(",") ||
+    splitList(geo.ipWhitelist).join(",") !== saved.ipWhitelist ||
+    geo.trustHeader.trim() !== saved.trustHeader
+  );
+}
+
 function validate(
   campux: CampuxFormState,
   mail: MailFormState,
   security: SecurityFormState,
   secretConfigured: boolean,
+  geo: GeoFormState,
+  entry: EntryFormState,
 ): { error?: string } {
   const baseUrl = campux.baseUrl.trim();
   const clientId = campux.clientId.trim();
@@ -642,5 +909,31 @@ function validate(
   if (!Number.isInteger(sessionDays) || sessionDays < 1 || sessionDays > 30) {
     return { error: "管理员登录态有效期需为 1–30 天。" };
   }
+
+  if (geo.blockNonChina) {
+    const invalidPath = splitList(geo.bypassPaths).find(
+      (item) => !item.startsWith("/"),
+    );
+    if (invalidPath) {
+      return { error: `例外路径需以 / 开头：${invalidPath}` };
+    }
+  }
+  const invalidIp = splitList(geo.ipWhitelist).find(
+    (item) => !/^[0-9a-fA-F:.]+(\/\d{1,3})?$/.test(item),
+  );
+  if (invalidIp) {
+    return { error: `IP 白名单格式不正确：${invalidIp}` };
+  }
+
+  const entryPath = entry.entryPath.trim();
+  if (entryPath) {
+    if (!/^[A-Za-z0-9_-]{4,32}$/.test(entryPath)) {
+      return { error: "安全入口需为 4–32 位字母、数字、下划线或短横线。" };
+    }
+    if (RESERVED_ENTRY_NAMES.has(entryPath.toLowerCase())) {
+      return { error: "该入口名与站点已有路径冲突，请换一个。" };
+    }
+  }
+
   return {};
 }

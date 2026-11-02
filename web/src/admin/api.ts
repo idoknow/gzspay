@@ -29,6 +29,7 @@ import type {
   AdminAppeal,
   AdminConfig,
   AdminConfigInput,
+  AdminEntryVisitsPayload,
   AdminIdentity,
   AdminLog,
   AdminMember,
@@ -1809,6 +1810,71 @@ export async function getConfig(): Promise<AdminConfig> {
         "",
       ),
     },
+    geo: mapGeoConfig(source),
+    securityEntry: mapAdminEntryConfig(source),
+  };
+}
+
+/** 地区访问限制配置映射（后台配置优先，缺省回落默认值） */
+function mapGeoConfig(payload: unknown): AdminConfig["geo"] {
+  const source = record(record(payload).geo ?? record(payload).geoBlock ?? record(payload).region);
+  const whitelistRaw = source.ipWhitelist ?? source.whitelist;
+  const ipWhitelist = Array.isArray(whitelistRaw)
+    ? whitelistRaw.map((item) => text(item) ?? "").filter(Boolean).join(",")
+    : textOr(firstText(source, ["ipWhitelist", "whitelist"]), "");
+  const bypassPaths = firstArray(source, ["bypassPaths", "bypass", "paths"])
+    .map((item) => text(item) ?? "")
+    .filter(Boolean);
+  return {
+    blockNonChina:
+      firstBoolean(source, ["blockNonChina", "blockNonCN", "enabled"]) ?? false,
+    bypassPaths:
+      bypassPaths.length > 0
+        ? bypassPaths
+        : ["/api/health", "/theme-boot.js", "/sw.js", "/manifest.webmanifest", "/favicon.ico"],
+    ipWhitelist,
+    unknownPolicy:
+      text(firstText(source, ["unknownPolicy", "policy"])) === "allow" ? "allow" : "deny",
+    trustHeader: textOr(firstText(source, ["trustHeader", "countryHeader"]), ""),
+    dataUpdatedAt: isoOrNull(firstText(source, ["dataUpdatedAt", "updatedAt"])),
+    ipv4Count: numberOr(firstNumber(source, ["ipv4Count", "ipv4"]), 0),
+    ipv6Count: numberOr(firstNumber(source, ["ipv6Count", "ipv6"]), 0),
+  };
+}
+
+/** 管理后台安全入口配置映射 */
+function mapAdminEntryConfig(payload: unknown): AdminConfig["securityEntry"] {
+  const root = record(payload);
+  const source = record(root.securityEntry ?? root.adminEntry ?? root.entry);
+  const entryPath = textOr(firstText(source, ["entryPath", "entry", "path"]), "");
+  const entryUrl = textOr(
+    firstText(source, ["entryUrl", "url"]),
+    entryPath ? `/${entryPath}/admin` : "admin",
+  );
+  return { entryPath, entryUrl };
+}
+
+/** GET /admin/security/entry-visits */
+export async function getAdminEntryVisits(limit = 20): Promise<AdminEntryVisitsPayload> {
+  const payload = await getJson<unknown>(`/admin/security/entry-visits?limit=${limit}`);
+  const source = record(payload);
+  const items = firstArray(source, ["items", "visits", "list"]).map((raw, index) => {
+    const item = record(raw);
+    return {
+      id: textOr(firstText(item, ["id"]), `visit-${index}`),
+      ip: firstText(item, ["ip", "clientIp"]) ?? null,
+      method: textOr(firstText(item, ["method"]), "GET"),
+      path: textOr(firstText(item, ["path", "url"]), "/admin"),
+      query: firstText(item, ["query", "search"]) ?? null,
+      userAgent: firstText(item, ["userAgent", "agent", "ua"]) ?? null,
+      referer: firstText(item, ["referer", "referrer"]) ?? null,
+      createdAt:
+        isoOrNull(firstText(item, ["createdAt", "time", "visitedAt"])) ?? new Date().toISOString(),
+    };
+  });
+  return {
+    total: numberOr(firstNumber(source, ["total", "count"]), items.length),
+    items,
   };
 }
 

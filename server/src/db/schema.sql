@@ -93,6 +93,19 @@ CREATE TABLE IF NOT EXISTS password_verifications (
 );
 CREATE INDEX IF NOT EXISTS idx_password_verifications_user ON password_verifications(user_id, created_at);
 
+-- 管理后台安全入口：未通过安全入口直接访问 /admin 的尝试记录
+CREATE TABLE IF NOT EXISTS admin_entry_visits (
+  id TEXT PRIMARY KEY,
+  ip TEXT,
+  method TEXT NOT NULL,
+  path TEXT NOT NULL,
+  query TEXT,
+  user_agent TEXT,
+  referer TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_admin_entry_visits_created ON admin_entry_visits(created_at);
+
 -- 管理员
 CREATE TABLE IF NOT EXISTS admins (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

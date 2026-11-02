@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { queryAll, queryOne, setConfigValue } from "../db/index.js";
 import { writeAudit } from "./audit.js";
+import { geoDataMeta } from "./geo.js";
 import { resetTransporter } from "./mail.js";
 
 /**
@@ -45,6 +46,18 @@ const SYSTEM_KEYS = {
   adminQq: "system.adminQq",
   publicBaseUrl: "system.publicBaseUrl",
   initialized: "system.initialized",
+} as const;
+
+const GEO_KEYS = {
+  blockNonChina: "geo.blockNonChina",
+  bypassPaths: "geo.bypassPaths",
+  ipWhitelist: "geo.ipWhitelist",
+  unknownPolicy: "geo.unknownPolicy",
+  trustHeader: "geo.trustHeader",
+} as const;
+
+const ADMIN_KEYS = {
+  entryPath: "admin.entryPath",
 } as const;
 
 const DEFAULT_SITE_NAME = "gzspay 桂中校园支付";
@@ -114,11 +127,29 @@ export interface SystemConfigView {
   publicBaseUrl: string;
 }
 
+export interface GeoConfigView {
+  blockNonChina: boolean;
+  bypassPaths: string[];
+  ipWhitelist: string;
+  unknownPolicy: "deny" | "allow";
+  trustHeader: string;
+  dataUpdatedAt: string | null;
+  ipv4Count: number;
+  ipv6Count: number;
+}
+
+export interface AdminEntryConfigView {
+  entryPath: string;
+  entryUrl: string;
+}
+
 export interface AdminConfigView {
   campux: CampuxConfigView;
   mail: MailConfigView;
   security: SecurityConfigView;
   system: SystemConfigView;
+  geo: GeoConfigView;
+  securityEntry: AdminEntryConfigView;
 }
 
 function splitFrom(from: string): { fromName: string; fromAddress: string } {
@@ -169,6 +200,61 @@ export function readInitializedFlag(): boolean {
   return (storedMap().get(SYSTEM_KEYS.initialized) ?? "") === "1";
 }
 
+/** 地区访问限制：后台配置优先，环境变量兜底 */
+export function readGeoConfig(): GeoConfigView {
+  const stored = storedMap();
+  const bypassRaw = stored.get(GEO_KEYS.bypassPaths);
+  const bypassPaths = (bypassRaw !== undefined ? bypassRaw.split(",") : config.geo.bypassPaths)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const unknownRaw = stored.get(GEO_KEYS.unknownPolicy) ?? config.geo.unknownPolicy;
+  const meta = geoDataMeta();
+  return {
+    blockNonChina:
+      (stored.get(GEO_KEYS.blockNonChina) ?? String(config.geo.blockNonChina)) === "true",
+    bypassPaths,
+    ipWhitelist: stored.get(GEO_KEYS.ipWhitelist) ?? config.geo.ipWhitelist,
+    unknownPolicy: unknownRaw === "allow" ? "allow" : "deny",
+    trustHeader: (stored.get(GEO_KEYS.trustHeader) ?? config.geo.trustHeader).trim(),
+    dataUpdatedAt: meta.updatedAt,
+    ipv4Count: meta.ipv4Count,
+    ipv6Count: meta.ipv6Count,
+  };
+}
+
+/** 供 geoGuard 每请求读取的动态配置 */
+export function geoGuardConfig(): {
+  enabled: boolean;
+  allowedCountry: string;
+  bypassPaths: string[];
+  whitelist: string[];
+  unknownPolicy: "deny" | "allow";
+  trustHeader: string | null;
+} {
+  const geo = readGeoConfig();
+  return {
+    enabled: geo.blockNonChina,
+    allowedCountry: "CN",
+    bypassPaths: geo.bypassPaths,
+    whitelist: geo.ipWhitelist
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+    unknownPolicy: geo.unknownPolicy,
+    trustHeader: geo.trustHeader || null,
+  };
+}
+
+/** 管理后台安全入口（空字符串表示未启用，仍可直接访问 /admin） */
+export function readAdminEntryConfig(): AdminEntryConfigView {
+  const stored = storedMap();
+  const entryPath = (stored.get(ADMIN_KEYS.entryPath) ?? "").trim();
+  return {
+    entryPath,
+    entryUrl: entryPath ? `/${entryPath}/admin` : "/admin",
+  };
+}
+
 export function readAdminConfig(): AdminConfigView {
   const stored = storedMap();
   const mail = readMailConfig();
@@ -203,6 +289,8 @@ export function readAdminConfig(): AdminConfigView {
       sessionTtlDays: toIntOr(stored.get(SECURITY_KEYS.sessionTtlDays), config.sessionTtlDays),
     },
     system: readSystemConfig(),
+    geo: readGeoConfig(),
+    securityEntry: readAdminEntryConfig(),
   };
 }
 
@@ -232,6 +320,13 @@ interface MutableConfig {
     dynamicCodeTtlSeconds: number;
     emailCodeTtlMinutes: number;
   };
+  geo: {
+    blockNonChina: boolean;
+    bypassPaths: string[];
+    ipWhitelist: string;
+    unknownPolicy: string;
+    trustHeader: string;
+  };
   sessionTtlDays: number;
 }
 
@@ -241,7 +336,7 @@ const mutableConfig = config as unknown as MutableConfig;
 export function applyRuntimeConfig(): void {
   const stored = storedMap();
   const view = readAdminConfig();
-  const { mail, security, campux, system } = view;
+  const { mail, security, campux, system, geo } = view;
 
   mutableConfig.campux.baseUrl = campux.baseUrl.replace(/\/+$/, "");
   mutableConfig.campux.clientId = campux.clientId;
@@ -269,6 +364,12 @@ export function applyRuntimeConfig(): void {
     Math.round(security.emailCodeTtlSeconds / 60),
   );
   mutableConfig.sessionTtlDays = security.sessionTtlDays;
+
+  mutableConfig.geo.blockNonChina = geo.blockNonChina;
+  mutableConfig.geo.bypassPaths = geo.bypassPaths;
+  mutableConfig.geo.ipWhitelist = geo.ipWhitelist;
+  mutableConfig.geo.unknownPolicy = geo.unknownPolicy;
+  mutableConfig.geo.trustHeader = geo.trustHeader;
 }
 
 export interface SaveMailInput {
@@ -296,6 +397,19 @@ export interface SaveSystemInput {
   siteName: string;
   adminQq: string;
   publicBaseUrl: string;
+}
+
+export interface SaveGeoInput {
+  blockNonChina: boolean;
+  bypassPaths: string[];
+  ipWhitelist: string;
+  unknownPolicy: "deny" | "allow";
+  trustHeader: string;
+}
+
+export interface SaveAdminEntryInput {
+  /** 空字符串表示关闭安全入口，恢复直接访问 /admin */
+  entryPath: string;
 }
 
 function writeMail(input: SaveMailInput): void {
@@ -338,14 +452,28 @@ function writeSecurity(input: SaveSecurityInput): void {
   setConfigValue(SECURITY_KEYS.sessionTtlDays, String(input.sessionTtlDays));
 }
 
+function writeGeo(input: SaveGeoInput): void {
+  setConfigValue(GEO_KEYS.blockNonChina, String(input.blockNonChina));
+  setConfigValue(GEO_KEYS.bypassPaths, input.bypassPaths.join(","));
+  setConfigValue(GEO_KEYS.ipWhitelist, input.ipWhitelist.trim());
+  setConfigValue(GEO_KEYS.unknownPolicy, input.unknownPolicy === "allow" ? "allow" : "deny");
+  setConfigValue(GEO_KEYS.trustHeader, input.trustHeader.trim());
+}
+
+function writeAdminEntry(input: SaveAdminEntryInput): void {
+  setConfigValue(ADMIN_KEYS.entryPath, input.entryPath.trim());
+}
+
 export interface SaveConfigInput {
   campux?: SaveCampuxInput;
   mail?: SaveMailInput;
   security?: SaveSecurityInput;
   system?: SaveSystemInput;
+  geo?: SaveGeoInput;
+  securityEntry?: SaveAdminEntryInput;
 }
 
-/** 写回 app_config（mail / campux / system / security 均可选），并立即生效 */
+/** 写回 app_config（mail / campux / system / security / geo / 安全入口均可选），并立即生效 */
 export function writeRuntimeConfig(input: SaveConfigInput): void {
   // 先失效缓存，保证接下来的 applyRuntimeConfig 读到刚写入的值
   invalidateRuntimeConfigCache();
@@ -353,6 +481,8 @@ export function writeRuntimeConfig(input: SaveConfigInput): void {
   if (input.mail) writeMail(input.mail);
   if (input.system) writeSystem(input.system);
   if (input.security) writeSecurity(input.security);
+  if (input.geo) writeGeo(input.geo);
+  if (input.securityEntry) writeAdminEntry(input.securityEntry);
   applyRuntimeConfig();
   invalidateRuntimeConfigCache();
 }
@@ -366,7 +496,7 @@ export function saveAdminConfig(actorId: string, input: SaveConfigInput, ip: str
     action: "admin.config.updated",
     targetType: "app_config",
     targetId: null,
-    detail: "更新系统配置（校园墙登录、邮件服务、安全防护与站点信息）",
+    detail: "更新系统配置（校园墙登录、邮件服务、安全防护、地区限制、后台安全入口与站点信息）",
     ip,
   });
 }
@@ -401,4 +531,11 @@ export function isMailReady(): boolean {
   return Boolean(readMailConfig().host);
 }
 
-export const CONFIG_KEYS = { SECURITY_KEYS, MAIL_KEYS, CAMPUX_KEYS, SYSTEM_KEYS } as const;
+export const CONFIG_KEYS = {
+  SECURITY_KEYS,
+  MAIL_KEYS,
+  CAMPUX_KEYS,
+  SYSTEM_KEYS,
+  GEO_KEYS,
+  ADMIN_KEYS,
+} as const;

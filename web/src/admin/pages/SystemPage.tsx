@@ -1,9 +1,10 @@
 /**
  * 系统状态：服务可用性、接口耗时与错误率、邮件成功率、校园墙连通性、存储与队列指标。
  */
-import { getSystemStatus } from "../api";
+import { getAdminEntryVisits, getSystemStatus } from "../api";
 import {
   Badge,
+  Button,
   Card,
   EmptyState,
   ErrorState,
@@ -24,7 +25,11 @@ import {
 } from "../format";
 import { useAsync, usePolling } from "../hooks";
 import { errorMessage } from "../../lib/http";
-import type { ServiceStatus, SystemStatus } from "../types";
+import type {
+  AdminEntryVisitsPayload,
+  ServiceStatus,
+  SystemStatus,
+} from "../types";
 
 export function SystemPage() {
   const { data, loading, error, refresh } = useAsync<SystemStatus>(
@@ -356,12 +361,108 @@ export function SystemPage() {
               ) : null}
             </div>
           </Card>
+
+          <AdminEntryVisitsCard />
         </div>
       ) : (
         <EmptyState title="暂无系统状态" description="尚未采集到系统指标。" />
       )}
     </>
   );
+}
+
+/** 未通过安全入口直接访问后台的尝试记录 */
+function AdminEntryVisitsCard() {
+  const visits = useAsync<AdminEntryVisitsPayload>(
+    () => getAdminEntryVisits(10),
+    [],
+  );
+  const items = visits.data?.items ?? [];
+  const total = visits.data?.total ?? 0;
+  return (
+    <Card
+      title="后台入口访问尝试"
+      subtitle="配置安全入口后，绕过入口直接打开 /admin 的访问会被记录并返回 404"
+      extra={
+        <div className="admin-flex" style={{ gap: 8, alignItems: "center" }}>
+          <Badge tone={total > 0 ? "warning" : "neutral"} dot>
+            {formatNumber(total)} 条记录
+          </Badge>
+          <Button
+            size="sm"
+            variant="subtle"
+            onClick={() => visits.refresh()}
+            disabled={visits.loading}
+          >
+            刷新
+          </Button>
+        </div>
+      }
+    >
+      {visits.error && !visits.data ? (
+        <ErrorState
+          message={errorMessage(visits.error)}
+          onRetry={() => visits.refresh()}
+        />
+      ) : visits.loading && !visits.data ? (
+        <TableSkeleton rows={4} cols={5} />
+      ) : items.length === 0 ? (
+        <EmptyState
+          title="暂无访问记录"
+          description="没有检测到绕过安全入口直接访问后台的尝试。"
+        />
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>来源 IP</th>
+                <th>请求</th>
+                <th>设备</th>
+                <th>来源页面</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id}>
+                  <td className="admin-text-sm admin-muted">
+                    {formatDateTime(item.createdAt)}
+                  </td>
+                  <td className="admin-mono">{item.ip ?? "未知"}</td>
+                  <td className="admin-cell-primary">
+                    <span className="admin-cell-sub admin-text-xs">
+                      {item.method} {item.path}
+                      {item.query ? `?${item.query}` : ""}
+                    </span>
+                  </td>
+                  <td
+                    className="admin-text-sm admin-muted"
+                    title={item.userAgent ?? ""}
+                  >
+                    {shortAgent(item.userAgent)}
+                  </td>
+                  <td
+                    className="admin-text-sm admin-muted"
+                    title={item.referer ?? ""}
+                  >
+                    {item.referer ? shortAgent(item.referer) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** 截断过长的 UA / 来源地址，完整内容放在 title 里 */
+function shortAgent(value: string | null): string {
+  if (!value) return "未知设备";
+  const trimmed = value.trim();
+  return trimmed.length > 42 ? `${trimmed.slice(0, 42)}…` : trimmed;
 }
 
 function ServiceCard({ service }: { service: ServiceStatus }) {

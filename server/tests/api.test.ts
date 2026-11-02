@@ -611,6 +611,85 @@ describe("管理后台", () => {
     ).toBe(true);
   });
 
+  it("系统配置可保存地区访问限制与后台安全入口", async () => {
+    const geo = {
+      blockNonChina: true,
+      bypassPaths: ["/api/health"],
+      ipWhitelist: "1.2.3.4, 10.0.0.0/8",
+      unknownPolicy: "deny" as const,
+      trustHeader: "",
+    };
+
+    await adminRequest().put("/api/admin/config").send({ geo }).expect(200);
+    const saved = await adminRequest().get("/api/admin/config").expect(200);
+    expect(saved.body.geo.blockNonChina).toBe(true);
+    expect(saved.body.geo.ipWhitelist).toBe("1.2.3.4,10.0.0.0/8");
+
+    const badWhitelist = await adminRequest()
+      .put("/api/admin/config")
+      .send({ geo: { ...geo, ipWhitelist: "not-an-ip" } })
+      .expect(400);
+    expect(String(badWhitelist.body.error.message)).toContain("IP 白名单格式不正确");
+
+    const badEntry = await adminRequest()
+      .put("/api/admin/config")
+      .send({ securityEntry: { entryPath: "api" } })
+      .expect(400);
+    expect(String(badEntry.body.error.message)).toContain("安全入口");
+
+    await adminRequest()
+      .put("/api/admin/config")
+      .send({ securityEntry: { entryPath: "gzs-secret" } })
+      .expect(200);
+    const entrySaved = await adminRequest().get("/api/admin/config").expect(200);
+    expect(entrySaved.body.securityEntry.entryPath).toBe("gzs-secret");
+    expect(entrySaved.body.securityEntry.entryUrl).toBe("/gzs-secret/admin");
+
+    // 绕过安全入口直接打开后台：记录并返回普通 404
+    const direct = await request(app).get("/admin");
+    expect(direct.status).toBe(404);
+    const visits = await adminRequest()
+      .get("/api/admin/security/entry-visits")
+      .expect(200);
+    expect(visits.body.total).toBeGreaterThanOrEqual(1);
+    expect(visits.body.items[0].path).toBe("/admin");
+    expect(visits.body.items[0].method).toBe("GET");
+
+    // 通过安全入口进入：下发 8 小时凭据并跳转 /admin
+    const viaEntry = await request(app).get("/gzs-secret/admin");
+    expect(viaEntry.status).toBe(302);
+    expect(viaEntry.headers.location).toBe("/admin");
+    const setCookie = String(viaEntry.headers["set-cookie"] ?? "");
+    expect(setCookie).toContain("gzs_admin_entry=");
+    const entryCookie = setCookie.split(";")[0] ?? "";
+
+    // 带凭据再访问不再记录
+    await request(app).get("/admin").set("Cookie", entryCookie);
+    const visitsAfter = await adminRequest()
+      .get("/api/admin/security/entry-visits")
+      .expect(200);
+    expect(visitsAfter.body.total).toBe(visits.body.total);
+
+    // 关闭安全入口后恢复直接访问
+    await adminRequest()
+      .put("/api/admin/config")
+      .send({ securityEntry: { entryPath: "" } })
+      .expect(200);
+    const closed = await adminRequest().get("/api/admin/config").expect(200);
+    expect(closed.body.securityEntry.entryPath).toBe("");
+    await request(app).get("/admin");
+    const visitsClosed = await adminRequest()
+      .get("/api/admin/security/entry-visits")
+      .expect(200);
+    expect(visitsClosed.body.total).toBe(visits.body.total);
+
+    // 恢复默认地区限制，避免影响后续用例
+    await adminRequest()
+      .put("/api/admin/config")
+      .send({ geo: { ...geo, blockNonChina: false, ipWhitelist: "" } })
+      .expect(200);
+  });
+
   it("在线用户列表包含活跃会话并支持强制下线", async () => {
     const target = await login("online-target", "在线目标");
 
