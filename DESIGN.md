@@ -429,6 +429,16 @@ gzspay/
 - 实现：`server/src/lib/admin-entry.ts` 的 `createAdminEntryGuard()`，挂在 `cookieParser()` 之后、业务路由之前；只处理 GET/HEAD 页面导航，接口请求不受影响。
 - 边界：安全入口只是隐藏入口地址，不替代鉴权；真正的权限仍由 `admins` 表、主站会话与角色控制。
 
+### 10.15 邮件模板
+
+- 所有系统邮件在 `server/src/lib/mail.ts` 里定义为「一份内容结构 + 两种渲染」：`EmailContent { badge, tone, title, preheader, intro, rows, code, paragraphs, block, note, action }` 同时渲染成 HTML（`renderEmailHtml()`）与纯文本（`renderEmailText()`），`nodemailer.sendMail()` 同时带 `text` 与 `html`，不支持 HTML 的客户端自动回退纯文本。
+- HTML 只用 **table 布局 + 行内样式**，不使用外部样式表、flex/grid 或脚本：邮件客户端（QQ 邮箱、微信内置、Gmail、Outlook、手机端）兼容性最好；`color-scheme` 只声明浅色，不强制反色，避免深色模式反色后对比度失控。
+- 版式：560px 白卡 + 圆角 + 细边框，顶部品牌行 `gzspay.` 与「桂中校园服务」，右侧按 `tone`（brand/success/warning/danger）显示徽标胶囊；正文标题 21px，键值明细用两列表格，验证码用等宽大字 + 浅黄底提示 10 分钟有效，操作按钮统一主色，底部页脚写明「本邮件由系统自动发送，请勿直接回复」、站点地址与「资金通过第三方收款码流转，gzspay 不代收代付」。
+- 模板清单：`verificationCode`（登录/绑定/改密验证码）、`newOrder`（新订单，含订单号/商家/付款人/金额/内容）、`paid`（付款人已标记支付）、`settled`（已完成/已取消，取消用 warning 色）、`passwordChanged`（支付密码已修改）、`paymentLocked`（密码连续错误锁定）、`adminCode`（管理后台验证码）、`accountFrozen`（冻结/恢复）。
+- 安全：所有插值都经过 `escapeHtml()`（&、<、>、"、'），避免订单备注等用户输入破坏邮件结构或注入 HTML；邮件里不出现密码、验证码以外的敏感信息。
+- 告警邮件由 `server/src/lib/alerts.ts` 的 `buildAlertContent()` 生成同一套结构（来源、时间、环境、上下文、错误与堆栈、合并次数说明、打开管理后台按钮），与普通通知邮件共用渲染器。
+- `mail_outbox` 只存纯文本正文（`body` 列），后台邮件出箱展示纯文本；HTML 在发送时即时渲染，不重复落库。
+
 ## 11. 里程碑
 
 | 阶段 | 内容 |

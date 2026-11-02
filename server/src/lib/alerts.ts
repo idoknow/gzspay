@@ -1,7 +1,7 @@
 import { config, isSmtpConfigured } from "../config.js";
 import { queryAll, nowIso } from "../db/index.js";
 import { writeSystemError } from "./audit.js";
-import { sendMailInBackground } from "./mail.js";
+import { renderEmailHtml, sendMailInBackground, type EmailContent } from "./mail.js";
 
 /**
  * 严重系统错误主动告警。
@@ -124,6 +124,36 @@ export function buildAlertText(input: SystemAlertInput, suppressed: number): str
   return lines.join("\n");
 }
 
+/** 告警邮件的内容结构（同一份结构同时渲染 HTML 与纯文本） */
+export function buildAlertContent(input: SystemAlertInput, suppressed: number): EmailContent {
+  const rows = [
+    { label: "时间", value: new Date().toISOString() },
+    { label: "环境", value: `${config.nodeEnv}（v${config.version}）` },
+    { label: "来源", value: input.scope },
+  ];
+  if (input.context) rows.push({ label: "上下文", value: input.context });
+  const paragraphs: string[] = [];
+  if (suppressed > 0) {
+    paragraphs.push(
+      `同类错误在最近 ${config.alerts.throttleMinutes} 分钟内还有 ${suppressed} 次未单独告警。`,
+    );
+  }
+  return {
+    badge: "系统告警",
+    tone: "danger",
+    title: "检测到严重系统错误",
+    preheader: `${input.scope}：${input.message.slice(0, 120)}`,
+    intro: "gzspay 检测到严重系统错误，请尽快排查。",
+    rows,
+    block: {
+      title: input.stack ? "错误信息与堆栈" : "错误信息",
+      text: input.stack ? `${input.message}\n\n${input.stack.slice(0, 2000)}` : input.message,
+    },
+    paragraphs,
+    action: { label: "打开管理后台", url: `${config.publicBaseUrl}/admin` },
+  };
+}
+
 export interface AlertPayload {
   event: "system_error";
   scope: string;
@@ -187,9 +217,10 @@ function dispatch(input: SystemAlertInput, suppressed: number): void {
   if (!config.alerts.emailEnabled || !isSmtpConfigured()) return;
   const subject = buildAlertSubject(input);
   const text = buildAlertText(input, suppressed);
+  const html = renderEmailHtml(buildAlertContent(input, suppressed));
   for (const to of alertRecipients()) {
     // kind=system_alert：邮件失败时不会再触发一次告警，避免递归
-    sendMailInBackground({ to, subject, text, kind: "system_alert" });
+    sendMailInBackground({ to, subject, text, html, kind: "system_alert" });
   }
 }
 
