@@ -35,6 +35,8 @@
 - 地区访问限制（默认关闭）：设置 `GEO_BLOCK_NON_CHINA=1` 后只允许中国大陆 IP 访问，境外请求返回 `403 REGION_BLOCKED`（接口返回 JSON，页面请求返回中文提示页）；归属判断依据仓库内 APNIC CN 分配段数据（`server/assets/cn-ip-ranges.json`，可用 `node scripts/geo/build-cn-ranges.mjs` 更新，不引入第三方 IP 库），本机 / 内网地址、`GEO_BYPASS_PATHS`（默认含 `/api/health` 与 PWA 静态资源）与 `GEO_IP_WHITELIST` 始终放行，归属未知按 `GEO_UNKNOWN_POLICY` 处理；前面有 CDN 时可用 `GEO_TRUST_HEADER`（如 `CF-IPCountry`）读取 CDN 判断结果。
 - 地区访问限制改为在管理后台「系统配置 → 地区访问限制」配置：开关、例外路径、IP 白名单（逐项校验 IP / CIDR）、未知归属策略与 CDN 国家码头都可直接编辑并即时生效，页面同时显示归属数据版本与 IPv4 / IPv6 段数；`.env` 里的 `GEO_*` 退化为默认值，不再需要改文件重启。
 - 管理后台支持自定义安全入口：在「系统配置 → 管理后台安全入口」设置 4–32 位入口名后，后台入口变成 `/<入口名>/admin`，访问后下发 8 小时签名的 `gzs_admin_entry` Cookie 并跳转到 `/admin`；没有凭据直接访问 `/admin` 或 `/admin/*` 时返回普通 404 隐藏后台，同时把访问者 IP、方法、路径、查询串、浏览器与来源写入 `admin_entry_visits`，可在「系统状态 → 后台入口访问尝试」查看最近记录；入口名留空即恢复为直接访问 `/admin`。
+- 管理后台新增「访问统计」页（仅管理员可见）：最近 7 / 30 / 90 天的请求总数、今日请求、日均请求、扫码次数与安全防护拦截次数，请求量按天趋势、路由请求排行、HTTP 状态码分布、访问设备（电脑 / 手机 / 平板 / 机器人）、浏览器与操作系统、访问地区（中国大陆 / 境外 / 本机内网）以及扫码与安全防护明细；新增 `GET /api/admin/traffic` 接口与 `traffic_counters` 表，统计只按天聚合计数、不保存 IP 与 User-Agent，数据保留 400 天。
+- 安全防护增强：新增扫描器路径拦截（`/.env`、`/.git`、`/wp-admin`、`/phpmyadmin`、`/actuator` 等常见探测路径与 `.php/.asp/.aspx/.jsp/.cgi` 扩展名直接返回 404，不进入业务路由）；写接口额外拒绝浏览器标记为 `Sec-Fetch-Site: cross-site` 的请求；响应头补充 `X-DNS-Prefetch-Control: off`、`Origin-Agent-Cluster: ?1`、`X-Download-Options: noopen`，`/admin` 增加 `X-Robots-Tag: noindex, nofollow` 与 `no-store`，生产 CSP 追加 `upgrade-insecure-requests`。
 
 ### 变更
 

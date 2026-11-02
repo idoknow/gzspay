@@ -407,6 +407,8 @@ export function createGeoGuard(options: GeoGuardOptions = {}): RequestHandler {
     geoStats.blockedCount += 1;
     geoStats.lastBlockedAt = new Date().toISOString();
     geoStats.lastBlockedIp = ip || null;
+    // 打标记：由访问统计中间件统一记录「地区拦截」次数（避免与 traffic 循环依赖）
+    res.locals.regionBlocked = true;
     res.setHeader("Cache-Control", "no-store");
     if (pathname.startsWith("/api/") || req.accepts(["json", "html"]) === "json") {
       res.status(403).json({ error: { code: "REGION_BLOCKED", message: BLOCKED_MESSAGE } });

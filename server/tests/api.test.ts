@@ -108,6 +108,20 @@ describe("基础接口", () => {
     expect(response.body.error.code).toBe("CSRF_REJECTED");
   });
 
+  it("安全响应头包含防嗅探与后台防收录设置", async () => {
+    const health = await request(app).get("/api/health").expect(200);
+    expect(health.headers["x-content-type-options"]).toBe("nosniff");
+    expect(health.headers["x-dns-prefetch-control"]).toBe("off");
+    expect(health.headers["origin-agent-cluster"]).toBe("?1");
+    expect(health.headers["x-download-options"]).toBe("noopen");
+    expect(health.headers["content-security-policy"]).toBeUndefined();
+    expect(health.headers["x-frame-options"]).toBe("DENY");
+
+    const adminPage = await request(app).get("/admin");
+    expect(String(adminPage.headers["x-robots-tag"])).toContain("noindex");
+    expect(String(adminPage.headers["cache-control"])).toContain("no-store");
+  });
+
   it("未登录访问受保护接口返回 401", async () => {
     const response = await request(app).get("/api/me").expect(401);
     expect(response.body.error.code).toBe("UNAUTHENTICATED");
@@ -688,6 +702,41 @@ describe("管理后台", () => {
       .put("/api/admin/config")
       .send({ geo: { ...geo, blockNonChina: false, ipWhitelist: "" } })
       .expect(200);
+  });
+
+  it("访问统计返回请求、扫码与安全防护次数，且仅管理员可用", async () => {
+    // 制造一次扫描器路径探测与一次跨站写请求
+    const probe = await request(app).get("/.env");
+    expect(probe.status).toBe(404);
+    const crossSite = await request(app)
+      .post("/api/auth/logout")
+      .set(CSRF)
+      .set("Sec-Fetch-Site", "cross-site")
+      .send({});
+    expect(crossSite.status).toBe(403);
+    expect(crossSite.body.error.code).toBe("CSRF_REJECTED");
+
+    const response = await adminRequest().get("/api/admin/traffic?days=7").expect(200);
+    expect(response.body.days).toBe(7);
+    expect(response.body.series).toHaveLength(7);
+    expect(typeof response.body.requests.total).toBe("number");
+    expect(response.body.requests.total).toBeGreaterThan(0);
+    expect(Array.isArray(response.body.routes)).toBe(true);
+    expect(Array.isArray(response.body.statuses)).toBe(true);
+    expect(Array.isArray(response.body.devices)).toBe(true);
+    expect(Array.isArray(response.body.regions)).toBe(true);
+    expect(typeof response.body.scans.total).toBe("number");
+    expect(typeof response.body.security.total).toBe("number");
+    const securityKeys = response.body.security.items.map((item: { key: string }) => item.key);
+    expect(securityKeys).toContain("scanner_blocked");
+    expect(securityKeys).toContain("csrf_rejected");
+    // 状态码统计里应能看到 403
+    expect(
+      response.body.statuses.some((item: { key: string }) => item.key === "403"),
+    ).toBe(true);
+
+    // 非管理员 / 匿名不能看访问统计
+    await request(app).get("/api/admin/traffic").expect(401);
   });
 
   it("在线用户列表包含活跃会话并支持强制下线", async () => {

@@ -9,12 +9,14 @@ import {
   csrfGuard,
   errorHandler,
   notFoundHandler,
+  scannerGuard,
   securityHeaders,
   systemGate,
 } from "./lib/http.js";
 import { createAdminEntryGuard } from "./lib/admin-entry.js";
 import { createGeoGuard } from "./lib/geo.js";
 import { recordRequestMetric } from "./lib/metrics.js";
+import { createTrafficMiddleware } from "./lib/traffic.js";
 import { geoGuardConfig } from "./lib/runtime-config.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
@@ -122,6 +124,11 @@ export function createApp(): Express {
   app.disable("x-powered-by");
   app.set("trust proxy", parseTrustProxy(config.trustProxy));
   app.use(securityHeaders);
+  // 访问统计与请求指标必须挂在地区限制 / 扫描器拦截之前，才能统计到被拦截的请求
+  app.use(createTrafficMiddleware());
+  app.use(metricsMiddleware);
+  // 扫描器探测路径（/.env、wp-admin 等）直接 404
+  app.use(scannerGuard);
   // 地区访问限制：放在最前面，境外请求连接口与静态资源都不必再解析；
   // 配置从 app_config 每请求读取，后台保存后立即生效
   app.use(createGeoGuard({ resolve: geoGuardConfig }));
@@ -131,7 +138,6 @@ export function createApp(): Express {
   app.use(cookieParser());
   // 管理后台安全入口：配置后 /admin 需先经 `/{入口}/admin` 进入，否则记录并返回 404
   app.use(createAdminEntryGuard());
-  app.use(metricsMiddleware);
 
   // 头像与上传文件
   app.use("/media/avatars", express.static(config.avatarDir, { maxAge: "7d", index: false }));

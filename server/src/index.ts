@@ -3,6 +3,7 @@ import { app } from "./app.js";
 import { config } from "./config.js";
 import { cleanupExpired, closeDatabase, execute, migrate, optimizeDatabase } from "./db/index.js";
 import { flushRequestMetrics } from "./lib/metrics.js";
+import { flushTrafficCounters, pruneTrafficCounters } from "./lib/traffic.js";
 import { backfillQqAvatars } from "./lib/avatar.js";
 import { geoDataError, geoDataMeta } from "./lib/geo.js";
 import { applyRuntimeConfig, isSystemReady, readAdminConfig } from "./lib/runtime-config.js";
@@ -20,6 +21,7 @@ function startCleanupTimer(): NodeJS.Timeout {
         Date.now() - METRICS_RETENTION_DAYS * 24 * 60 * 60 * 1000,
       ).toISOString();
       execute("DELETE FROM request_metrics WHERE created_at < ?", cutoff);
+      pruneTrafficCounters(400);
       optimizeDatabase();
     } catch (error) {
       reportSystemError({
@@ -39,11 +41,13 @@ function shutdown(server: Server, timer: NodeJS.Timeout, signal: string): void {
   clearInterval(timer);
   server.close(() => {
     flushRequestMetrics();
+    flushTrafficCounters();
     closeDatabase();
     process.exit(0);
   });
   setTimeout(() => {
     flushRequestMetrics();
+    flushTrafficCounters();
     closeDatabase();
     process.exit(0);
   }, 5000).unref();
@@ -130,6 +134,7 @@ function main(): void {
     });
     // 未捕获异常后进程状态不可信：记录并告警后退出，由守护进程（pm2 / systemd）拉起
     flushRequestMetrics();
+    flushTrafficCounters();
     process.exit(1);
   });
 }

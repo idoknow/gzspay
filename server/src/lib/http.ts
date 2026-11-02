@@ -34,6 +34,7 @@ const CONTENT_SECURITY_POLICY = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
+  "upgrade-insecure-requests",
 ].join("; ");
 
 /** 安全响应头 */
@@ -42,6 +43,9 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "same-origin");
   res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  res.setHeader("X-DNS-Prefetch-Control", "off");
+  res.setHeader("Origin-Agent-Cluster", "?1");
+  res.setHeader("X-Download-Options", "noopen");
   res.setHeader(
     "Permissions-Policy",
     "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
@@ -52,12 +56,82 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   if (req.path.startsWith("/api/")) {
     res.setHeader("Cache-Control", "no-store");
   }
+  // 管理后台页面不进搜索引擎、不进缓存
+  if (req.path === "/admin" || req.path.startsWith("/admin/")) {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    res.setHeader("Cache-Control", "no-store");
+  }
   // HSTS 与 CSP 只在上线环境下发：开发环境 Vite 的 HMR 需要内联脚本与 ws 连接
   if (config.isProduction) {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     res.setHeader("Content-Security-Policy", CONTENT_SECURITY_POLICY);
   }
   next();
+}
+
+/** 常见扫描器探测路径：命中直接 404，不进入业务路由 */
+const SCANNER_PATHS = [
+  "/.env",
+  "/.git",
+  "/.svn",
+  "/.aws",
+  "/.htaccess",
+  "/.htpasswd",
+  "/wp-admin",
+  "/wp-login.php",
+  "/wp-content",
+  "/wordpress",
+  "/phpmyadmin",
+  "/pma",
+  "/xmlrpc.php",
+  "/admin.php",
+  "/config.json",
+  "/config.yml",
+  "/server-status",
+  "/actuator",
+  "/cgi-bin",
+  "/vendor/",
+  "/phpunit",
+  "/boaform",
+  "/HNAP1",
+  "/solr/",
+  "/jmx-console",
+  "/nacos",
+  "/druid/",
+  "/console",
+  "/manager/html",
+  "/owa/",
+  "/autodiscover",
+];
+
+const SCANNER_EXTENSIONS = [".php", ".asp", ".aspx", ".jsp", ".cgi"];
+
+/** 是否是扫描器常见路径（.env、wp-admin、phpmyadmin 之类） */
+export function isScannerPath(pathname: string): boolean {
+  const lower = pathname.toLowerCase();
+  if (SCANNER_PATHS.some((item) => lower === item || lower.startsWith(`${item}/`))) return true;
+  return SCANNER_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+/**
+ * 扫描器拦截：命中常见探测路径时直接 404，并打上标记供访问统计记录。
+ * 放在地区限制之前，避免境外扫描器把国内 IP 段统计搅乱。
+ */
+export function scannerGuard(req: Request, res: Response, next: NextFunction): void {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    next();
+    return;
+  }
+  if (!isScannerPath(req.path)) {
+    next();
+    return;
+  }
+  res.locals.scannerBlocked = true;
+  if (req.path.startsWith("/api/")) {
+    res.status(404).json({ error: { code: "NOT_FOUND", message: "接口不存在" } });
+    return;
+  }
+  res.status(404).type("text/plain").send("Not Found");
 }
 
 function originOf(value: string | undefined): string | null {
@@ -77,8 +151,14 @@ export function csrfGuard(req: Request, res: Response, next: NextFunction): void
     return;
   }
   const reject = (message: string): void => {
+    res.locals.csrfRejected = true;
     res.status(403).json({ error: { code: "CSRF_REJECTED", message } });
   };
+  // 0) 浏览器明确标记为跨站：直接拒绝（Sec-Fetch-Site 无法被页面脚本伪造）
+  if (req.headers["sec-fetch-site"] === "cross-site") {
+    reject("不接受跨站发起的写请求");
+    return;
+  }
   // 1) 自定义请求头：跨站简单请求无法伪造，浏览器跨域预检也会被同源策略拦下
   if (req.headers["x-requested-with"] !== "gzspay") {
     reject("缺少 X-Requested-With 请求头");
@@ -244,6 +324,9 @@ export function errorHandler(
     return;
   }
   if (error instanceof AppError) {
+    // 支付密码相关失败计入安全防护统计
+    if (error.code === "PAYMENT_PASSWORD_WRONG") res.locals.paymentPasswordWrong = true;
+    if (error.code === "PAYMENT_PASSWORD_LOCKED") res.locals.paymentPasswordLocked = true;
     res.status(error.status).json({
       error: {
         code: error.code,

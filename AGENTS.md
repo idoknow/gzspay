@@ -69,3 +69,5 @@ node scripts/bench.mjs        # 可选：并发压测关键只读接口，输出
 - 系统未初始化（无管理员且未标记 `system.initialized`）时，除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外的接口必须返回 `503`。
 - 地区限制由 `server/src/lib/geo.ts` 的中间件实现：只放行中国大陆 IP，本机 / 内网地址、例外路径与 IP 白名单例外；开关与策略在管理后台「系统配置 → 地区访问限制」保存（`app_config`，`GEO_*` 环境变量仅作默认值）；IP 归属数据在 `server/assets/cn-ip-ranges.json`（`node scripts/geo/build-cn-ranges.mjs` 更新，零第三方依赖），不要在业务路由里另写一套 IP 判断。
 - 管理后台安全入口由 `server/src/lib/admin-entry.ts` 的 `createAdminEntryGuard()` 实现：入口名存在 `app_config`（`admin.entryPath`），访问 `/<入口名>/admin` 后下发 8 小时 HMAC Cookie 并跳 `/admin`；无凭据直接访问 `/admin` 会被写入 `admin_entry_visits` 并返回 404。它只隐藏入口地址，不替代 `admins` 表与角色鉴权。
+- 访问统计只能写聚合计数：新增埋点调用 `server/src/lib/traffic.ts` 的 `recordTraffic(kind, name)`，`traffic_counters` 表只保存 `(day, kind, name, count)`，**禁止把 IP、User-Agent、请求参数或个人数据写进统计**；安全拦截计数通过 `res.locals`（`regionBlocked`/`scannerBlocked`/`adminEntryProbe`/`csrfRejected`/`paymentPasswordWrong`/`paymentPasswordLocked`）交给统计中间件统一记，不要在拦截器里直接写库。统计只通过 `GET /api/admin/traffic` 提供给管理员。
+- 新增可疑路径防护时加到 `server/src/lib/http.ts` 的 `SCANNER_PATHS` / `SCANNER_EXTENSIONS`，由 `scannerGuard` 统一返回 404，不要在业务路由里各写一份。

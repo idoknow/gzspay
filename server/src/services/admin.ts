@@ -34,6 +34,7 @@ import {
   saveAdminConfig as saveRuntimeConfig,
   type SaveConfigInput,
 } from "../lib/runtime-config.js";
+import { trafficStats, type TrafficStatsPayload } from "../lib/traffic.js";
 
 /* ------------------------------------------------------------------ 通用 */
 
@@ -1705,6 +1706,11 @@ export function adminIdentity(user: UserRow, admin: AdminRow) {
     role: admin.role,
     createdAt: admin.created_at,
   };
+}
+
+/** 后台「访问统计」：路由 / 状态码 / 设备 / 地区 / 扫码 / 安全防护次数 */
+export function adminTraffic(days = 7): TrafficStatsPayload {
+  return trafficStats(days);
 }
 
 export { setConfigValue, writeSystemError, writeAudit };

@@ -452,6 +452,44 @@ export interface SystemStatus {
   updatedAt: string | null;
 }
 
+/* ------------------------------------------------------------------ 访问统计 */
+
+/** 单个维度的一项计数 */
+export interface TrafficBreakdownItem {
+  key: string;
+  label: string;
+  count: number;
+  /** 占比（0–100，保留一位小数） */
+  share: number;
+}
+
+/** 按天的趋势点 */
+export interface TrafficSeriesPoint {
+  day: string;
+  label: string;
+  requests: number;
+  scans: number;
+  security: number;
+}
+
+/** GET /admin/traffic */
+export interface TrafficStats {
+  days: number;
+  since: string;
+  until: string;
+  requests: { total: number; today: number; averagePerDay: number };
+  scans: { total: number; items: TrafficBreakdownItem[] };
+  security: { total: number; items: TrafficBreakdownItem[] };
+  routes: TrafficBreakdownItem[];
+  statuses: TrafficBreakdownItem[];
+  devices: TrafficBreakdownItem[];
+  browsers: TrafficBreakdownItem[];
+  systems: TrafficBreakdownItem[];
+  regions: TrafficBreakdownItem[];
+  series: TrafficSeriesPoint[];
+  generatedAt: string;
+}
+
 /* ------------------------------------------------------------------ 公告 */
 
 export type AnnouncementLevel = "info" | "important" | "warning";

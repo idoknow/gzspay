@@ -216,6 +216,8 @@ export function createAdminEntryGuard(): (req: Request, res: Response, next: Nex
     }
 
     recordAdminEntryVisit(req);
+    // 打标记：访问统计里记为「后台入口探测」
+    res.locals.adminEntryProbe = true;
     res.status(404).type("html").send(NOT_FOUND_HTML);
   };
 }

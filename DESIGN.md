@@ -229,10 +229,11 @@ logo、当前版本号、更新日志（按版本倒序，未发布的记录按�
 5. **管理员管理**：从现有用户中添加管理员，设置角色（超级管理员、运营、只读审计），可移除；仅超级管理员可操作。
 6. **交易明细**：全校订单列表，可按时间、状态、金额、商家、付款人筛选；详情含时间线；可导出；处理申诉（关闭订单、标记异常）。
 7. **数据统计**：交易额与订单数趋势、商家排行、支付方式占比、金额区间分布、交易时段分布、订单状态分布、订单转化（创建→已支付→完成）、平均确认时长；所有图表可点按图例隐藏系列、点按柱子/圆点/扇区查看明细。
-8. **系统状态**：服务可用性、接口耗时与错误率、邮件发送成功率、校园墙授权连通性、存储与队列，异常时告警；「严重错误告警」卡展示 Webhook 与邮件通道是否已配置、收件管理员人数、最近一次主动告警与最近一小时告警次数，未配置任何通道时给出提示。
-9. **公告发布**：标题、正文（Markdown 富文本编辑 + 预览）、级别（普通/重要/警告）、置顶、发布日期；创建即发布（发布日期默认等于创建时间，可手动修改）；列表显示已读人数 / 用户总数与创建、修改时间；修改标题、正文、级别或发布日期会清空已读记录，等同于重新推送（用户端重新出现未读红点）。用户端在交易页右上角有公告按钮，未读时显示红点，公告列表最前是独立的「置顶」分组（暖黄高亮卡片 + 图钉），其余区分未读/已读，详情页按 Markdown 渲染。
-10. **日志查看**：操作日志（谁在何时改了什么）、登录日志、支付密码错误与风控日志、系统错误日志；可筛选、导出，不可修改或删除。
-11. **系统配置**：配置校园墙 OAuth 登录（站点地址、Client ID、Client Secret、授权范围与回调地址提示）、系统发件邮箱、安全防护设置、站点信息、地区访问限制（开关、例外路径、IP 白名单、未知归属策略、CDN 国家码头、数据版本）与管理后台安全入口（入口名、当前入口地址）；各块配置可分别保存，密钥留空表示保持不变。
+8. **访问统计**：最近 7 / 30 / 90 天的请求总数、今日请求、日均请求、扫码次数与安全防护拦截次数；请求量趋势（按天柱状图）；路由请求排行（按接口 / 页面，前 15 条带占比条）；HTTP 状态码分布；访问设备（电脑 / 手机 / 平板 / 机器人，环形图）、浏览器与操作系统、访问地区（中国大陆 / 境外 / 本机内网，不保存具体 IP）；扫码统计（校园卡被扫、平台动态码被扫、动态码发起收款）；安全防护明细（限流、CSRF、地区拦截、后台入口探测、扫描器路径、未登录、越权、支付密码错误 / 锁定）。统计只保存按天聚合的次数，不保存 IP 与 User-Agent，且仅管理员可见。
+9. **系统状态**：服务可用性、接口耗时与错误率、邮件发送成功率、校园墙授权连通性、存储与队列，异常时告警；「严重错误告警」卡展示 Webhook 与邮件通道是否已配置、收件管理员人数、最近一次主动告警与最近一小时告警次数，未配置任何通道时给出提示。
+10. **公告发布**：标题、正文（Markdown 富文本编辑 + 预览）、级别（普通/重要/警告）、置顶、发布日期；创建即发布（发布日期默认等于创建时间，可手动修改）；列表显示已读人数 / 用户总数与创建、修改时间；修改标题、正文、级别或发布日期会清空已读记录，等同于重新推送（用户端重新出现未读红点）。用户端在交易页右上角有公告按钮，未读时显示红点，公告列表最前是独立的「置顶」分组（暖黄高亮卡片 + 图钉），其余区分未读/已读，详情页按 Markdown 渲染。
+11. **日志查看**：操作日志（谁在何时改了什么）、登录日志、支付密码错误与风控日志、系统错误日志；可筛选、导出，不可修改或删除。
+12. **系统配置**：配置校园墙 OAuth 登录（站点地址、Client ID、Client Secret、授权范围与回调地址提示）、系统发件邮箱、安全防护设置、站点信息、地区访问限制（开关、例外路径、IP 白名单、未知归属策略、CDN 国家码头、数据版本）与管理后台安全入口（入口名、当前入口地址）；各块配置可分别保存，密钥留空表示保持不变。
 
 ## 9. 安全与风控要点
 
@@ -382,11 +383,22 @@ gzspay/
 
 详细措施与上线检查清单见 [docs/security.md](./docs/security.md)，要点：
 
-- **响应头**：生产环境下发 HSTS 与 CSP（`script-src 'self'`，页面内不再有内联脚本，主题引导脚本位于 `web/public/theme-boot.js`），并统一加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、COOP/CORP、`Permissions-Policy`；`/api/*` 一律 `Cache-Control: no-store`。
+- **响应头**：生产环境下发 HSTS 与 CSP（`script-src 'self'`，页面内不再有内联脚本，主题引导脚本位于 `web/public/theme-boot.js`），并统一加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、COOP/CORP、`Permissions-Policy`、`X-DNS-Prefetch-Control: off`、`Origin-Agent-Cluster: ?1`、`X-Download-Options: noopen`；`/admin` 与 `/admin/*` 额外加 `X-Robots-Tag: noindex, nofollow` 与 `Cache-Control: no-store`（不让搜索引擎收录后台，也不缓存页面）；`/api/*` 一律 `Cache-Control: no-store`；生产 CSP 追加 `upgrade-insecure-requests`。
 - **启动自检**：生产环境 `SESSION_SECRET` 必须是 ≥32 字符的随机串、`APP_BASE_URL` / `PUBLIC_BASE_URL` 必须是 https，否则服务直接退出；内网无证书时用 `ALLOW_INSECURE_BASE_URL=1` 显式放行。`TRUST_PROXY` 可配（默认生产信任 1 层代理），避免伪造 `X-Forwarded-For` 绕过限流。
 - **限流**：新增进程内滑动窗口限流（`server/src/lib/rate-limit.ts`），覆盖登录发起、OAuth 回调、下单、转账、扫卡、邮箱验证码、动态码；超限返回 `429 RATE_LIMITED` 与 `Retry-After`，阈值可用 `RATE_LIMIT_*` 环境变量调整。
+- **CSRF**：写接口在 `SameSite=Lax` Cookie + Origin 白名单之外，再拒绝 `Sec-Fetch-Site: cross-site` 的请求（现代浏览器会带这个头，跨站发起的写请求直接 403 `CSRF_REJECTED`）。
+- **扫描器拦截**：`server/src/lib/http.ts` 的 `scannerGuard` 在地区限制之前拦截常见扫描路径（`/.env`、`/.git`、`/wp-admin`、`/phpmyadmin`、`/actuator` 等）与 `.php/.asp/.aspx/.jsp/.cgi` 扩展名，直接返回 404，不进入业务路由、也不触发初始化检查。
 - **文件校验**：商家收款码上传先按文件头确认 PNG/JPEG（`server/src/lib/image.ts`），再交给解码器；收款码只保存解码文本。用户头像直接使用 QQ 头像地址（外链图片），服务端不再下载或落盘。
 - **防信息泄露**：登录错误页对文案做 HTML 转义；生产 500 只返回通用提示，堆栈落 `system_errors`。
+
+### 10.14 访问统计
+
+- 只保存**按天聚合的计数**，不保存 IP 与 User-Agent：`traffic_counters(day, kind, name, count, updated_at)`，主键 `(day, kind, name)`；`kind` 取值 `route / status / device / browser / os / region / scan / security`，`name` 是归一化后的维度值（如 `GET /api/orders/:id`、`200`、`mobile`、`中国大陆`、`campus_card`、`rate_limited`）。
+- 写入：`server/src/lib/traffic.ts` 的 `recordTraffic()` 先在内存 Map 攒批，2 秒或 300 个键触发一次批量 upsert（`ON CONFLICT ... DO UPDATE SET count = count + excluded.count`），缓冲超过 4000 个键时立即 flush；进程退出与未捕获异常时调用 `flushTrafficCounters()`。
+- 采集：`createTrafficMiddleware()` 挂在 `securityHeaders` 之后、所有拦截器之前，`res.on("finish")` 时记录路由、状态码、设备/浏览器/系统（`classifyUserAgent`）、地区（`classifyRegion`，优先 CDN 国家头，否则用 `server/assets/cn-ip-ranges.json` 判断中国大陆），以及安全防护计数（拦截器通过 `res.locals` 打标：`regionBlocked`、`scannerBlocked`、`adminEntryProbe`、`csrfRejected`、`paymentPasswordWrong`、`paymentPasswordLocked`，加上 429 / 401 / 403 状态码）。
+- 路由归一化：`normalizeRoute(method, pathname)` 把 API 一级路径收敛到白名单（未知归「其他接口」），UUID、纯数字与长随机串（≥20 位且含数字）替换成 `:id`，页面路径同理（未知归「页面 其他」），避免维度爆炸。
+- 查询：`trafficStats(days)` 先 flush 再按天区间聚合，输出总数/今日/日均、扫码与安全防护合计、各维度排行（前 15/20 条 + 「其他」）、按天趋势；后台「访问统计」页可切 7/30/90 天。
+- 保留：`pruneTrafficCounters(400)` 在定时清理任务里删除 400 天前的数据；接口 `GET /api/admin/traffic` 仅管理员可访问，统计只在后台展示。
 
 ### 10.11 严重错误告警
 

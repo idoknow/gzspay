@@ -5,6 +5,7 @@ import { CARD_QR_PREFIX } from "../lib/crypto.js";
 import { errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
 import { rateLimit, userKey } from "../lib/rate-limit.js";
+import { recordTraffic } from "../lib/traffic.js";
 import { requestIp } from "../lib/types.js";
 import { parse } from "../lib/validate.js";
 import {
@@ -43,6 +44,8 @@ dynamicRouter.get(
   asyncHandler((req, res) => {
     const token = String(req.params.token).replace(/^gzspay:dynamic:/, "");
     const resolution = resolveDynamicCode(token, req.auth!.user, { consume: false });
+    // 统计：平台动态码被扫（只记次数）
+    recordTraffic("scan", "platform_dynamic");
     res.json(resolution);
   }),
 );
@@ -80,6 +83,8 @@ dynamicRouter.post(
       },
       requestIp(req),
     );
+    // 统计：动态码发起收款（只记次数）
+    recordTraffic("scan", "platform_dynamic_request");
     res.status(201).json(dto);
   }),
 );

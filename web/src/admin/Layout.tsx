@@ -28,6 +28,7 @@ type IconName =
   | "merchants"
   | "orders"
   | "stats"
+  | "traffic"
   | "admins"
   | "announcements"
   | "system"
@@ -38,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: "overview", label: "总览", icon: "overview", group: "数据概览" },
   { path: "monthly", label: "每月交易额", icon: "monthly", group: "数据概览" },
   { path: "stats", label: "数据统计", icon: "stats", group: "数据概览" },
+  { path: "traffic", label: "访问统计", icon: "traffic", group: "数据概览" },
   { path: "users", label: "用户管理", icon: "users", group: "业务管理" },
   { path: "merchants", label: "商家管理", icon: "merchants", group: "业务管理" },
   { path: "orders", label: "交易明细", icon: "orders", group: "业务管理" },
@@ -365,6 +367,12 @@ function NavIcon({ name }: { name: IconName }) {
         <svg {...common}>
           <path d="M21.2 12A9.2 9.2 0 1 1 12 2.8" />
           <path d="M12 3v9h9" />
+        </svg>
+      );
+    case "traffic":
+      return (
+        <svg {...common}>
+          <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
         </svg>
       );
     case "admins":

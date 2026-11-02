@@ -106,6 +106,18 @@ CREATE TABLE IF NOT EXISTS admin_entry_visits (
 );
 CREATE INDEX IF NOT EXISTS idx_admin_entry_visits_created ON admin_entry_visits(created_at);
 
+-- 访问统计：按「天 + 类型 + 名称」聚合的计数（只存聚合值，不存 IP / UA）
+CREATE TABLE IF NOT EXISTS traffic_counters (
+  day TEXT NOT NULL,                             -- 服务器本地时区日期 YYYY-MM-DD
+  kind TEXT NOT NULL,                            -- route|status|device|browser|os|region|scan|security
+  name TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (day, kind, name)
+);
+CREATE INDEX IF NOT EXISTS idx_traffic_counters_kind ON traffic_counters(kind, day);
+CREATE INDEX IF NOT EXISTS idx_traffic_counters_day ON traffic_counters(day);
+
 -- 管理员
 CREATE TABLE IF NOT EXISTS admins (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

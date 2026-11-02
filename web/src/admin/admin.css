@@ -3826,3 +3826,73 @@
   gap: 8px;
   margin-left: auto;
 }
+
+/* ------------------------------------------------------------ 访问统计 */
+
+.admin-traffic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-traffic-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-traffic-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-traffic-row-label {
+  font-size: 13px;
+  color: var(--admin-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-traffic-row-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.admin-traffic-row-share {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--admin-text-muted);
+}
+
+.admin-traffic-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--admin-bg-sunken, rgba(148, 163, 184, 0.18));
+  overflow: hidden;
+}
+
+.admin-traffic-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--admin-accent), var(--admin-primary, #3b82f6));
+  transition: width 0.3s ease;
+}
+
+@media (max-width: 900px) {
+  .admin-grid-2,
+  .admin-grid-main-aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

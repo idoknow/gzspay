@@ -5,6 +5,7 @@ import { errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
 import { maskCardNo } from "../lib/crypto.js";
 import { rateLimit, userKey } from "../lib/rate-limit.js";
+import { recordTraffic } from "../lib/traffic.js";
 import { parse } from "../lib/validate.js";
 import { isMerchant, publicUserOf, resolveCardOwner } from "../services/users.js";
 
@@ -33,6 +34,8 @@ scanRouter.post(
       throw errors.notFound("该校园卡尚未绑定 gzspay 账号，请提醒对方先注册");
     }
     if (owner.status === "frozen") throw errors.locked("该账号已被冻结");
+    // 统计：校园卡被扫（只记次数，不记卡号 / 身份）
+    recordTraffic("scan", "campus_card");
     res.json({
       user: publicUserOf(owner),
       isMerchant: isMerchant(owner.id),

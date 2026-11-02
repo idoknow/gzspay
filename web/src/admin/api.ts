@@ -11,6 +11,7 @@ import {
   trendLabel,
 } from "./format";
 import {
+  arrayOf,
   firstArray,
   firstBoolean,
   firstNumber,
@@ -83,6 +84,9 @@ import type {
   SystemAlerting,
   SystemStatus,
   TodoItem,
+  TrafficBreakdownItem,
+  TrafficSeriesPoint,
+  TrafficStats,
   TrendBucket,
   OnlineUser,
   OnlineUsersPayload,
@@ -1875,6 +1879,75 @@ export async function getAdminEntryVisits(limit = 20): Promise<AdminEntryVisitsP
   return {
     total: numberOr(firstNumber(source, ["total", "count"]), items.length),
     items,
+  };
+}
+
+/* ---------------------------------------------------------------- 访问统计 */
+
+function mapTrafficItem(raw: unknown, index: number): TrafficBreakdownItem {
+  const item = record(raw);
+  const key = textOr(firstText(item, ["key", "name"]), `item-${index}`);
+  return {
+    key,
+    label: textOr(firstText(item, ["label", "name"]), key),
+    count: numberOr(firstNumber(item, ["count", "value", "total"]), 0),
+    share: numberOr(firstNumber(item, ["share", "percent", "ratio"]), 0),
+  };
+}
+
+function mapTrafficItems(value: unknown): TrafficBreakdownItem[] {
+  return arrayOf(value).map(mapTrafficItem);
+}
+
+function mapTrafficSeries(value: unknown): TrafficSeriesPoint[] {
+  return arrayOf(value).map((raw, index) => {
+    const item = record(raw);
+    const day = textOr(firstText(item, ["day", "date"]), "");
+    return {
+      day: day || `day-${index}`,
+      label: textOr(firstText(item, ["label", "day"]), day || "—"),
+      requests: numberOr(firstNumber(item, ["requests", "request", "total"]), 0),
+      scans: numberOr(firstNumber(item, ["scans", "scan"]), 0),
+      security: numberOr(firstNumber(item, ["security", "blocked"]), 0),
+    };
+  });
+}
+
+/** GET /admin/traffic：路由请求、状态码、设备、地区、扫码与安全防护统计 */
+export async function getTraffic(days = 7): Promise<TrafficStats> {
+  const payload = await getJson<unknown>(`/admin/traffic?days=${days}`);
+  const source = record(payload);
+  const requests = record(source.requests);
+  const scans = record(source.scans);
+  const security = record(source.security);
+  return {
+    days: numberOr(firstNumber(source, ["days"]), days),
+    since: textOr(firstText(source, ["since"]), ""),
+    until: textOr(firstText(source, ["until"]), ""),
+    requests: {
+      total: numberOr(firstNumber(requests, ["total", "count"]), 0),
+      today: numberOr(firstNumber(requests, ["today"]), 0),
+      averagePerDay: numberOr(
+        firstNumber(requests, ["averagePerDay", "average", "averageDaily"]),
+        0,
+      ),
+    },
+    scans: {
+      total: numberOr(firstNumber(scans, ["total", "count"]), 0),
+      items: mapTrafficItems(scans.items),
+    },
+    security: {
+      total: numberOr(firstNumber(security, ["total", "count"]), 0),
+      items: mapTrafficItems(security.items),
+    },
+    routes: mapTrafficItems(source.routes),
+    statuses: mapTrafficItems(source.statuses),
+    devices: mapTrafficItems(source.devices),
+    browsers: mapTrafficItems(source.browsers),
+    systems: mapTrafficItems(source.systems),
+    regions: mapTrafficItems(source.regions),
+    series: mapTrafficSeries(source.series),
+    generatedAt: isoOrNull(firstText(source, ["generatedAt"])) ?? new Date().toISOString(),
   };
 }
 

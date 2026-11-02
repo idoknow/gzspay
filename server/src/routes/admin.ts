@@ -34,6 +34,7 @@ import {
   adminOverview,
   adminStats,
   adminSystemStatus,
+  adminTraffic,
   adminUserDetail,
   adminUsers,
   adminUsersGrowth,
@@ -412,6 +413,12 @@ adminRouter.get("/stats", requireAdmin(), (_req, res) => {
 
 adminRouter.get("/system/status", requireAdmin(), (_req, res) => {
   res.json(adminSystemStatus());
+});
+
+/** 访问统计：路由请求、状态码、设备、地区、扫码与安全防护次数 */
+adminRouter.get("/traffic", requireAdmin(), (req, res) => {
+  const days = Math.min(Math.max(Number(req.query.days ?? 7) || 7, 1), 90);
+  res.json(adminTraffic(days));
 });
 
 /* -------------------------------------------------------------- 公告 */

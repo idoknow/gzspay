@@ -10,7 +10,8 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 | HTTPS | 生产部署由反向代理终结 TLS；`APP_BASE_URL` / `PUBLIC_BASE_URL` 必须是 `https://`，否则服务拒绝启动 |
 | HSTS | 生产环境下发 `Strict-Transport-Security: max-age=31536000; includeSubDomains` |
 | CSP | 生产环境下发 `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`。主题引导脚本已抽成 `/theme-boot.js`，页面里不再有内联 `<script>` |
-| 其余响应头 | `X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: same-origin`、`Cross-Origin-Opener-Policy: same-origin`、`Cross-Origin-Resource-Policy: same-origin`、`Permissions-Policy` 只放行同源摄像头（扫码） |
+| 其余响应头 | `X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: same-origin`、`Cross-Origin-Opener-Policy: same-origin`、`Cross-Origin-Resource-Policy: same-origin`、`X-DNS-Prefetch-Control: off`、`Origin-Agent-Cluster: ?1`、`X-Download-Options: noopen`、`Permissions-Policy` 只放行同源摄像头（扫码） |
+| 后台防收录 | `/admin` 与 `/admin/*` 额外下发 `X-Robots-Tag: noindex, nofollow` 与 `Cache-Control: no-store`，避免搜索引擎收录后台、也避免中间缓存后台页面 |
 | 禁止缓存 | `/api/*` 一律 `Cache-Control: no-store`，避免个人信息、卡号脱敏值被中间缓存 |
 
 开发环境（`NODE_ENV !== production`）不下发 HSTS / CSP，因为 Vite 的 HMR 需要内联脚本与 WebSocket。
@@ -29,6 +30,7 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 - 所有写请求要求自定义头 `X-Requested-With: gzspay`（跨站表单无法携带）。
 - 同时校验 `Origin` / `Referer` 是否在 `APP_BASE_URL`、`PUBLIC_BASE_URL`、`EXTRA_ALLOWED_ORIGINS` 白名单内。
 - 同源 Cookie 为 `SameSite=Lax`，跨站表单提交不会携带会话。
+- 浏览器带 `Sec-Fetch-Site: cross-site` 的写请求直接拒绝（`403 CSRF_REJECTED`），作为上述校验之外的第二道判断。
 
 ## 4. 限流与暴力破解防护
 
@@ -108,7 +110,14 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 - 记录保留最近约 3000 条，可在后台「系统状态 → 后台入口访问尝试」查看；接口为 `GET /api/admin/security/entry-visits`（仅管理员）。
 - 该入口只隐藏登录页地址，不替代账号权限校验：真正的权限仍由 `admins` 表 + 主站会话 + 角色控制。
 
-## 11. 上线检查清单
+## 11. 扫描器拦截与访问统计
+
+- **扫描器拦截**：`server/src/lib/http.ts` 的 `scannerGuard` 在地区限制之前拦截常见探测路径（`/.env`、`/.git`、`/.svn`、`/wp-admin`、`/wp-login.php`、`/phpmyadmin`、`/actuator`、`/cgi-bin`、`/nacos`、`/druid/` 等）以及 `.php/.asp/.aspx/.jsp/.cgi` 扩展名，直接返回 404（接口返回 JSON、页面返回纯文本），不进入业务路由、也不触发初始化检查；命中次数计入访问统计的「扫描器路径拦截」。
+- **访问统计**（仅管理后台可见）：按天聚合记录请求路由、HTTP 状态码、访问设备/浏览器/操作系统、访问地区（中国大陆/境外/本机内网，不保存具体 IP）、扫码次数（校园卡被扫、平台动态码被扫、动态码发起收款）与安全防护拦截次数（限流、CSRF、地区拦截、后台入口探测、扫描器路径、未登录、越权、支付密码错误/锁定）。
+- **隐私边界**：`traffic_counters` 表只保存 `(day, kind, name, count)` 聚合计数，**不保存 IP、User-Agent、请求参数或任何可识别个人的信息**；数据保留 400 天，由定时清理任务删除过期记录。
+- 统计只通过 `GET /api/admin/traffic` 提供，仅管理员可读；前台页面、公开接口均无任何统计入口。
+
+## 12. 上线检查清单
 
 1. `SESSION_SECRET` 用 `openssl rand -hex 32` 生成，至少 32 字符。
 2. `APP_BASE_URL`、`PUBLIC_BASE_URL` 都是 `https://`；没有证书的内网部署才设置 `ALLOW_INSECURE_BASE_URL=1`。
@@ -120,3 +129,4 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 8. 配置告警通道并自测：设置 `ALERT_WEBHOOK_URL`，或配置 SMTP 并给管理员绑定邮箱；在后台「系统状态」确认告警显示为「已启用」。
 9. 需要只对中国大陆开放时：在后台开启地区访问限制（或设置 `GEO_BLOCK_NON_CHINA=1`），确认 `/api/health` 仍 200、境外 IP 返回 `403 REGION_BLOCKED`，并把运维出口加入白名单。
 10. 建议在后台设置管理后台安全入口，确认 `/<入口名>/admin` 可进入、直接访问 `/admin` 返回 404 且能在「后台入口访问尝试」看到记录。
+11. 确认扫描器路径（如 `curl -i https://<域名>/.env`）返回 404，后台「访问统计」能看到请求量、状态码、设备与地区数据；统计接口仅管理员可访问。
