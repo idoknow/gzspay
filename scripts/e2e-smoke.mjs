@@ -190,7 +190,7 @@ async function main() {
     givenName: "商家",
     studentNo: "20238001",
     email: "merchant-e2e@example.com",
-    cardNo: "CARD-E2E-8001",
+    cardNo: "CE2E8001",
   });
 
   // 商家注册：上传支付宝收款码（服务端解码校验渠道）
@@ -219,13 +219,13 @@ async function main() {
     givenName: "同学",
     studentNo: "20238002",
     email: "payer-e2e@example.com",
-    cardNo: "CARD-E2E-8002",
+    cardNo: "CE2E8002",
   });
 
-  const scanned = await payer.expect("/api/scan/card", 200, { method: "POST", body: { cardContent: "gzspay:card:CARD-E2E-8001" } });
+  const scanned = await payer.expect("/api/scan/card", 200, { method: "POST", body: { cardContent: "gzspay:card:CE2E8001" } });
   check("扫码识别商家", scanned.data.isMerchant === true && scanned.data.user?.id === merchantMe.id);
 
-  const scanNotBound = await payer.request("/api/scan/card", { method: "POST", body: { cardContent: "gzspay:card:NOT-BOUND-CARD" } });
+  const scanNotBound = await payer.request("/api/scan/card", { method: "POST", body: { cardContent: "gzspay:card:NOTBOUND" } });
   check("未绑定校园卡提示先注册", scanNotBound.status === 404 && scanNotBound.data?.error?.code === "NOT_FOUND");
 
   // 下单（带幂等键），重复提交应返回同一订单
@@ -255,7 +255,7 @@ async function main() {
 
   const wrongPassword = await merchant.request(`/api/orders/merchant-create`, {
     method: "POST",
-    body: { cardContent: "gzspay:card:CARD-E2E-8002", amountCents: 100, paymentPassword: "000000", idempotencyKey: "e2e-wrong-pw" },
+    body: { cardContent: "gzspay:card:CE2E8002", amountCents: 100, paymentPassword: "000000", idempotencyKey: "e2e-wrong-pw" },
   });
   check(
     "支付密码错误被拒绝",
@@ -302,7 +302,7 @@ async function main() {
   const merchantCreated = await merchant.expect("/api/orders/merchant-create", 201, {
     method: "POST",
     body: {
-      cardContent: "gzspay:card:CARD-E2E-8002",
+      cardContent: "gzspay:card:CE2E8002",
       amountCents: 150,
       reservedNote: "饮料",
       paymentPassword: PASSWORD,

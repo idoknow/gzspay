@@ -331,10 +331,10 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
     setScannerOpen(false);
     const content = extractCardContent(raw);
     if (!content) {
-      toast.error("未识别到校园卡二维码，请重新扫描");
+      toast.error("未识别到校园卡，卡号应为 8 位数字或字母");
       return;
     }
-    void submitCard(raw.trim());
+    void submitCard(content);
   };
 
   return (
@@ -353,7 +353,9 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
             </svg>
           </span>
           <p className="mt-3 text-sm font-semibold text-text">将校园卡二维码放入取景框</p>
-          <p className="mt-1 text-xs text-muted">绑定校园卡只支持摄像头扫码，不能手动输入或从相册选择</p>
+          <p className="mt-1 text-xs text-muted">
+            支持摄像头扫码，安卓手机可用「NFC 读卡」直接贴卡；卡号为 8 位数字或字母
+          </p>
           <button
             type="button"
             className="btn btn-primary btn-block mt-4"
@@ -372,10 +374,11 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
       <QrScanner
         open={scannerOpen}
         title="扫描校园卡二维码"
-        hint="将校园卡二维码放入取景框，即可自动识别"
+        hint="将校园卡二维码放入取景框，或使用 NFC 读卡"
         scanOnly
+        nfc
         manualLabel="校园卡卡号"
-        manualPlaceholder="例如 2023123456"
+        manualPlaceholder="例如 A1B2C3D4"
         onResult={handleScan}
         onClose={() => setScannerOpen(false)}
       />

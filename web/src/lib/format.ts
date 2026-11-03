@@ -135,6 +135,15 @@ export function maskCardNo(cardNo: string | null | undefined): string {
   return text.length <= 4 ? text : `****${text.slice(-4)}`;
 }
 
+/** 校园卡号规则：8 位数字或字母，统一转大写 */
+export function normalizeCardNo(value: string): string {
+  return value.replace(/\s+/g, "").replace(/^gzspay:card:/i, "").toUpperCase();
+}
+
+export function isCardNo(value: string): boolean {
+  return /^[A-Z0-9]{8}$/.test(normalizeCardNo(value));
+}
+
 /** 支付方式中文名 */
 export function payChannelLabel(channel: PayChannel | null | undefined): string {
   return channel ? PAY_CHANNEL_LABELS[channel] : "";

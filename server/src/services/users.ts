@@ -299,7 +299,7 @@ export function setVerifiedEmail(user: UserRow, email: string, ip: string): User
 /** 绑定/换绑校园卡；一张卡只能绑定一个账号 */
 export function bindCampusCard(user: UserRow, rawQrContent: string, ip: string): UserRow {
   const cardNo = parseCardQrContent(rawQrContent);
-  if (!cardNo) throw errors.validation("未能识别校园卡二维码，请重新扫描");
+  if (!cardNo) throw errors.validation("未能识别校园卡号，卡号应为 8 位数字或字母");
   const owner = findUserByCard(cardNo);
   if (owner && owner.id !== user.id) throw errors.conflict("该校园卡已绑定其他账号");
   execute("UPDATE users SET card_no = ?, updated_at = ? WHERE id = ?", cardNo, nowIso(), user.id);
@@ -320,7 +320,7 @@ export function bindCampusCard(user: UserRow, rawQrContent: string, ip: string):
 /** 根据卡号解析对方，用于扫码付款/收款 */
 export function resolveCardOwner(rawQrContent: string): UserRow {
   const cardNo = parseCardQrContent(rawQrContent);
-  if (!cardNo) throw errors.validation("校园卡二维码无法识别，请重新扫描");
+  if (!cardNo) throw errors.validation("校园卡无法识别，卡号应为 8 位数字或字母");
   const owner = findUserByCard(cardNo);
   if (!owner) throw errors.notFound("该校园卡尚未绑定账号，请对方先注册 gzspay");
   if (owner.status === "frozen") throw errors.locked("对方账号已被冻结，暂时无法交易");

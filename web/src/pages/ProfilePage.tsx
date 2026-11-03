@@ -344,7 +344,7 @@ export function ProfilePage(): ReactNode {
     setScannerOpen(false);
     const content = extractCardContent(raw);
     if (!content) {
-      toast.error("未识别到校园卡二维码，请重新扫描");
+      toast.error("未识别到校园卡，卡号应为 8 位数字或字母");
       return;
     }
     bindWithContent(content);
@@ -731,7 +731,7 @@ export function ProfilePage(): ReactNode {
             扫描校园卡二维码
           </button>
           <p className="text-center text-[11px] leading-relaxed text-muted">
-            绑定校园卡只支持摄像头扫码，不能手动输入或从相册选择。
+            支持摄像头扫码；安卓手机可以用「NFC 读卡」直接贴卡读取卡片名称作为卡号。
           </p>
         </div>
       </Dialog>
@@ -739,10 +739,11 @@ export function ProfilePage(): ReactNode {
       <QrScanner
         open={scannerOpen}
         title="扫描校园卡二维码"
-        hint="将校园卡二维码放入取景框内"
+        hint="将校园卡二维码放入取景框内，或使用 NFC 读卡"
         scanOnly
+        nfc
         manualLabel="校园卡卡号"
-        manualPlaceholder="例如 2023123456"
+        manualPlaceholder="例如 A1B2C3D4"
         onResult={handleScanResult}
         onClose={() => setScannerOpen(false)}
       />

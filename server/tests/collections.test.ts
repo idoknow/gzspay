@@ -86,7 +86,7 @@ describe("商家自建收款单", () => {
 
     const merchant = await login("merchant", "收款商家");
     merchantApi = merchant.api;
-    await completeOnboarding(merchantApi, "COL-CARD-MERCHANT-01", "20239001");
+    await completeOnboarding(merchantApi, "COLM0001", "20239001");
     const qr = await generateQrPngBuffer("https://qr.alipay.com/gzspay-collection-merchant");
     await merchantApi
       .post("/api/merchant/register")
@@ -97,7 +97,7 @@ describe("商家自建收款单", () => {
 
     const payer = await login("payer", "付款同学");
     payerApi = payer.api;
-    await completeOnboarding(payerApi, "COL-CARD-PAYER-0001", "20239002");
+    await completeOnboarding(payerApi, "COLP0001", "20239002");
   });
 
   afterAll(() => {

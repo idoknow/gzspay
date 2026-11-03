@@ -48,12 +48,12 @@ export function parseQrContent(raw: string): ParsedQr {
   return { kind: "unknown", value: text, raw };
 }
 
-/** 提取校园卡内容（兼容扫码得到卡号或完整前缀两种形式） */
+/** 提取校园卡内容（兼容扫码得到卡号或完整前缀两种形式）；卡号为 8 位数字或字母，统一大写 */
 export function extractCardContent(raw: string): string | null {
   const parsed = parseQrContent(raw);
-  if (parsed.kind === "card" && parsed.value) return parsed.value;
-  if (parsed.kind === "unknown" && /^[A-Za-z0-9-]{4,64}$/.test(parsed.value)) return parsed.value;
-  return null;
+  const candidate = parsed.kind === "card" && parsed.value ? parsed.value : parsed.kind === "unknown" ? parsed.value : "";
+  const canonical = candidate.replace(/\s+/g, "").toUpperCase();
+  return /^[A-Z0-9]{8}$/.test(canonical) ? canonical : null;
 }
 
 /** 提取动态码 token（扫码得到 token 或完整前缀都能识别） */

@@ -186,14 +186,14 @@ describe("基础接口", () => {
 describe("新用户引导", () => {
   it("按步骤完成引导后进入已完成状态", async () => {
     const { session } = await login("onboard", "引导用户");
-    await completeOnboarding(session, { cardNo: "CARD-GUIDE-0001", studentNo: "20230001" });
+    await completeOnboarding(session, { cardNo: "CGUID001", studentNo: "20230001" });
     const me = await agentWith(session).get("/api/me").expect(200);
     expect(me.body.onboarded).toBe(true);
     expect(me.body.onboardStep).toBe("done");
     expect(me.body.paymentPasswordSet).toBe(true);
     expect(me.body.studentNo).toBe("20230001");
-    expect(me.body.cardNo).toBe("CARD-GUIDE-0001");
-    expect(me.body.cardNoMasked).toContain("0001");
+    expect(me.body.cardNo).toBe("CGUID001");
+    expect(me.body.cardNoMasked).toContain("D001");
     expect(me.body.email).toBe("20230001@qq.com");
   });
 
@@ -216,6 +216,26 @@ describe("新用户引导", () => {
     const response = await api.post("/api/onboarding/student-no").send({ studentNo: "20230001" });
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe("CONFLICT");
+  });
+
+  it("校园卡号必须是 8 位数字或字母，小写自动转大写", async () => {
+    const { session } = await login("bad-card", "卡号校验");
+    const api = agentWith(session);
+    await api.post("/api/onboarding/name").send({ surname: "卡", givenName: "号" }).expect(200);
+    await api.post("/api/onboarding/student-no").send({ studentNo: "20239999" }).expect(200);
+    const email = "20239999@qq.com";
+    const started = await api.post("/api/onboarding/email/start").send({ email }).expect(200);
+    await api.post("/api/onboarding/email/verify").send({ email, code: started.body.devCode }).expect(200);
+
+    for (const cardContent of ["gzspay:card:ABC123", "gzspay:card:ABCDEFGHI", "gzspay:card:ab12-cd34"]) {
+      const response = await api.post("/api/onboarding/card").send({ cardContent });
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toContain("8 位数字或字母");
+    }
+
+    const ok = await api.post("/api/onboarding/card").send({ cardContent: "gzspay:card:ab12cd34" }).expect(200);
+    expect(ok.body.me.cardNo).toBe("AB12CD34");
+    expect(ok.body.me.cardNoMasked).toBe("****CD34");
   });
   it("绑定邮箱只接受纯数字 QQ 号@qq.com", async () => {
     const { session } = await login("qq-email", "QQ 邮箱用户");
@@ -248,7 +268,7 @@ describe("商家与订单", () => {
     const merchant = await login("merchant", "商家同学");
     merchantSession = merchant.session;
     merchantId = merchant.id;
-    await completeOnboarding(merchantSession, { cardNo: "CARD-MERCHANT-01", studentNo: "20230002" });
+    await completeOnboarding(merchantSession, { cardNo: "CMERCH01", studentNo: "20230002" });
     const qr = await generateQrPngBuffer("https://qr.alipay.com/gzspay-merchant");
     const registered = await agentWith(merchantSession)
       .post("/api/merchant/register")
@@ -269,7 +289,7 @@ describe("商家与订单", () => {
     const payer = await login("payer", "付款同学");
     payerSession = payer.session;
     payerId = payer.id;
-    await completeOnboarding(payerSession, { cardNo: "CARD-PAYER-0001", studentNo: "20230003" });
+    await completeOnboarding(payerSession, { cardNo: "CPAYER01", studentNo: "20230003" });
   });
 
   it("商家可以查询自己的商家信息", async () => {
@@ -283,7 +303,7 @@ describe("商家与订单", () => {
       .post("/api/orders/merchant-create")
       .set(CSRF)
       .send({
-        cardContent: "gzspay:card:CARD-PAYER-0001",
+        cardContent: "gzspay:card:CPAYER01",
         amountCents: 100,
         paymentPassword: "123456",
         idempotencyKey: "nonmerchant-collect-1",
@@ -882,7 +902,7 @@ describe("管理后台", () => {
     const merchant = await login("admin-merchant", "后台商家");
     const merchantUserId = merchant.id;
     await completeOnboarding(merchant.session, {
-      cardNo: "CARD-ADMIN-MERCHANT-01",
+      cardNo: "CADMN001",
       studentNo: "20230101",
     });
     const qr = await generateQrPngBuffer("https://qr.alipay.com/gzspay-admin-merchant");
@@ -932,7 +952,7 @@ describe("管理后台", () => {
     const merchant = await login("admin-merchant-pause", "后台暂停商家");
     const merchantUserId = merchant.id;
     await completeOnboarding(merchant.session, {
-      cardNo: "CARD-ADMIN-MERCHANT-02",
+      cardNo: "CADMN002",
       studentNo: "20230102",
     });
     const qr = await generateQrPngBuffer("https://qr.alipay.com/gzspay-admin-pause");
@@ -945,7 +965,7 @@ describe("管理后台", () => {
 
     const payer = await login("admin-merchant-payer", "后台付款人");
     await completeOnboarding(payer.session, {
-      cardNo: "CARD-ADMIN-PAYER-01",
+      cardNo: "CADMP001",
       studentNo: "20230103",
     });
     const orderPayload = (key: string) => ({
@@ -1260,7 +1280,7 @@ describe("支付密码·校园墙再验证", () => {
 
   it("校园墙验证通过后可领取一次性凭证并修改支付密码", async () => {
     const { session, id } = await login("pwd-campux-flow", "再验证流程");
-    await completeOnboarding(session, { cardNo: "2026999001", studentNo: "26999001" });
+    await completeOnboarding(session, { cardNo: "20269901", studentNo: "26999001" });
 
     const now = new Date();
     execute(

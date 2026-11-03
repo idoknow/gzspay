@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom";
 import { useBodyScrollLock, useWatchLayout } from "../lib/hooks";
 import { errorText } from "../lib/http";
+import { NfcCardReader } from "./NfcCardReader";
 import {
   cameraErrorMessage,
   decodeQrFromImageFile,
@@ -22,6 +23,8 @@ export interface QrScannerProps {
   manualLabel?: string;
   /** 手动输入框占位文案 */
   manualPlaceholder?: string;
+  /** 是否显示「NFC 读卡」入口（安卓 Chrome 支持 Web NFC 时出现） */
+  nfc?: boolean;
   /** 扫描成功（原始字符串，由调用方解析校园卡/动态码） */
   onResult: (raw: string) => void;
   onClose: () => void;
@@ -34,6 +37,7 @@ export function QrScanner({
   scanOnly = false,
   manualLabel = "手动输入二维码内容",
   manualPlaceholder = "例如 gzspay:card:2023123456",
+  nfc = false,
   onResult,
   onClose,
 }: QrScannerProps): ReactNode {
@@ -312,6 +316,16 @@ export function QrScanner({
           <p className="text-center text-sm text-white/85 watch:text-xs">{hint}</p>
           {notice ? <p className="mt-2 text-center text-xs text-[#ffd666] watch:text-[10px]">{notice}</p> : null}
           {starting ? <p className="mt-2 text-center text-xs text-white/60 watch:text-[10px]">正在打开摄像头…</p> : null}
+          {nfc ? (
+            <NfcCardReader
+              tone="dark"
+              className="mt-3"
+              onRead={(cardNo) => {
+                handledRef.current = true;
+                onResult(cardNo);
+              }}
+            />
+          ) : null}
           <div
             className={`mt-4 grid gap-3 watch:mt-2.5 watch:gap-1.5 ${scanOnly ? "grid-cols-1" : "grid-cols-3"}`}
           >

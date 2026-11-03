@@ -152,16 +152,20 @@ export function buildCardQrContent(cardNo: string): string {
   return `${CARD_QR_PREFIX}${cardNo}`;
 }
 
-/** 解析扫描到的校园卡内容，兼容纯卡号 */
+/** 卡号规则：8 位数字或字母，统一转大写（NFC 读卡与手动输入都不区分大小写） */
+export function normalizeCardNo(raw: string): string | null {
+  const value = raw.replace(/\s+/g, "").toUpperCase();
+  return /^[A-Z0-9]{8}$/.test(value) ? value : null;
+}
+
+/** 解析扫描/NFC/手动输入的校园卡内容，兼容纯卡号与 gzspay:card: 前缀 */
 export function parseCardQrContent(raw: string): string | null {
   const content = raw.trim();
   if (!content) return null;
-  const value = content.startsWith(CARD_QR_PREFIX)
+  const value = content.toLowerCase().startsWith(CARD_QR_PREFIX)
     ? content.slice(CARD_QR_PREFIX.length)
     : content;
-  // 卡号：字母数字，4~32 位
-  if (!/^[A-Za-z0-9-]{4,32}$/.test(value)) return null;
-  return value;
+  return normalizeCardNo(value);
 }
 
 /** 学号格式：6~20 位数字（校学号为纯数字） */

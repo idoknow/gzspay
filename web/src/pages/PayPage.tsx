@@ -15,6 +15,7 @@ import { MoneyText } from "../components/MoneyText";
 import { PaymentPasswordDialog } from "../components/PaymentPasswordDialog";
 import { ProductPicker, selectedToItems, sumProductCents } from "../components/ProductPicker";
 import { InlineQrScanner } from "../components/InlineQrScanner";
+import { NfcCardReader } from "../components/NfcCardReader";
 import { useToast } from "../components/Toast";
 import {
   createOrder,
@@ -28,10 +29,10 @@ import {
   scanCard,
   transferOrder,
 } from "../lib/api";
-import { cn, formatCents, payChannelLabel, randomIdempotencyKey, yuanToCents } from "../lib/format";
+import { cn, formatCents, isCardNo, payChannelLabel, randomIdempotencyKey, yuanToCents } from "../lib/format";
 import { ApiError, errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
-import { CARD_PREFIX, extractCardContent, extractDynamicToken, parseQrContent } from "../lib/scan";
+import { extractCardContent, extractDynamicToken, parseQrContent } from "../lib/scan";
 import { useAuth } from "../lib/session";
 import type { MerchantPublic, PayChannel, PaymentRequest, Product, PublicUser } from "../lib/types";
 
@@ -201,13 +202,7 @@ export function PayPage(): ReactNode {
     setWaitingRequest(null);
   };
 
-  const resolveCardContent = (raw: string): string | null => {
-    const content = extractCardContent(raw);
-    if (content) return content;
-    const trimmed = raw.trim();
-    if (!trimmed) return null;
-    return `${CARD_PREFIX}${trimmed}`;
-  };
+  const resolveCardContent = (raw: string): string | null => extractCardContent(raw);
 
   /** 解析商家动态码：只读解析（不消费），拿到商家主页后进入付款流程。 */
   const loadDynamicPay = async (token: string): Promise<void> => {
@@ -322,6 +317,10 @@ export function PayPage(): ReactNode {
     const raw = manualValue.trim();
     if (!raw) {
       toast.error("请输入校园卡号或二维码内容");
+      return;
+    }
+    if (!raw.toLowerCase().includes("gzspay:") && !isCardNo(raw)) {
+      toast.error("校园卡号应为 8 位数字或字母");
       return;
     }
     try {
@@ -757,6 +756,13 @@ export function PayPage(): ReactNode {
           >
             手动输入校园卡号
           </button>
+          <NfcCardReader
+            disabled={scanning}
+            onRead={(cardNo) => {
+              setScannerOpen(false);
+              void handleScanned(cardNo);
+            }}
+          />
         </div>
       </section>
     );
@@ -789,6 +795,7 @@ export function PayPage(): ReactNode {
           <button type="button" className="btn btn-outline btn-block" disabled={scanning} onClick={() => setManualOpen(true)}>
             手动输入校园卡号
           </button>
+          <NfcCardReader disabled={scanning} onRead={(cardNo) => void handleScanned(cardNo)} />
         </div>
       </section>
     );
@@ -1159,7 +1166,7 @@ export function PayPage(): ReactNode {
         open={manualOpen}
         onClose={resetManual}
         title="手动输入校园卡号"
-        description="输入对方校园卡卡号，或粘贴二维码中的原始内容。"
+        description="校园卡号为 8 位数字或字母，也可以粘贴二维码中的原始内容；安卓手机可直接用 NFC 读卡。"
         footer={
           <div className="flex gap-2">
             <button type="button" className="btn btn-outline flex-1" onClick={resetManual}>
@@ -1172,12 +1179,21 @@ export function PayPage(): ReactNode {
           </div>
         }
       >
-        <input
-          className="input"
-          value={manualValue}
-          placeholder="例如：20231234 或 gzspay:card:..."
-          onChange={(event) => setManualValue(event.target.value)}
-        />
+        <div className="space-y-3">
+          <input
+            className="input"
+            value={manualValue}
+            placeholder="例如：A1B2C3D4 或 gzspay:card:..."
+            onChange={(event) => setManualValue(event.target.value)}
+          />
+          <NfcCardReader
+            disabled={scanning}
+            onRead={(cardNo) => {
+              setManualValue(cardNo);
+              void handleScanned(cardNo);
+            }}
+          />
+        </div>
       </Dialog>
 
       <Dialog

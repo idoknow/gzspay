@@ -111,7 +111,7 @@ interface Me {
 | `POST` | `/api/onboarding/student-no` | `{ studentNo }` | 校学号，唯一 |
 | `POST` | `/api/onboarding/email/start` | `{ email }` | 发送验证码，返回 `{ sent, devCode? }`（仅开发） |
 | `POST` | `/api/onboarding/email/verify` | `{ email, code }` | 校验验证码并绑定邮箱 |
-| `POST` | `/api/onboarding/card` | `{ cardContent }` | 校园卡二维码内容（`gzspay:card:<卡号>`），唯一 |
+| `POST` | `/api/onboarding/card` | `{ cardContent }` | 校园卡二维码内容（`gzspay:card:<卡号>`），卡号为 **8 位数字或字母**（服务端统一转大写），唯一 |
 | `POST` | `/api/onboarding/payment-password` | `{ password, confirm }` | 设置 6 位支付密码，完成后 `onboarded=true` |
 
 引导步骤只能顺序推进；已完成的步骤重复提交返回当前步骤，不报错。
@@ -250,7 +250,7 @@ interface OrderSummary {
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/me/card-qr` | 当前用户校园卡二维码：`{ content: "gzspay:card:<卡号>", cardNoMasked }`（纯静态身份标识，不能用于授权支付） |
-| `POST` | `/api/scan/card` | 扫码后解析校园卡：`{ cardContent: "gzspay:card:<卡号>" }` → `{ user: PublicUser, isMerchant, isSelf, cardNoMasked }`；未绑定 `404`，账号冻结 `423` |
+| `POST` | `/api/scan/card` | 扫码后解析校园卡：`{ cardContent: "gzspay:card:<卡号>" }`（也接受纯卡号，8 位数字或字母，大小写不敏感）→ `{ user: PublicUser, isMerchant, isSelf, cardNoMasked }`；未绑定 `404`，账号冻结 `423` |
 
 二维码内容前缀：校园卡 `gzspay:card:`，动态码 `gzspay:dynamic:`。
 
