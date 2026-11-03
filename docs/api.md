@@ -321,6 +321,7 @@ interface PaymentCollection {
   items: { name: string; priceCents: number; quantity: number }[] | null;
   reservedNote: string | null;
   noteRequirement: string;             // 商家的备注要求，付款页一并展示
+  channels: ("alipay" | "wechat" | "qq")[]; // 商家启用的收款方式，付款页展示图标与名称
   merchant: PublicUser;
   merchantName: string;
   createdAt: string;

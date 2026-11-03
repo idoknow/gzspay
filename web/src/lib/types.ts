@@ -368,6 +368,8 @@ export interface PaymentCollection {
   reservedNote: string | null;
   /** 商家的备注要求（付款人核对金额时一并展示） */
   noteRequirement: string;
+  /** 商家启用的收款方式（付款时展示图标与名称） */
+  channels: PayChannel[];
   merchant: PublicUser;
   merchantName: string;
   createdAt: string;

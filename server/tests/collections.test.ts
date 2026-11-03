@@ -225,6 +225,9 @@ describe("商家自建收款单", () => {
     expect(preview.body.amountCents).toBe(660);
     expect(preview.body.reservedNote).toBe("少冰");
     expect(typeof preview.body.noteRequirement).toBe("string");
+    // 付款页需要展示商家支持的收款方式（图标 + 名称由前端根据渠道渲染）
+    expect(Array.isArray(preview.body.channels)).toBe(true);
+    expect(preview.body.channels.length).toBeGreaterThan(0);
 
     const paid = await payerApi
       .post(`/api/collections/id/${collectionId}/pay`)

@@ -8,7 +8,13 @@ import { execute, isoAfter, nowIso, queryAll, queryOne, transaction } from "../d
 import { writeAudit, writeRiskLog } from "../lib/audit.js";
 import { hashToken, newId, randomToken } from "../lib/crypto.js";
 import { errors } from "../lib/errors.js";
-import { type MerchantRow, type PaymentCollectionRow, type PublicUser, type UserRow } from "../lib/types.js";
+import {
+  type Channel,
+  type MerchantRow,
+  type PaymentCollectionRow,
+  type PublicUser,
+  type UserRow,
+} from "../lib/types.js";
 import { resolveRequestItems } from "./dynamic.js";
 import { enabledChannels, merchantNameOf, requireMerchant } from "./merchant.js";
 import { findOrderById, toOrderDto, createOrderFromCollection, type OrderDto, type OrderItemDto } from "./orders.js";
@@ -23,6 +29,8 @@ export interface PaymentCollectionDto {
   reservedNote: string | null;
   /** 商家的备注要求（付款人核对金额时一并展示） */
   noteRequirement: string;
+  /** 商家启用的收款方式（付款时展示图标与名称） */
+  channels: Channel[];
   merchant: PublicUser;
   merchantName: string;
   createdAt: string;
@@ -79,6 +87,7 @@ function toCollectionDto(row: PaymentCollectionRow): PaymentCollectionDto {
     items: parseItems(row.items_json),
     reservedNote: row.reserved_note,
     noteRequirement: merchant?.note_requirement ?? "",
+    channels: enabledChannels(row.merchant_id),
     merchant: merchantUser
       ? publicUserOf(merchantUser)
       : {

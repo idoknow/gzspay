@@ -324,7 +324,8 @@ export function OrderDetailPage(): ReactNode {
   };
 
   const openPayDialog = (): void => {
-    setPayChannel(channel);
+    // 不预选：付款人必须明确选择自己实际使用的收款方式，商家核对时才能对上账
+    setPayChannel(null);
     setPayNote(order?.reservedNote ?? "");
     setPayProofFile(null);
     setPayOpen(true);
@@ -694,7 +695,7 @@ export function OrderDetailPage(): ReactNode {
           if (!payBusy) setPayOpen(false);
         }}
         title="我已支付"
-        description="请上传付款截图并填写实际支付方式，商家会逐一核对后再确认收款。"
+        description="请选择你实际使用的收款方式并上传付款截图，商家会逐一核对后再确认收款。"
         footer={
           <div className="flex gap-2">
             <button type="button" className="btn btn-outline flex-1" disabled={payBusy} onClick={() => setPayOpen(false)}>
@@ -709,7 +710,7 @@ export function OrderDetailPage(): ReactNode {
       >
         <div className="space-y-4">
           <div>
-            <p className="label">实际支付方式</p>
+            <p className="label">你实际使用的收款方式</p>
             <div className="flex flex-wrap gap-2">
               {channels.length === 0 ? (
                 <p className="text-xs text-danger">商家未启用收款方式，请先与商家联系</p>

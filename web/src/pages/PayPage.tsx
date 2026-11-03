@@ -6,7 +6,7 @@ import { AmountInput } from "../components/AmountInput";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { BuiltInKeypad } from "../components/BuiltInKeypad";
-import { ChannelIcon } from "../components/ChannelIcon";
+import { ChannelBadges } from "../components/ChannelBadges";
 import { CountdownModal } from "../components/CountdownModal";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, PageLoading, Spinner } from "../components/Loading";
@@ -29,12 +29,12 @@ import {
   scanCard,
   transferOrder,
 } from "../lib/api";
-import { cn, formatCents, isCardNo, payChannelLabel, randomIdempotencyKey, yuanToCents } from "../lib/format";
+import { cn, formatCents, isCardNo, randomIdempotencyKey, yuanToCents } from "../lib/format";
 import { ApiError, errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
 import { extractCardContent, extractDynamicToken, parseQrContent } from "../lib/scan";
 import { useAuth } from "../lib/session";
-import type { MerchantPublic, PayChannel, PaymentRequest, Product, PublicUser } from "../lib/types";
+import type { MerchantPublic, PaymentRequest, Product, PublicUser } from "../lib/types";
 
 type Mode = "pay" | "collect";
 type PayStep = "scan" | "merchant" | "confirm";
@@ -81,23 +81,6 @@ function TransferIcon({ size = 24 }: { size?: number }): ReactNode {
       <path d="M4 8h13M13.5 4.5 17 8l-3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M20 16H7M10.5 12.5 7 16l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
-  );
-}
-
-function ChannelBadges({ channels }: { channels: PayChannel[] }): ReactNode {
-  if (channels.length === 0) return <span className="text-xs text-muted">暂无收款方式</span>;
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {channels.map((channel) => (
-        <span
-          key={channel}
-          className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-text ring-1 ring-line/70"
-        >
-          <ChannelIcon channel={channel} size={13} />
-          {payChannelLabel(channel)}
-        </span>
-      ))}
-    </div>
   );
 }
 
@@ -858,6 +841,7 @@ export function PayPage(): ReactNode {
                     </div>
                   </div>
                   <div className="mt-3">
+                    <p className="mb-1 text-[11px] font-medium text-muted">支持的收款方式</p>
                     <ChannelBadges channels={merchant.channels} />
                   </div>
                 </section>
@@ -976,6 +960,16 @@ export function PayPage(): ReactNode {
                       预留备注：{reservedNote}
                     </p>
                   ) : null}
+                </section>
+
+                <section className="card p-4">
+                  <h2 className="text-sm font-semibold text-text">商家支持的收款方式</h2>
+                  <div className="mt-2">
+                    <ChannelBadges channels={merchant.channels} />
+                  </div>
+                  <p className="mt-2 text-[11px] leading-relaxed text-muted">
+                    下单后请使用以上任意一种方式完成付款；付完回到订单详情点「我已支付」，选择你实际使用的收款方式并上传付款截图。
+                  </p>
                 </section>
 
                 <p className="px-1 text-center text-[11px] leading-relaxed text-muted">

@@ -6,6 +6,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { ChannelBadges } from "../components/ChannelBadges";
 import { CountdownModal } from "../components/CountdownModal";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
@@ -177,6 +178,16 @@ export function CollectPage(): ReactNode {
           确认付款
         </button>
         <p className="mt-2 text-[11px] text-muted">核对商家与金额无误后，输入支付密码完成付款</p>
+      </section>
+
+      <section className="card p-4">
+        <p className="text-[11px] font-medium text-muted">商家支持的收款方式</p>
+        <div className="mt-2">
+          <ChannelBadges channels={data.channels} />
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          付款完成后请在订单详情点「我已支付」，选择你实际使用的收款方式并上传付款截图。
+        </p>
       </section>
 
       <CountdownModal
