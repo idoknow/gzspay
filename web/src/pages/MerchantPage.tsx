@@ -233,12 +233,12 @@ export function MerchantPage(): ReactNode {
           </div>
         </section>
 
-        {/* 发起收款：先定好金额/商品，生成一次性收款二维码，付款人扫码直接付款 */}
+        {/* 发起收款：先定好金额/商品，付款人扫商家校园卡二维码即可直接付款 */}
         <section className="card flex items-center gap-3 p-4 watch:rounded-2xl watch:p-3.5">
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold text-text">发起收款</h2>
             <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
-              先填好金额或点选商品，生成二维码让对方扫码付款，不用再扫对方的动态码。
+              先填好金额或点选商品，对方扫你的校园卡二维码就能直接付款，不用再扫对方的动态码。
             </p>
           </div>
           <button

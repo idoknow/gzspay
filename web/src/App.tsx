@@ -184,6 +184,7 @@ const router = createBrowserRouter([
       { path: "/merchant/register", element: <MerchantRegisterPage /> },
       { path: "/merchant/products", element: <ProductsPage /> },
       { path: "/merchant/collect", element: <MerchantCollectPage /> },
+      { path: "/collect/id/:id", element: <CollectPage /> },
       { path: "/collect/:token", element: <CollectPage /> },
     ],
   },

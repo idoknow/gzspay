@@ -578,19 +578,38 @@ export function previewPaymentCollection(token: string): Promise<PaymentCollecti
   return api.get<PaymentCollectionPreview>(`/collections/${encodeURIComponent(token)}`);
 }
 
-/** 付款人确认付款：校验支付密码后按收款单金额创建订单 */
-export async function payPaymentCollection(
-  token: string,
+/** 付款人扫商家校园卡后按收款单 id 预览（扫卡拿不到令牌） */
+export function previewPaymentCollectionById(id: string): Promise<PaymentCollectionPreview> {
+  return api.get<PaymentCollectionPreview>(`/collections/id/${encodeURIComponent(id)}`);
+}
+
+async function payCollectionAt(
+  path: string,
   paymentPassword: string,
 ): Promise<{ collection: PaymentCollection; order: OrderDetail }> {
-  const raw = await api.post<{ collection?: PaymentCollection; order?: OrderDetail }>(
-    `/collections/${encodeURIComponent(token)}/pay`,
-    { paymentPassword },
-  );
+  const raw = await api.post<{ collection?: PaymentCollection; order?: OrderDetail }>(path, {
+    paymentPassword,
+  });
   if (!raw || !raw.order) {
     throw new ApiError(500, "COLLECTION_PAY_INVALID", "付款已完成，但未获取到订单号，请到订单列表查看");
   }
   return { collection: raw.collection as PaymentCollection, order: raw.order };
+}
+
+/** 付款人确认付款：校验支付密码后按收款单金额创建订单 */
+export function payPaymentCollection(
+  token: string,
+  paymentPassword: string,
+): Promise<{ collection: PaymentCollection; order: OrderDetail }> {
+  return payCollectionAt(`/collections/${encodeURIComponent(token)}/pay`, paymentPassword);
+}
+
+/** 扫商家校园卡后按收款单 id 确认付款 */
+export function payPaymentCollectionById(
+  id: string,
+  paymentPassword: string,
+): Promise<{ collection: PaymentCollection; order: OrderDetail }> {
+  return payCollectionAt(`/collections/id/${encodeURIComponent(id)}/pay`, paymentPassword);
 }
 
 /* ------------------------------------------------------------------ */

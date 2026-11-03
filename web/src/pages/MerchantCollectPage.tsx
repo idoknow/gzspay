@@ -1,6 +1,6 @@
 /**
- * 商家发起收款：先填好金额或点选商品，生成一次性收款单的二维码 / 链接，
- * 付款人扫码确认并输入支付密码后按快照金额创建订单，收款单随即失效。
+ * 商家发起收款：先填好金额或点选商品，发起一笔一次性收款单；
+ * 付款人扫商家原本的校园卡二维码即可直接进入这笔收款单，输支付密码后按快照金额创建订单。
  */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { AmountInput } from "../components/AmountInput";
 import { Avatar } from "../components/Avatar";
 import { EmptyState } from "../components/EmptyState";
-import { ErrorBlock, LoadingBlock, Spinner } from "../components/Loading";
+import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { MoneyText } from "../components/MoneyText";
 import { PageHeader } from "../components/PageHeader";
 import { ProductPicker, selectedToItems, sumProductCents } from "../components/ProductPicker";
@@ -23,7 +23,6 @@ import {
 import { cn, formatCents, formatCountdown, formatDateTime, yuanToCents } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
-import { useQrDataUrl } from "../lib/qr";
 import { useAuth } from "../lib/session";
 import type { PaymentCollection, PaymentCollectionCreateResult, Product } from "../lib/types";
 
@@ -64,12 +63,9 @@ export function MerchantCollectPage(): ReactNode {
   const [result, setResult] = useState<PaymentCollectionCreateResult | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [cancelling, setCancelling] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const products = useAsync<Product[]>(() => listProducts(), []);
   const recent = useAsync<PaymentCollection[]>(() => listPaymentCollections(10), []);
-
-  const { dataUrl, error: qrError } = useQrDataUrl(result?.url ?? "", 520);
 
   const productList = products.data ?? [];
   const productItems = useMemo(
@@ -119,27 +115,15 @@ export function MerchantCollectPage(): ReactNode {
         reservedNote: note.trim() || null,
       });
       setResult(created);
-      setCopied(false);
       setAmount("");
       setSelected({});
       setNote("");
       recent.reload();
-      toast.success("收款单已创建，让对方扫码付款");
+      toast.success("收款单已发起，让付款人扫你的校园卡二维码");
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
       setCreating(false);
-    }
-  };
-
-  const copyLink = async (): Promise<void> => {
-    if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.url);
-      setCopied(true);
-      toast.success("链接已复制");
-    } catch {
-      toast.error("复制失败，请长按链接手动复制");
     }
   };
 
@@ -179,7 +163,7 @@ export function MerchantCollectPage(): ReactNode {
 
   return (
     <div className="min-h-[100dvh] bg-app pb-28">
-      <PageHeader title="发起收款" subtitle="填好金额或选好商品，生成二维码让对方扫码付款" back />
+      <PageHeader title="发起收款" subtitle="填好金额或选好商品，让付款人扫你的校园卡二维码付款" back />
 
       <div className="space-y-4 px-4">
         {result ? (
@@ -200,26 +184,14 @@ export function MerchantCollectPage(): ReactNode {
               <p className="mt-2 text-xs text-muted">备注：{result.collection.reservedNote}</p>
             ) : null}
 
-            <div className="mx-auto mt-4 flex w-full max-w-[260px] items-center justify-center rounded-3xl bg-white p-3 shadow-sm">
-              {qrError ? (
-                <p className="py-10 text-xs text-muted">{qrError}</p>
-              ) : dataUrl ? (
-                <img src={dataUrl} alt="收款二维码" className="h-auto w-full" />
-              ) : (
-                <div className="flex h-[230px] items-center justify-center">
-                  <Spinner size={22} />
-                </div>
-              )}
+            <div className="mt-4 rounded-2xl bg-brand-soft/70 px-4 py-3 text-left">
+              <p className="text-[11px] font-semibold text-brand">让付款人扫你的校园卡二维码</p>
+              <p className="mt-1 text-xs leading-relaxed text-text">
+                不需要再出示单独的二维码：对方扫你原本的校园卡二维码，就会直接打开这笔收款单，核对金额和备注后即可付款。
+              </p>
             </div>
 
-            <p className="mt-3 break-all rounded-2xl bg-surface-2/70 px-3 py-2 text-[11px] text-muted">
-              {result.url}
-            </p>
-
             <div className="mt-3 flex gap-2">
-              <button type="button" className="btn btn-secondary flex-1" onClick={copyLink}>
-                {copied ? "已复制" : "复制链接"}
-              </button>
               {result.collection.status === "pending" ? (
                 <button
                   type="button"
@@ -236,7 +208,7 @@ export function MerchantCollectPage(): ReactNode {
               再发起一笔
             </button>
             <p className="mt-2 text-[11px] text-muted">
-              收款单只能使用一次，付款成功后自动失效；二维码 30 分钟内有效。
+              收款单只能使用一次，付款成功后自动失效；30 分钟内有效。
             </p>
           </section>
         ) : (
@@ -309,7 +281,7 @@ export function MerchantCollectPage(): ReactNode {
                 disabled={creating || amountCents <= 0}
                 onClick={submit}
               >
-                {creating ? "正在创建…" : "生成收款二维码"}
+                {creating ? "正在创建…" : "发起收款单"}
               </button>
             </section>
 

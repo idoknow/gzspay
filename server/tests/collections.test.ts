@@ -201,6 +201,52 @@ describe("商家自建收款单", () => {
     expect(pay.status).toBe(409);
   });
 
+  it("扫商家校园卡直接返回待付款收款单，并可按 id 预览与付款", async () => {
+    const created = await merchantApi
+      .post("/api/merchant/collections")
+      .send({ amountCents: 660, title: "手打柠檬茶", reservedNote: "少冰" })
+      .expect(201);
+    const collectionId = created.body.collection.id as string;
+
+    // 付款人扫商家原本的校园卡二维码，带上待付款收款单
+    const scanned = await payerApi
+      .post("/api/scan/card")
+      .send({ cardContent: buildCardQrContent("COLM0001") })
+      .expect(200);
+    expect(scanned.body.isMerchant).toBe(true);
+    expect(scanned.body.pendingCollection).toMatchObject({
+      id: collectionId,
+      amountCents: 660,
+      title: "手打柠檬茶",
+    });
+
+    const preview = await payerApi.get(`/api/collections/id/${collectionId}`).expect(200);
+    expect(preview.body.payeable).toBe(true);
+    expect(preview.body.amountCents).toBe(660);
+    expect(preview.body.reservedNote).toBe("少冰");
+    expect(typeof preview.body.noteRequirement).toBe("string");
+
+    const paid = await payerApi
+      .post(`/api/collections/id/${collectionId}/pay`)
+      .send({ paymentPassword: "123456" })
+      .expect(201);
+    expect(paid.body.order.amountCents).toBe(660);
+    expect(paid.body.order.title).toBe("手打柠檬茶");
+    expect(paid.body.collection.status).toBe("used");
+
+    // 用完后扫校园卡不再带这笔收款单（前面用例可能还有其它 pending 单）
+    const rescan = await payerApi
+      .post("/api/scan/card")
+      .send({ cardContent: buildCardQrContent("COLM0001") })
+      .expect(200);
+    expect(rescan.body.pendingCollection?.id).not.toBe(collectionId);
+
+    const again = await payerApi
+      .post(`/api/collections/id/${collectionId}/pay`)
+      .send({ paymentPassword: "123456" });
+    expect(again.status).toBe(409);
+  });
+
   it("收款单列表只显示自己的收款单", async () => {
     const list = await merchantApi.get("/api/merchant/collections?limit=10").expect(200);
     expect(Array.isArray(list.body.items)).toBe(true);

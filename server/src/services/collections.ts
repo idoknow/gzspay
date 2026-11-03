@@ -12,7 +12,7 @@ import { type MerchantRow, type PaymentCollectionRow, type PublicUser, type User
 import { resolveRequestItems } from "./dynamic.js";
 import { enabledChannels, merchantNameOf, requireMerchant } from "./merchant.js";
 import { findOrderById, toOrderDto, createOrderFromCollection, type OrderDto, type OrderItemDto } from "./orders.js";
-import { findUserById, publicUserOf, verifyPaymentPassword } from "./users.js";
+import { findUserById, getMerchant, publicUserOf, verifyPaymentPassword } from "./users.js";
 
 export interface PaymentCollectionDto {
   id: string;
@@ -21,6 +21,8 @@ export interface PaymentCollectionDto {
   title: string;
   items: OrderItemDto[] | null;
   reservedNote: string | null;
+  /** 商家的备注要求（付款人核对金额时一并展示） */
+  noteRequirement: string;
   merchant: PublicUser;
   merchantName: string;
   createdAt: string;
@@ -68,6 +70,7 @@ function expireIfNeeded(row: PaymentCollectionRow): PaymentCollectionRow {
 
 function toCollectionDto(row: PaymentCollectionRow): PaymentCollectionDto {
   const merchantUser = findUserById(row.merchant_id);
+  const merchant = getMerchant(row.merchant_id);
   return {
     id: row.id,
     status: row.status,
@@ -75,6 +78,7 @@ function toCollectionDto(row: PaymentCollectionRow): PaymentCollectionDto {
     title: row.title,
     items: parseItems(row.items_json),
     reservedNote: row.reserved_note,
+    noteRequirement: merchant?.note_requirement ?? "",
     merchant: merchantUser
       ? publicUserOf(merchantUser)
       : {
@@ -214,22 +218,41 @@ function findCollectionByToken(rawToken: string): PaymentCollectionRow {
   return expireIfNeeded(row);
 }
 
-/** 付款人扫码后的收款单预览（已失效也返回状态，由前端提示） */
-export function previewPaymentCollection(rawToken: string, viewer: UserRow): PaymentCollectionPreview {
-  const row = findCollectionByToken(rawToken);
+function previewRow(row: PaymentCollectionRow, viewer: UserRow): PaymentCollectionPreview {
   if (row.merchant_id === viewer.id) throw errors.conflict("这是你自己发起的收款单，不能付款");
   const dto = toCollectionDto(row);
   return { ...dto, payeable: row.status === "pending" };
 }
 
+/** 付款人扫码后的收款单预览（已失效也返回状态，由前端提示） */
+export function previewPaymentCollection(rawToken: string, viewer: UserRow): PaymentCollectionPreview {
+  return previewRow(findCollectionByToken(rawToken), viewer);
+}
+
+/** 按 id 预览收款单：付款人扫商家校园卡时用（库里只存令牌哈希，扫卡拿不到令牌） */
+export function previewPaymentCollectionById(id: string, viewer: UserRow): PaymentCollectionPreview {
+  return previewRow(findCollectionById(id), viewer);
+}
+
+/** 商家当前待付款的收款单（扫校园卡时据此直接进入指定金额收款页） */
+export function findPendingCollectionForMerchant(merchantUserId: string): PaymentCollectionRow | null {
+  const row = queryOne<PaymentCollectionRow>(
+    `SELECT * FROM payment_collections
+      WHERE merchant_id = ? AND status = 'pending' AND expires_at > ?
+      ORDER BY created_at DESC LIMIT 1`,
+    merchantUserId,
+    nowIso(),
+  );
+  return row ?? null;
+}
+
 /** 付款人确认付款：校验支付密码后按收款单快照创建订单（一次性占用收款单） */
-export function payPaymentCollection(
-  rawToken: string,
+function payRow(
+  row: PaymentCollectionRow,
   payer: UserRow,
   paymentPassword: string,
   ip: string,
 ): { collection: PaymentCollectionDto; order: OrderDto } {
-  const row = findCollectionByToken(rawToken);
   if (row.merchant_id === payer.id) throw errors.conflict("不能向自己付款");
   if (row.status === "used") throw errors.conflict("该收款单已被使用，请让商家重新发起");
   if (row.status !== "pending") throw errors.conflict("该收款单已失效，请让商家重新发起");
@@ -297,4 +320,24 @@ export function payPaymentCollection(
     collection: toCollectionDto(findCollectionById(row.id)),
     order: toOrderDto(findOrderById(order.id) ?? order, payer.id),
   };
+}
+
+/** 付款人打开收款链接（令牌）确认付款 */
+export function payPaymentCollection(
+  rawToken: string,
+  payer: UserRow,
+  paymentPassword: string,
+  ip: string,
+): { collection: PaymentCollectionDto; order: OrderDto } {
+  return payRow(findCollectionByToken(rawToken), payer, paymentPassword, ip);
+}
+
+/** 付款人扫商家校园卡后直接确认付款（按收款单 id） */
+export function payPaymentCollectionById(
+  id: string,
+  payer: UserRow,
+  paymentPassword: string,
+  ip: string,
+): { collection: PaymentCollectionDto; order: OrderDto } {
+  return payRow(findCollectionById(id), payer, paymentPassword, ip);
 }

@@ -1,17 +1,25 @@
-/** 付款人扫码打开商家收款单：核对金额后输入支付密码，按快照金额创建订单。 */
+/**
+ * 付款人打开商家收款单：核对金额、备注要求后输入支付密码，按快照金额创建订单。
+ * 两种入口：收款链接（令牌）与扫商家校园卡（收款单 id）。
+ */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { CountdownModal } from "../components/CountdownModal";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { MoneyText } from "../components/MoneyText";
 import { PageHeader } from "../components/PageHeader";
 import { PaymentPasswordDialog } from "../components/PaymentPasswordDialog";
 import { useToast } from "../components/Toast";
-import { payPaymentCollection, previewPaymentCollection } from "../lib/api";
+import {
+  payPaymentCollection,
+  payPaymentCollectionById,
+  previewPaymentCollection,
+  previewPaymentCollectionById,
+} from "../lib/api";
 import { formatCountdown } from "../lib/format";
-import { errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
 import type { PaymentCollectionPreview } from "../lib/types";
 
@@ -31,15 +39,17 @@ function Shell({ children }: { children: ReactNode }): ReactNode {
 }
 
 export function CollectPage(): ReactNode {
-  const { token = "" } = useParams();
+  const { token = "", id = "" } = useParams<{ token?: string; id?: string }>();
   const toast = useToast();
   const navigate = useNavigate();
-  const { data, loading, error, reload } = useAsync<PaymentCollectionPreview>(
-    () => previewPaymentCollection(token),
-    [token],
-  );
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [requirementOpen, setRequirementOpen] = useState(false);
   const [remaining, setRemaining] = useState(0);
+
+  const { data, loading, error, reload } = useAsync<PaymentCollectionPreview>(
+    () => (id ? previewPaymentCollectionById(id) : previewPaymentCollection(token)),
+    [id, token],
+  );
 
   useEffect(() => {
     if (!data) return;
@@ -50,7 +60,9 @@ export function CollectPage(): ReactNode {
   }, [data]);
 
   const submit = async (password: string): Promise<void> => {
-    const result = await payPaymentCollection(token, password);
+    const result = id
+      ? await payPaymentCollectionById(id, password)
+      : await payPaymentCollection(token, password);
     setPasswordOpen(false);
     toast.success("付款成功");
     navigate(`/orders/${result.order.id}`);
@@ -107,6 +119,7 @@ export function CollectPage(): ReactNode {
   }
 
   const expired = remaining <= 0;
+  const requirement = data.noteRequirement.trim();
 
   return (
     <Shell>
@@ -138,6 +151,13 @@ export function CollectPage(): ReactNode {
           </ul>
         ) : null}
 
+        {requirement ? (
+          <div className="mt-4 rounded-2xl bg-brand-soft/70 px-3 py-2.5 text-left">
+            <p className="text-[11px] font-semibold text-brand">商家备注要求</p>
+            <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-text">{requirement}</p>
+          </div>
+        ) : null}
+
         <p className="mt-4 text-[11px] text-muted">
           {expired ? "收款单已过期，请让商家重新发起" : `${formatCountdown(remaining)} 后失效`}
         </p>
@@ -146,12 +166,31 @@ export function CollectPage(): ReactNode {
           type="button"
           className="btn btn-primary btn-block mt-4"
           disabled={expired}
-          onClick={() => setPasswordOpen(true)}
+          onClick={() => {
+            if (requirement) {
+              setRequirementOpen(true);
+              return;
+            }
+            setPasswordOpen(true);
+          }}
         >
           确认付款
         </button>
         <p className="mt-2 text-[11px] text-muted">核对商家与金额无误后，输入支付密码完成付款</p>
       </section>
+
+      <CountdownModal
+        open={requirementOpen}
+        title="商家备注要求"
+        seconds={3}
+        confirmText="我已阅读"
+        onClose={() => {
+          setRequirementOpen(false);
+          setPasswordOpen(true);
+        }}
+      >
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-text">{requirement}</p>
+      </CountdownModal>
 
       <PaymentPasswordDialog
         open={passwordOpen}

@@ -257,6 +257,11 @@ export function PayPage(): ReactNode {
       toast.error("对方还不是商家，暂时无法付款");
       return;
     }
+    // 商家已发起指定金额收款单：扫校园卡直接进入这笔收款单，不再显示商品/金额界面
+    if (result.pendingCollection) {
+      navigate(`/collect/id/${result.pendingCollection.id}`);
+      return;
+    }
     const publicInfo = await getMerchantPublic(result.user.id);
     setMerchant(publicInfo);
     setDynamicToken(null);
@@ -993,14 +998,14 @@ export function PayPage(): ReactNode {
                 {scanPanel("collect")}
                 <section className="card p-4 text-center">
                   <p className="text-xs leading-relaxed text-muted">
-                    不想先扫对方的动态码？可以直接定好金额或商品，生成二维码让对方扫码付款。
+                    不想先扫对方的动态码？可以直接定好金额或商品，让对方扫你的校园卡二维码付款。
                   </p>
                   <button
                     type="button"
                     className="btn btn-secondary btn-block mt-3"
                     onClick={() => navigate("/merchant/collect")}
                   >
-                    发起指定金额收款
+                    让对方扫码收款
                   </button>
                 </section>
               </>

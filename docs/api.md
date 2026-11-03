@@ -250,7 +250,7 @@ interface OrderSummary {
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/me/card-qr` | 当前用户校园卡二维码：`{ content: "gzspay:card:<卡号>", cardNoMasked }`（纯静态身份标识，不能用于授权支付） |
-| `POST` | `/api/scan/card` | 扫码后解析校园卡：`{ cardContent: "gzspay:card:<卡号>" }`（也接受纯卡号，8 位数字或字母，大小写不敏感）→ `{ user: PublicUser, isMerchant, isSelf, cardNoMasked }`；未绑定 `404`，账号冻结 `423` |
+| `POST` | `/api/scan/card` | 扫码后解析校园卡：`{ cardContent: "gzspay:card:<卡号>" }`（也接受纯卡号，8 位数字或字母，大小写不敏感）→ `{ user: PublicUser, isMerchant, isSelf, cardNoMasked, pendingCollection }`；`pendingCollection` 为该商家当前待付款的指定金额收款单 `{ id, amountCents, title } | null`（前端据此直接进入收款单页）；未绑定 `404`，账号冻结 `423` |
 
 二维码内容前缀：校园卡 `gzspay:card:`，动态码 `gzspay:dynamic:`。
 
@@ -298,7 +298,7 @@ interface SSEOrderUpdate {
 
 ### 7.3 商家自建收款单
 
-商家先填好金额（或点选商品）生成一次性收款单，展示二维码/链接；付款人扫码确认后输入支付密码，系统按收款单快照创建订单，收款单随即失效（`pending → used`）。库内只保存令牌哈希，收款链接只在创建成功时返回一次。
+商家先填好金额（或点选商品）发起一次性收款单；付款人扫商家**原本的校园卡二维码**（`gzspay:card:<卡号>`）即可直接进入这笔收款单，确认金额与备注要求后输入支付密码，系统按收款单快照创建订单，收款单随即失效（`pending → used`）。库内只保存令牌哈希，收款链接只在创建成功时返回一次（前端不再展示二维码/链接，令牌接口保留以兼容旧链接）。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -306,8 +306,10 @@ interface SSEOrderUpdate {
 | `GET` | `/api/merchant/collections?limit=20` | 商家自己的收款单列表 → `{ items: PaymentCollection[] }` |
 | `GET` | `/api/merchant/collections/:id` | 商家查看单个收款单（用于创建页轮询付款状态） |
 | `POST` | `/api/merchant/collections/:id/cancel` | 商家作废待付款收款单 → `PaymentCollection`（已使用/已过期时 409） |
-| `GET` | `/api/collections/:token` | 付款人扫码预览：`PaymentCollection & { payeable: boolean }`；商家看自己的收款单 409，令牌无效 404 |
-| `POST` | `/api/collections/:token/pay` | 付款人确认付款：`{ paymentPassword }` → `201 { collection, order }`（订单状态 `pending_payment`）；已被使用/过期/作废 409，密码错误按支付密码规则返回 4xx；每分钟限 10 次 |
+| `GET` | `/api/collections/:token` | 付款人预览（旧链接）：`PaymentCollection & { payeable: boolean }`；商家看自己的收款单 409，令牌无效 404 |
+| `POST` | `/api/collections/:token/pay` | 付款人确认付款（旧链接）：`{ paymentPassword }` → `201 { collection, order }`（订单状态 `pending_payment`）；已被使用/过期/作废 409，密码错误按支付密码规则返回 4xx；每分钟限 10 次 |
+| `GET` | `/api/collections/id/:id` | 付款人扫商家校园卡后预览：`PaymentCollection & { payeable: boolean }`；商家看自己的收款单 409，不存在 404 |
+| `POST` | `/api/collections/id/:id/pay` | 付款人按 id 确认付款：`{ paymentPassword }` → `201 { collection, order }`；并发抢占与限额规则同上；每分钟限 10 次 |
 
 ```ts
 interface PaymentCollection {
@@ -317,6 +319,7 @@ interface PaymentCollection {
   title: string;                       // 默认「自定义收款」，或首个商品名
   items: { name: string; priceCents: number; quantity: number }[] | null;
   reservedNote: string | null;
+  noteRequirement: string;             // 商家的备注要求，付款页一并展示
   merchant: PublicUser;
   merchantName: string;
   createdAt: string;
@@ -326,7 +329,7 @@ interface PaymentCollection {
 }
 ```
 
-付款成功后收款单状态为 `used` 并写入 `orderId`；商家创建页每 3 秒轮询 `GET /api/merchant/collections/:id`，看到 `used` 即跳转订单详情。
+付款成功后收款单状态为 `used` 并写入 `orderId`；商家创建页每 3 秒轮询 `GET /api/merchant/collections/:id`，看到 `used` 即跳转订单详情。付款人扫商家校园卡时会拿到 `pendingCollection`，前端直接打开 `/collect/id/:id`，付款页展示金额、商品明细、`reservedNote` 与 `noteRequirement`（备注要求需阅读 3 秒后才能输入密码）。
 
 ## 8. 交易统计
 

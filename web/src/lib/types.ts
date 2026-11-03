@@ -308,6 +308,8 @@ export interface ScanCardResponse {
   /** 扫到的是自己 */
   isSelf: boolean;
   cardNoMasked: string | null;
+  /** 商家当前待付款的指定金额收款单（付款人扫商家校园卡时直接进入该收款页） */
+  pendingCollection: { id: string; amountCents: number; title: string } | null;
 }
 
 /** 动态码（api.ts 已归一化） */
@@ -364,6 +366,8 @@ export interface PaymentCollection {
   title: string;
   items: OrderItem[] | null;
   reservedNote: string | null;
+  /** 商家的备注要求（付款人核对金额时一并展示） */
+  noteRequirement: string;
   merchant: PublicUser;
   merchantName: string;
   createdAt: string;

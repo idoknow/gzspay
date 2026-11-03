@@ -7,6 +7,7 @@ import { maskCardNo } from "../lib/crypto.js";
 import { rateLimit, userKey } from "../lib/rate-limit.js";
 import { recordTraffic } from "../lib/traffic.js";
 import { parse } from "../lib/validate.js";
+import { findPendingCollectionForMerchant } from "../services/collections.js";
 import { isMerchant, publicUserOf, resolveCardOwner } from "../services/users.js";
 
 export const scanRouter: Router = Router();
@@ -34,13 +35,19 @@ scanRouter.post(
       throw errors.notFound("该校园卡尚未绑定 gzspay 账号，请提醒对方先注册");
     }
     if (owner.status === "frozen") throw errors.locked("该账号已被冻结");
+    const merchant = isMerchant(owner.id);
+    // 商家当前有待付款的指定金额收款单时，付款人扫校园卡直接进入该收款单页
+    const pending = merchant ? findPendingCollectionForMerchant(owner.id) : null;
     // 统计：校园卡被扫（只记次数，不记卡号 / 身份）
     recordTraffic("scan", "campus_card");
     res.json({
       user: publicUserOf(owner),
-      isMerchant: isMerchant(owner.id),
+      isMerchant: merchant,
       isSelf: owner.id === req.auth!.user.id,
       cardNoMasked: owner.card_no ? maskCardNo(owner.card_no) : null,
+      pendingCollection: pending
+        ? { id: pending.id, amountCents: pending.amount_cents, title: pending.title }
+        : null,
     });
   }),
 );
