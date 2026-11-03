@@ -1,7 +1,7 @@
 /** 安卓手机 NFC 读卡：读取卡片 NDEF 文本（卡片名称即校园卡卡号）。 */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { isCardNo, normalizeCardNo } from "../lib/format";
+import { cn, isCardNo, normalizeCardNo } from "../lib/format";
 
 interface NdefRecordLike {
   recordType: string;
@@ -124,12 +124,13 @@ export function NfcCardReader({
     }
   }, [onRead, stop]);
 
-  if (!supported) return null;
-
   const dark = tone === "dark";
-  const buttonClass = dark
-    ? "flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 py-3 text-xs text-white backdrop-blur active:bg-white/20 disabled:opacity-60"
-    : "btn btn-outline btn-block gap-2";
+  const buttonClass = cn(
+    dark
+      ? "flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 py-3 text-xs text-white backdrop-blur active:bg-white/20 disabled:opacity-60"
+      : "btn btn-outline btn-block gap-2",
+    !supported && "opacity-60",
+  );
 
   return (
     <div className={className}>
@@ -139,7 +140,13 @@ export function NfcCardReader({
           正在读取 NFC…（点此停止）
         </button>
       ) : (
-        <button type="button" className={buttonClass} disabled={disabled} onClick={() => void start()}>
+        <button
+          type="button"
+          className={buttonClass}
+          disabled={disabled}
+          title={supported ? undefined : "NFC 读卡需要安卓手机 Chrome 浏览器（HTTPS），并在系统设置里开启 NFC"}
+          onClick={() => void start()}
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <rect x="4" y="3" width="16" height="18" rx="3" stroke="currentColor" strokeWidth="1.7" />
             <path d="M9 8.5c1.6 1.4 1.6 5.6 0 7M12 6.5c3 2.6 3 8.4 0 11" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
@@ -147,6 +154,17 @@ export function NfcCardReader({
           NFC 读卡
         </button>
       )}
+      {!supported ? (
+        <p
+          className={
+            dark
+              ? "mt-1.5 text-center text-[11px] leading-relaxed text-white/55"
+              : "mt-1.5 text-center text-[11px] leading-relaxed text-muted"
+          }
+        >
+          当前设备/浏览器不支持 NFC 读卡：需要安卓手机 Chrome（HTTPS）并在系统设置里开启 NFC；其他设备请用摄像头扫码或手动输入卡号。
+        </p>
+      ) : null}
       {scanning ? (
         <p
           className={
