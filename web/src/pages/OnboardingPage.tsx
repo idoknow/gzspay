@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { BuiltInKeypad } from "../components/BuiltInKeypad";
 import { LoadingBlock } from "../components/Loading";
 import { Logo } from "../components/Logo";
+import { NfcCardReader } from "../components/NfcCardReader";
 import { QrScanner } from "../components/QrScanner";
 import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
@@ -365,6 +366,7 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
             {busy ? <Spinner size={18} /> : null}
             扫描校园卡
           </button>
+          <NfcCardReader className="mt-2 w-full" disabled={busy} onRead={handleScan} />
         </div>
         <p className="mt-3 text-center text-[11px] leading-relaxed text-muted">
           相机无法使用？请在系统浏览器（Safari / Chrome）中打开本页，并允许使用摄像头。

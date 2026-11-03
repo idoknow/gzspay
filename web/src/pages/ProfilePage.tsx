@@ -6,6 +6,7 @@ import { Avatar } from "../components/Avatar";
 import { Dialog } from "../components/Dialog";
 import { EyeIcon } from "../components/EyeIcon";
 import { PageHeader } from "../components/PageHeader";
+import { NfcCardReader } from "../components/NfcCardReader";
 import { PaymentPasswordDialog } from "../components/PaymentPasswordDialog";
 import { QrScanner } from "../components/QrScanner";
 import { Spinner } from "../components/Loading";
@@ -730,8 +731,14 @@ export function ProfilePage(): ReactNode {
             <ScanIcon />
             扫描校园卡二维码
           </button>
+          <NfcCardReader
+            onRead={(cardNo) => {
+              setCardOpen(false);
+              handleScanResult(cardNo);
+            }}
+          />
           <p className="text-center text-[11px] leading-relaxed text-muted">
-            支持摄像头扫码；安卓手机可以用「NFC 读卡」直接贴卡读取卡片名称作为卡号。
+            安卓手机可以直接把卡片贴到手机背面用 NFC 读卡，读取卡片名称作为卡号。
           </p>
         </div>
       </Dialog>
