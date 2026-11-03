@@ -81,6 +81,8 @@ export interface Me {
 export interface SiteInfo {
   /** 站点名称 */
   name: string;
+  /** 校名（学校简称），空字符串表示未配置，界面只显示「校园服务」 */
+  schoolName: string;
   /** ICP 备案号，空字符串表示未填写 */
   icp: string;
 }
@@ -100,6 +102,8 @@ export interface SessionResponse {
 /** 站点信息（GET /api/setup/status 中的 system） */
 export interface SetupSystemInfo {
   siteName: string;
+  /** 校名（学校简称），空字符串表示未配置 */
+  schoolName: string;
   publicBaseUrl: string;
   /** ICP 备案号，空字符串表示未填写 */
   icp: string;

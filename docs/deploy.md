@@ -35,7 +35,7 @@ npm test                # 可选：运行接口测试
 | `CAMPUX_BASE_URL` | 校园墙地址，如 `https://campux.example.com` |
 | `CAMPUX_INTERNAL_BASE_URL` | 可选。服务端调用校园墙 token / userinfo / revoke 时使用的地址，留空则与 `CAMPUX_BASE_URL` 相同；容器或内网部署无法直连校园墙公网入口时填内网地址（如 `http://campux-admin.campux.svc.cluster.local:8989`），浏览器跳转仍走 `CAMPUX_BASE_URL` |
 | `CAMPUX_CLIENT_ID` / `CAMPUX_CLIENT_SECRET` | 校园墙后台新建应用后获得（Secret 只放服务端） |
-| `CAMPUX_TENANT_ID` | 可选，用于校验返回的用户属于桂中校园墙 |
+| `CAMPUX_TENANT_ID` | 可选，用于校验返回的用户属于校园墙 |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | 发信配置；未配置时邮件写入 `mail_outbox` 表而不发送 |
 | `DATABASE_PATH` | SQLite 文件路径，建议放在持久化目录 |
 | `EMAIL_CODE_DEV_MODE` | 仅本地/冒烟使用（把邮箱验证码回显到接口响应）；**生产必须为 `0` 或不设置** |

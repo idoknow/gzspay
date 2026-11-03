@@ -43,6 +43,8 @@ const CAMPUX_KEYS = {
 
 const SYSTEM_KEYS = {
   siteName: "system.siteName",
+  /** 校名（学校简称，如「某某」），为空时界面只显示「校园服务」 */
+  schoolName: "system.schoolName",
   publicBaseUrl: "system.publicBaseUrl",
   /** ICP 备案号（如「桂ICP备2025000000号-1」），为空表示不展示 */
   icp: "system.icp",
@@ -61,7 +63,7 @@ const ADMIN_KEYS = {
   entryPath: "admin.entryPath",
 } as const;
 
-const DEFAULT_SITE_NAME = "gzspay 桂中校园服务";
+const DEFAULT_SITE_NAME = "gzspay 校园服务";
 
 /**
  * app_config 的读取非常频繁：systemGate 每个 /api 请求都要判断系统是否初始化、
@@ -124,6 +126,8 @@ export interface CampuxConfigView {
 
 export interface SystemConfigView {
   siteName: string;
+  /** 校名（学校简称），为空时界面只显示「校园服务」 */
+  schoolName: string;
   publicBaseUrl: string;
   icp: string;
 }
@@ -191,6 +195,7 @@ export function readSystemConfig(): SystemConfigView {
   const stored = storedMap();
   return {
     siteName: stored.get(SYSTEM_KEYS.siteName) ?? DEFAULT_SITE_NAME,
+    schoolName: stored.get(SYSTEM_KEYS.schoolName) ?? "",
     publicBaseUrl: stored.get(SYSTEM_KEYS.publicBaseUrl) ?? config.publicBaseUrl,
     icp: stored.get(SYSTEM_KEYS.icp) ?? "",
   };
@@ -396,6 +401,8 @@ export interface SaveCampuxInput {
 
 export interface SaveSystemInput {
   siteName: string;
+  /** 未提供表示保持已保存的校名不变 */
+  schoolName?: string;
   publicBaseUrl: string;
   /** 未提供表示保持已保存的备案号不变 */
   icp?: string;
@@ -437,6 +444,9 @@ function writeCampux(input: SaveCampuxInput): void {
 
 function writeSystem(input: SaveSystemInput): void {
   setConfigValue(SYSTEM_KEYS.siteName, input.siteName.trim() || DEFAULT_SITE_NAME);
+  if (input.schoolName !== undefined) {
+    setConfigValue(SYSTEM_KEYS.schoolName, input.schoolName.trim());
+  }
   setConfigValue(
     SYSTEM_KEYS.publicBaseUrl,
     input.publicBaseUrl.trim().replace(/\/+$/, "") || config.appBaseUrl,

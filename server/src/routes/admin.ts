@@ -580,6 +580,8 @@ const configSchema = z
     system: z
       .object({
         siteName: z.string().trim().max(80),
+        /** 校名（学校简称），留空时界面只显示「校园服务」 */
+        schoolName: z.string().trim().max(20).optional(),
         publicBaseUrl: configUrlSchema,
         /** ICP 备案号（如「桂ICP备2025000000号-1」），留空表示不展示 */
         icp: z.string().trim().max(60).optional(),
@@ -635,6 +637,7 @@ adminRouter.put(
     const system =
       body.system &&
       (body.system.siteName ||
+        body.system.schoolName !== undefined ||
         body.system.publicBaseUrl ||
         body.system.icp !== undefined)
         ? body.system

@@ -164,7 +164,7 @@ export function parseCardQrContent(raw: string): string | null {
   return value;
 }
 
-/** 学号格式：6~20 位数字（桂中校学号为纯数字） */
+/** 学号格式：6~20 位数字（校学号为纯数字） */
 export function isValidStudentNo(value: string): boolean {
   return /^\d{6,20}$/.test(value);
 }

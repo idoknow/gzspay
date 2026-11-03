@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "gzspay 桂中校园收付款网页应用",
+  "description": "gzspay 校园收付款网页应用",
   "engines": {
     "node": ">=22"
   },

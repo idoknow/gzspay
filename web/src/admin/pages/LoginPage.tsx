@@ -109,7 +109,7 @@ export function LoginPage({
           <div className="admin-login-hero-copy">
             <p className="admin-login-hero-eyebrow">
               <SparkIcon />
-              桂中校园支付
+              校园服务
             </p>
             <h1 className="admin-login-hero-title">
               校园支付

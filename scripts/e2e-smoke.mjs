@@ -167,13 +167,13 @@ async function main() {
     method: "POST",
     body: {
       campux: { baseUrl: "https://campux.example.com", clientId: "e2e-client", clientSecret: "e2e-secret" },
-      system: { siteName: "桂中校园服务" },
+      system: { siteName: "校园服务" },
     },
   });
   check(
     "保存初始化配置",
     configured.data.status?.campuxConfigured === true &&
-      configured.data.status?.system?.siteName === "桂中校园支付",
+      configured.data.status?.system?.siteName === "校园服务",
   );
   const finished = await admin.expect("/api/setup/finish", 200, { method: "POST", body: {} });
   check("第一个登录账号成为超级管理员", finished.data.admin?.role === "super");

@@ -240,7 +240,7 @@ export async function completeAuthorization(
     }
     const tenantId = asString(info.tenant_id);
     const tenantName = asString(info.tenant_name);
-    // 核对是否为桂中校园墙
+    // 核对是否为校园墙
     if (config.campux.tenantId && tenantId !== config.campux.tenantId) {
       writeLoginLog({
         userId: null,
@@ -248,7 +248,7 @@ export async function completeAuthorization(
         success: false,
         reason: "tenant_mismatch",
       });
-      throw errors.forbidden("请使用桂中校园墙账号登录");
+      throw errors.forbidden("请使用校园墙账号登录");
     }
     writeLoginLog({ userId: null, method: "campux", success: true });
     return {

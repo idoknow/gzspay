@@ -31,7 +31,7 @@ miscRouter.get("/about", (_req, res) => {
     privacyUpdatedAt: LEGAL_UPDATED_AT,
     termsUpdatedAt: LEGAL_UPDATED_AT,
     legalEffectiveAt: LEGAL_EFFECTIVE_AT,
-    site: { name: system.siteName, icp: system.icp },
+    site: { name: system.siteName, schoolName: system.schoolName, icp: system.icp },
   });
 });
 

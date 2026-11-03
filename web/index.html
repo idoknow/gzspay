@@ -6,8 +6,8 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <title>gzspay · 桂中校园服务</title>
-    <meta name="description" content="桂中校园服务：扫码认人、下单与订单留痕，资金不经过 gzspay。" />
+    <title>gzspay · 校园服务</title>
+    <meta name="description" content="校园服务：扫码认人、下单与订单留痕，资金不经过 gzspay。" />
     <meta name="format-detection" content="telephone=no" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -20,17 +20,17 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="gzspay" />
-    <meta property="og:title" content="gzspay · 桂中校园服务" />
+    <meta property="og:title" content="gzspay · 校园服务" />
     <meta
       property="og:description"
-      content="桂中校园内的记录工具：校园卡扫码认人、订单留痕，资金不经过 gzspay。"
+      content="校园内的记录工具：校园卡扫码认人、订单留痕，资金不经过 gzspay。"
     />
     <meta property="og:image" content="/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="gzspay · 桂中校园服务" />
-    <meta name="twitter:description" content="桂中校园内的记录工具，资金不经过 gzspay。" />
+    <meta name="twitter:title" content="gzspay · 校园服务" />
+    <meta name="twitter:description" content="校园内的记录工具，资金不经过 gzspay。" />
     <meta name="twitter:image" content="/og.png" />
 
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -340,14 +340,24 @@
     </div>
     <noscript>gzspay 需要启用 JavaScript 才能使用。</noscript>
     <script>
-      // 开屏底部备案号：初始化状态接口对未初始化也放行，读取失败则保持隐藏
+      // 开屏底部备案号与站点标题：初始化状态接口对未初始化也放行，读取失败则保持默认
       (function () {
         fetch("/api/setup/status", { headers: { accept: "application/json" } })
           .then(function (res) {
             return res.ok ? res.json() : null;
           })
           .then(function (data) {
-            var icp = data && data.system && data.system.icp;
+            var system = (data && data.system) || {};
+            var school = String(system.schoolName || "").trim();
+            if (school) {
+              var label = "gzspay · " + school + "校园服务";
+              document.title = label;
+              var og = document.querySelector('meta[property="og:title"]');
+              if (og) og.setAttribute("content", label);
+              var tw = document.querySelector('meta[name="twitter:title"]');
+              if (tw) tw.setAttribute("content", label);
+            }
+            var icp = system.icp;
             var el = document.getElementById("boot-icp");
             if (!icp || !el) return;
             el.textContent = icp;

@@ -66,7 +66,7 @@ TAIL = {"start": (79.0, 50.0), "v_end": (79.0, 74.0), "arc": 16.0, "h_end": (49.
 WORDMARK_TRACKING = -0.02  # 相对字号
 TAGLINE = "CAMPUS PAYMENT"
 TAGLINE_TRACKING = 0.38  # 相对字号
-CJK_TEXT = "桂中校园收付款"
+CJK_TEXT = "校园收付款"
 
 SURFACE_BG = (245, 245, 242, 255)  # #F5F5F2
 WHITE_RGBA = (255, 255, 255, 255)
@@ -218,7 +218,7 @@ def write_lockup_svg(font: TTFont) -> None:
     )
     content = (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {total_width:g} {height:g}"'
-        f' width="{total_width:g}" height="{height:g}" role="img" aria-label="gzspay 桂中校园收付款">\n'
+        f' width="{total_width:g}" height="{height:g}" role="img" aria-label="gzspay 校园收付款">\n'
         + "\n".join(body)
         + "\n</svg>\n"
     )
@@ -289,7 +289,7 @@ def write_splash_svg(font: TTFont) -> None:
     )
     content = (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844"'
-        ' role="img" aria-label="gzspay 桂中校园收付款">\n' + "\n".join(body) + "\n</svg>\n"
+        ' role="img" aria-label="gzspay 校园收付款">\n' + "\n".join(body) + "\n</svg>\n"
     )
     (PUBLIC / "splash.svg").write_text(content, encoding="utf-8")
     log("web/public/splash.svg")

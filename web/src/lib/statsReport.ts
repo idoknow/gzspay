@@ -358,7 +358,7 @@ export function renderStatsReport(input: StatsReportInput): StatsReportCanvas {
   cursor = drawLineChart(ctx, cursor, input.buckets, input.granularity) + gap;
 
   // 页脚
-  drawText(ctx, "由 gzspay 桂中校园收付款自动生成 · 统计口径以订单金额为准", PAD, cursor + 20, {
+  drawText(ctx, "由 gzspay 校园收付款自动生成 · 统计口径以订单金额为准", PAD, cursor + 20, {
     size: 11,
     color: COLOR.muted,
   });

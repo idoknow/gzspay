@@ -136,6 +136,7 @@ interface EntryFormState {
 
 interface SiteFormState {
   siteName: string;
+  schoolName: string;
   publicBaseUrl: string;
   icp: string;
 }
@@ -145,6 +146,7 @@ function initialState(config: AdminConfig) {
   return {
     site: {
       siteName: system.siteName ?? "",
+      schoolName: system.schoolName ?? "",
       publicBaseUrl: system.publicBaseUrl ?? "",
       icp: system.icp ?? "",
     } satisfies SiteFormState,
@@ -266,6 +268,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
       const geoChanged = geoChangedFrom(geo, config.geo);
       const siteChanged =
         site.siteName.trim() !== (config.system.siteName ?? "") ||
+        site.schoolName.trim() !== (config.system.schoolName ?? "") ||
         site.publicBaseUrl.trim().replace(/\/+$/, "") !==
           (config.system.publicBaseUrl ?? "").replace(/\/+$/, "") ||
         site.icp.trim() !== (config.system.icp ?? "");
@@ -306,6 +309,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           ? {
               system: {
                 siteName: site.siteName.trim(),
+                schoolName: site.schoolName.trim(),
                 publicBaseUrl: site.publicBaseUrl.trim(),
                 icp: site.icp.trim(),
               },
@@ -342,7 +346,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
     <div className="admin-stack">
       <Card
         title="站点信息"
-        subtitle="站点名称、对外地址与 ICP 备案号"
+        subtitle="站点名称、校名、对外地址与 ICP 备案号"
         extra={
           site.icp.trim() ? (
             <Badge tone="success" dot>
@@ -359,10 +363,23 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           <Field label="站点名称" required hint="显示在关于页、登录页与邮件署名中。">
             <input
               className="admin-input"
-              placeholder="gzspay 桂中校园服务"
+              placeholder="gzspay 校园服务"
               value={site.siteName}
               disabled={readOnly}
               onChange={(event) => setSite({ ...site, siteName: event.target.value })}
+            />
+          </Field>
+          <Field
+            label="校名"
+            hint="学校简称。填写后登录页、关于页与邮件会显示成「XX校园服务」；留空则只显示「校园服务」，适合开源部署。"
+          >
+            <input
+              className="admin-input"
+              placeholder="例如：某某（留空则不显示校名）"
+              maxLength={20}
+              value={site.schoolName}
+              disabled={readOnly}
+              onChange={(event) => setSite({ ...site, schoolName: event.target.value })}
             />
           </Field>
           <Field

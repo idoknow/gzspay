@@ -7,7 +7,7 @@ import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { SiteIcp } from "../components/SiteIcp";
 import { PageHeader } from "../components/PageHeader";
 import { getAbout } from "../lib/api";
-import { cn } from "../lib/format";
+import { campusPaymentLabel, cn } from "../lib/format";
 import { useAsync } from "../lib/hooks";
 import { Markdown } from "../lib/markdown";
 
@@ -112,7 +112,7 @@ export function AboutPage(): ReactNode {
             <Wordmark size="lg" className="mt-4" />
             <Tagline className="mt-1.5" />
             <p className="mt-2.5 text-[10.5px] font-semibold tracking-[0.24em] text-[color:var(--hero-fg-soft)] uppercase watch:text-[9.5px]">
-              桂中校园收付款
+              {campusPaymentLabel(data?.site?.schoolName)}
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
               <span className="inline-flex items-center rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)]">

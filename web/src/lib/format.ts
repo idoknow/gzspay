@@ -249,6 +249,18 @@ export function qqEmailOf(qq: string): string {
   return `${normalizeQqNumber(qq)}@qq.com`;
 }
 
+/** 站点品牌文案：配置了校名时显示「{校名}校园服务」，否则只显示「校园服务」 */
+export function campusServiceLabel(schoolName?: string | null): string {
+  const name = (schoolName ?? "").trim();
+  return name ? `${name}校园服务` : "校园服务";
+}
+
+/** 站点品牌文案：配置了校名时显示「{校名}校园收付款」，否则只显示「校园收付款」 */
+export function campusPaymentLabel(schoolName?: string | null): string {
+  const name = (schoolName ?? "").trim();
+  return name ? `${name}校园收付款` : "校园收付款";
+}
+
 /** 校学号格式校验（字母数字，4-20 位） */
 export function isStudentNo(value: string): boolean {
   return /^[A-Za-z0-9]{4,20}$/.test(value.trim());

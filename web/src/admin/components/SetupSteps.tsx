@@ -237,7 +237,7 @@ export function SetupStepSystem({
         <input
           className="admin-input"
           value={value.siteName}
-          placeholder="gzspay 桂中校园支付"
+          placeholder="gzspay 校园服务"
           autoComplete="off"
           disabled={disabled}
           onChange={(event) => onChange({ siteName: event.target.value })}

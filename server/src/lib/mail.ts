@@ -2,6 +2,7 @@ import nodemailer, { type Transporter } from "nodemailer";
 import { config, isSmtpConfigured } from "../config.js";
 import { reportSystemError } from "./alerts.js";
 import { writeMailOutbox, writeSystemError } from "./audit.js";
+import { readSystemConfig } from "./runtime-config.js";
 
 let transporter: Transporter | null = null;
 
@@ -182,9 +183,20 @@ function renderRows(rows: EmailRow[]): string {
 }
 
 /** 生成 HTML 版邮件正文（table 布局 + 行内样式） */
+/** 站点品牌名：有校名时「XX校园服务」，否则「校园服务」 */
+function siteBrandName(): string {
+  try {
+    const { schoolName } = readSystemConfig();
+    return schoolName ? `${schoolName}校园服务` : "校园服务";
+  } catch {
+    return "校园服务";
+  }
+}
+
 export function renderEmailHtml(content: EmailContent): string {
   const tone = TONE_STYLES[content.tone ?? "brand"];
   const baseUrl = escapeHtml(config.publicBaseUrl);
+  const brandName = siteBrandName();
   const preheader = escapeHtml(content.preheader ?? content.intro ?? content.title);
 
   const blocks: string[] = [];
@@ -269,7 +281,7 @@ export function renderEmailHtml(content: EmailContent): string {
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>`,
     `<td align="left" style="font-family:${FONT_STACK};font-size:18px;line-height:1.2;font-weight:700;letter-spacing:-0.01em;color:#171a20;">`,
     `gzspay<span style="color:#1e6bff;">.</span>`,
-    `<span style="margin-left:8px;font-size:12px;font-weight:500;color:#8a9085;">桂中校园服务</span>`,
+    `<span style="margin-left:8px;font-size:12px;font-weight:500;color:#8a9085;">${escapeHtml(brandName)}</span>`,
     `</td>`,
     badge,
     `</tr></table>`,
@@ -281,7 +293,7 @@ export function renderEmailHtml(content: EmailContent): string {
     `<tr><td style="padding:20px 26px 22px 26px;font-family:${FONT_STACK};">`,
     `<div style="border-top:1px solid #eceee9;padding-top:14px;font-size:12px;line-height:1.8;color:#8a9085;">`,
     `本邮件由系统自动发送，请勿直接回复。<br>`,
-    `<a href="${baseUrl}" style="color:#5c6357;text-decoration:none;">${baseUrl}</a> · 桂中校园服务`,
+    `<a href="${baseUrl}" style="color:#5c6357;text-decoration:none;">${baseUrl}</a> · ${escapeHtml(brandName)}`,
     `</div>`,
     `</td></tr>`,
     `</table>`,

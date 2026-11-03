@@ -593,6 +593,8 @@ export interface CampuxConfig {
 /** 站点信息 */
 export interface SiteConfig {
   siteName: string;
+  /** 校名（学校简称），空字符串表示未配置 */
+  schoolName: string;
   publicBaseUrl: string;
   /** ICP 备案号，空字符串表示不展示 */
   icp: string;
@@ -674,6 +676,8 @@ export interface AdminConfigInput {
   security?: SecurityConfig;
   system?: {
     siteName: string;
+    /** 校名（学校简称），空字符串表示不展示校名 */
+    schoolName?: string;
     publicBaseUrl: string;
     /** ICP 备案号，空字符串表示不展示 */
     icp?: string;
@@ -706,6 +710,8 @@ export interface SetupCurrentUser {
 /** 站点信息（GET /setup/status 的 system） */
 export interface SetupSystemInfo {
   siteName: string;
+  /** 校名（学校简称），空字符串表示未配置 */
+  schoolName: string;
   publicBaseUrl: string;
   /** ICP 备案号，空字符串表示未填写 */
   icp: string;

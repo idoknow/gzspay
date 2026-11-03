@@ -68,7 +68,7 @@ const EMPTY_MAIL: MailFormState = {
 };
 
 const EMPTY_SYSTEM: SystemFormState = {
-  siteName: "gzspay 桂中校园服务",
+  siteName: "gzspay 校园服务",
   publicBaseUrl: "",
 };
 

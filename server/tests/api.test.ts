@@ -74,7 +74,7 @@ function initializeSystem(): void {
   const now = new Date().toISOString();
   const rows: [string, string][] = [
     ["system.initialized", "1"],
-    ["system.siteName", "桂中校园支付"],
+    ["system.siteName", "校园服务"],
     ["campux.baseUrl", "https://campux.test"],
     ["campux.clientId", "test-client"],
     ["campux.clientSecret", "test-secret"],
@@ -153,7 +153,7 @@ describe("基础接口", () => {
   it("初始化状态接口返回系统信息", async () => {
     const response = await request(app).get("/api/setup/status").expect(200);
     expect(response.body.initialized).toBe(true);
-    expect(response.body.system.siteName).toBe("桂中校园支付");
+    expect(response.body.system.siteName).toBe("校园服务");
     expect(typeof response.body.adminCount).toBe("number");
     expect(response.body.currentUser).toBeNull();
   });
@@ -252,11 +252,11 @@ describe("商家与订单", () => {
     const qr = await generateQrPngBuffer("https://qr.alipay.com/gzspay-merchant");
     const registered = await agentWith(merchantSession)
       .post("/api/merchant/register")
-      .field("name", "桂中便利店")
+      .field("name", "校园便利店")
       .field("channels", JSON.stringify(["alipay"]))
       .attach("qr_alipay", qr, "alipay.png")
       .expect(201);
-    expect(registered.body.merchant.name).toBe("桂中便利店");
+    expect(registered.body.merchant.name).toBe("校园便利店");
     // 备注要求不在注册时填写，注册后再设置
     expect(registered.body.merchant.noteRequirement).toBe("");
     const patched = await agentWith(merchantSession)
@@ -302,7 +302,7 @@ describe("商家与订单", () => {
 
   it("付款人可以扫码后看到商家主页", async () => {
     const response = await agentWith(payerSession).get(`/api/merchant/public/${merchantId}`).expect(200);
-    expect(response.body.merchantName).toBe("桂中便利店");
+    expect(response.body.merchantName).toBe("校园便利店");
     expect(response.body.channels).toContain("alipay");
   });
 
@@ -1109,6 +1109,31 @@ describe("管理后台", () => {
     // 只传校园墙一块时，邮件与安全配置保持不变
     expect(typeof saved.body.mail.host).toBe("string");
     expect(saved.body.security.singlePaymentLimitCents).toBe(600000);
+  });
+
+  it("系统配置可单独保存校名并对外只读暴露", async () => {
+    const current = await adminRequest().get("/api/admin/config").expect(200);
+    const saved = await adminRequest()
+      .put("/api/admin/config")
+      .send({
+        system: { ...current.body.system, schoolName: "某某" },
+      })
+      .expect(200);
+    expect(saved.body.system.schoolName).toBe("某某");
+    const session = await request(app).get("/api/auth/session").expect(200);
+    expect(session.body.site.schoolName).toBe("某某");
+    const about = await request(app).get("/api/about").expect(200);
+    expect(about.body.site.schoolName).toBe("某某");
+    const status = await request(app).get("/api/setup/status").expect(200);
+    expect(status.body.system.schoolName).toBe("某某");
+    // 清空后恢复为不显示校名
+    const cleared = await adminRequest()
+      .put("/api/admin/config")
+      .send({ system: { ...saved.body.system, schoolName: "" } })
+      .expect(200);
+    expect(cleared.body.system.schoolName).toBe("");
+    const sessionAfter = await request(app).get("/api/auth/session").expect(200);
+    expect(sessionAfter.body.site.schoolName).toBe("");
   });
 
   it("关于页返回 Markdown 文档与改动日期", async () => {

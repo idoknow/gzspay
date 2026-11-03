@@ -6,6 +6,7 @@ import { LegalDocLinks } from "../components/LegalDocLinks";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
 import { SiteIcp } from "../components/SiteIcp";
 import { getSetupStatus, LOGIN_URL } from "../lib/api";
+import { campusServiceLabel } from "../lib/format";
 import { useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 
@@ -36,6 +37,8 @@ export function LoginPage(): ReactNode {
   const [campuxConfigured, setCampuxConfigured] = useState<boolean | null>(null);
   /** 站点备案号（读取失败则留空，不展示） */
   const [icp, setIcp] = useState("");
+  /** 校名（后台可配置），未配置时界面只显示「校园服务」 */
+  const [schoolName, setSchoolName] = useState("");
   const redirect = safeRedirect(params.get("redirect"));
   const authError = params.get("auth_error");
 
@@ -47,6 +50,7 @@ export function LoginPage(): ReactNode {
         if (!active) return;
         setCampuxConfigured(status.campuxConfigured);
         setIcp(status.system.icp ?? "");
+        setSchoolName(status.system.schoolName ?? "");
       })
       .catch(() => {
         // 忽略：状态未知时保持入口可用
@@ -73,7 +77,7 @@ export function LoginPage(): ReactNode {
           <LogoMark size={watch ? 64 : 96} animated />
           <Wordmark size={watch ? "md" : "xl"} animated className="mt-5 watch:mt-3" />
           <Tagline animated className="mt-3 watch:mt-1.5" />
-          <p className="mt-2 text-sm text-muted watch:mt-1 watch:text-[11px]">桂中校园服务</p>
+          <p className="mt-2 text-sm text-muted watch:mt-1 watch:text-[11px]">{campusServiceLabel(schoolName)}</p>
         </div>
 
         <div className="mt-10 w-full max-w-[360px] space-y-3 watch:mt-5 watch:space-y-2">

@@ -62,7 +62,7 @@ export function BootPage({ onReady }: BootPageProps): ReactNode {
         <LogoMark size={watch ? 76 : 112} animated />
         <Wordmark size={watch ? "lg" : "display"} animated className="mt-5 watch:mt-3" />
         <Tagline animated className="mt-4 watch:mt-2" />
-        <p className="mt-3 text-sm text-muted animate-fade-in watch:mt-2 watch:text-[11px]">桂中校园收付款</p>
+        <p className="mt-3 text-sm text-muted animate-fade-in watch:mt-2 watch:text-[11px]">校园收付款</p>
 
         <div className="mt-10 w-full max-w-[300px] watch:mt-5 watch:max-w-[220px]">
           <div className="h-1.5 overflow-hidden rounded-full bg-surface-2 watch:h-1">

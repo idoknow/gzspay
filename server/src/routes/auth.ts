@@ -32,7 +32,7 @@ function adminRoleOf(userId: string): AdminRow | undefined {
 authRouter.get("/session", attachUser, (req, res) => {
   const auth = req.auth;
   const system = readSystemConfig();
-  const site = { name: system.siteName, icp: system.icp };
+  const site = { name: system.siteName, schoolName: system.schoolName, icp: system.icp };
   if (!auth) {
     res.json({
       authenticated: false,

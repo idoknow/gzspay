@@ -1,7 +1,7 @@
 {
-  "name": "gzspay 桂中校园服务",
+  "name": "gzspay 校园服务",
   "short_name": "gzspay",
-  "description": "桂中校园服务：扫码认人、下单与订单留痕，资金不经过 gzspay。",
+  "description": "校园服务：扫码认人、下单与订单留痕，资金不经过 gzspay。",
   "lang": "zh-CN",
   "dir": "ltr",
   "start_url": "/",

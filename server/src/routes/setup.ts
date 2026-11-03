@@ -53,6 +53,8 @@ const setupConfigSchema = z.object({
   system: z
     .object({
       siteName: z.string().trim().min(1, "请填写站点名称").max(100),
+      /** 校名（学校简称），可留空 */
+      schoolName: z.string().trim().max(20).optional(),
       publicBaseUrl: urlField.optional(),
       /** ICP 备案号，可留空 */
       icp: z.string().trim().max(60).optional(),
