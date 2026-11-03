@@ -648,6 +648,42 @@ describe("商家与订单", () => {
       .expect(200);
     expect(missing.body.count).toBe(0);
   });
+
+  it("导出账单支持按今日 / 本周 / 本月 / 本年等时间范围筛选", async () => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const fromToday = encodeURIComponent(startOfToday.toISOString());
+    const today = await agentWith(payerSession)
+      .get(`/api/orders/export?format=json&scope=pay&from=${fromToday}`)
+      .expect(200);
+    expect(today.body.count).toBeGreaterThanOrEqual(1);
+
+    // 未来时间段：一笔都导不出来
+    const future = await agentWith(payerSession)
+      .get(
+        `/api/orders/export?format=json&scope=pay&from=${encodeURIComponent(
+          new Date(Date.now() + 86_400_000).toISOString(),
+        )}`,
+      )
+      .expect(200);
+    expect(future.body.count).toBe(0);
+
+    // 更早的时间段：历史订单也不会出现在「今日」之前的这一笔里
+    const past = await agentWith(payerSession)
+      .get(
+        `/api/orders/export?format=json&scope=pay&to=${encodeURIComponent(
+          new Date(startOfToday.getTime() - 1000).toISOString(),
+        )}`,
+      )
+      .expect(200);
+    expect(past.body.count).toBe(0);
+
+    // 开始时间必须早于结束时间
+    await agentWith(payerSession)
+      .get("/api/orders/export?format=json&scope=pay&from=2026-01-02T00:00:00.000Z&to=2026-01-01T00:00:00.000Z")
+      .expect(400);
+  });
+
   it("付款人的交易统计包含这笔支出与明细字段", async () => {
     const summary = await agentWith(payerSession).get("/api/stats/summary").expect(200);
     expect(summary.body.expenseCents).toBe(1200);

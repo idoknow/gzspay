@@ -255,11 +255,24 @@ ordersRouter.get(
     // 浏览器时区偏移（分钟），让导出的时间与页面显示一致
     const tzOffsetValue = Number(query.tzOffset);
     const tzOffset = Number.isFinite(tzOffsetValue) ? Math.trunc(Math.min(Math.max(tzOffsetValue, -840), 840)) : 0;
+    // 时间范围：前端按本地「今日/本周/本月/本年」换算成 ISO 字符串
+    const parseTime = (value: unknown, label: string): string | undefined => {
+      if (value === undefined || value === null || value === "") return undefined;
+      if (typeof value !== "string") throw errors.validation(`${label}格式不正确`);
+      const time = new Date(value).getTime();
+      if (!Number.isFinite(time)) throw errors.validation(`${label}格式不正确`);
+      return new Date(time).toISOString();
+    };
+    const from = parseTime(query.from, "开始时间");
+    const to = parseTime(query.to, "结束时间");
+    if (from && to && from >= to) throw errors.validation("开始时间必须早于结束时间");
     const rows = listOrdersForExport(req.auth!.user, {
       scope,
       status,
       keyword: keyword || undefined,
       ids: ids.length > 0 ? ids : undefined,
+      from,
+      to,
     });
     const result = buildOrdersExport(format, rows, tzOffset);
     const stamp = new Date(Date.now() - tzOffset * 60_000).toISOString().slice(0, 16).replace(/[-:T]/g, "");

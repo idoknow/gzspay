@@ -469,6 +469,9 @@ export interface ExportOrdersParams {
   q?: string;
   /** 指定订单（详情页单笔导出），批量导出时省略 */
   ids?: string[];
+  /** 时间范围（ISO 字符串，含 from、不含 to），由前端按本地「今日/本周/本月/本年」换算 */
+  from?: string;
+  to?: string;
   /** 浏览器时区偏移分钟（`new Date().getTimezoneOffset()`），用于让导出时间与页面一致 */
   tzOffset?: number;
 }

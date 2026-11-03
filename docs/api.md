@@ -181,7 +181,7 @@ interface Me {
 | `POST` | `/api/orders/:id/confirm` | 商家确认收款：仅「已支付」可确认 → 已完成（付款人必须先点「我已支付」并上传付款截图，否则 `409 ORDER_STATUS_INVALID` / `400`）→ 返回 `Order` |
 | `POST` | `/api/orders/:id/not-received` | 商家点「未收到」：已支付 → 待付款，通知付款人 → 返回 `Order` |
 | `POST` | `/api/orders/:id/cancel` | 商家取消：`{ reason: "金额有误"|"已线下结清"|"对方未付款"|"其他", note? }`，**仅待付款**可取消 → 已取消（已付款请先「标记未收到」再取消，否则 409）→ 返回 `Order` |
-| `GET` | `/api/orders/export?format=csv|xlsx|json&scope=pay|receive&status=…&q=…&ids=…&tzOffset=…` | 导出当前账号可见的账单：`format` 默认 `csv`，`xlsx` 为手写 OOXML，`json` 返回 `{ exportedAt, count, orders }`（前端打印页据此生成 PDF）；`ids` 逗号分隔 ≤500（详情页单笔导出），`tzOffset` 为浏览器时区偏移分钟、用于换算导出时间；响应带 `Content-Disposition: attachment`、`Cache-Control: private, no-store`，每分钟限 20 次 |
+| `GET` | `/api/orders/export?format=csv|xlsx|json&scope=pay|receive&status=…&q=…&ids=…&from=…&to=…&tzOffset=…` | 导出当前账号可见的账单：`format` 默认 `csv`，`xlsx` 为手写 OOXML，`json` 返回 `{ exportedAt, count, orders }`（前端打印页据此生成 PDF）；`ids` 逗号分隔 ≤500（详情页单笔导出），`from`/`to` 为 ISO 时间范围（含 `from`、不含 `to`，前端按本地「今日/本周/本月/本年」换算，`from` 必须早于 `to`），`tzOffset` 为浏览器时区偏移分钟、用于换算导出时间；响应带 `Content-Disposition: attachment`、`Cache-Control: private, no-store`，每分钟限 20 次 |
 | `POST` | `/api/orders/:id/appeal` | 付款人申诉：`{ reason }`，写申诉记录 → 返回 `Order` |
 
 说明：状态流转类接口（pay/confirm/not-received/cancel/appeal）直接返回扁平 `Order` 对象（不包 `order` 字段）；两个创建接口返回 `{ order: Order }`。

@@ -53,6 +53,8 @@ export function OrderPrintPage(): ReactNode {
     ? (statusParam as StatusFilter)
     : "all";
   const keyword = params.get("q") ?? "";
+  const from = params.get("from") ?? undefined;
+  const to = params.get("to") ?? undefined;
   const ids = useMemo(
     () => (params.get("ids") ?? "").split(",").map((value) => value.trim()).filter(Boolean),
     [params],
@@ -62,7 +64,15 @@ export function OrderPrintPage(): ReactNode {
     let active = true;
     setLoading(true);
     setError(null);
-    exportOrdersBlob({ format: "json", scope, status, q: keyword || undefined, ids: ids.length > 0 ? ids : undefined })
+    exportOrdersBlob({
+      format: "json",
+      scope,
+      status,
+      q: keyword || undefined,
+      from,
+      to,
+      ids: ids.length > 0 ? ids : undefined,
+    })
       .then((blob) => blob.text())
       .then((text) => JSON.parse(text) as ExportPayload)
       .then((data) => {

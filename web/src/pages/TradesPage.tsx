@@ -14,7 +14,13 @@ import { useToast } from "../components/Toast";
 import { exportOrdersBlob, listOrders, subscribeEvents } from "../lib/api";
 import { downloadBlob, safeFilename } from "../lib/download";
 import { errorMessage } from "../lib/http";
-import { cn } from "../lib/format";
+import {
+  EXPORT_RANGE_OPTIONS,
+  cn,
+  exportRangeBounds,
+  exportRangeLabel,
+  type ExportDateRange,
+} from "../lib/format";
 import { useDebouncedValue, useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 import type { Order } from "../lib/types";
@@ -100,15 +106,24 @@ export function TradesPage(): ReactNode {
   const [filterOpen, setFilterOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportBusy, setExportBusy] = useState<"csv" | "xlsx" | "json" | null>(null);
+  const [exportRange, setExportRange] = useState<ExportDateRange>("all");
   const [search, setSearch] = useState("");
   const keyword = useDebouncedValue(search.trim(), 300);
 
   const handleExport = async (format: "csv" | "xlsx" | "json"): Promise<void> => {
     setExportBusy(format);
     try {
-      const blob = await exportOrdersBlob({ format, scope, status, q: keyword || undefined });
+      const range = exportRangeBounds(exportRange);
+      const blob = await exportOrdersBlob({
+        format,
+        scope,
+        status,
+        q: keyword || undefined,
+        ...range,
+      });
       const stamp = new Date().toISOString().slice(0, 10);
-      downloadBlob(blob, safeFilename(`gzspay-账单-${stamp}.${format}`));
+      const rangeText = exportRange === "all" ? "" : `-${exportRangeLabel(exportRange)}`;
+      downloadBlob(blob, safeFilename(`gzspay-账单-${stamp}${rangeText}.${format}`));
       toast.success("账单已导出");
       setExportOpen(false);
     } catch (cause) {
@@ -123,6 +138,9 @@ export function TradesPage(): ReactNode {
     setExportOpen(false);
     const params = new URLSearchParams({ scope, status });
     if (keyword) params.set("q", keyword);
+    const range = exportRangeBounds(exportRange);
+    if (range.from) params.set("from", range.from);
+    if (range.to) params.set("to", range.to);
     navigate(`/orders/print?${params.toString()}`);
   };
 
@@ -401,8 +419,27 @@ export function TradesPage(): ReactNode {
           if (!exportBusy) setExportOpen(false);
         }}
         title="导出账单"
-        description={`按当前筛选导出：${SCOPE_LABELS[scope]} · ${STATUS_LABELS[status]}${keyword ? ` · 关键词「${keyword}」` : ""}`}
+        description={`按当前筛选导出：${SCOPE_LABELS[scope]} · ${STATUS_LABELS[status]} · ${exportRangeLabel(exportRange)}${keyword ? ` · 关键词「${keyword}」` : ""}`}
       >
+        <p className="mb-2 text-xs text-muted">时间范围</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {EXPORT_RANGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                exportRange === option.value
+                  ? "border-transparent bg-brand text-white"
+                  : "border-line bg-surface-2 text-muted hover:text-text",
+              )}
+              disabled={exportBusy !== null}
+              onClick={() => setExportRange(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           {(
             [

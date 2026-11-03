@@ -829,6 +829,9 @@ export interface OrdersExportQuery {
   keyword?: string;
   /** 指定订单（详情页单笔导出）；为空表示按筛选条件批量导出 */
   ids?: string[];
+  /** 时间范围（ISO 字符串，含 from、不含 to），由前端按本地「今日/本周/本月/本年」换算 */
+  from?: string;
+  to?: string;
   /** 最多导出多少条，默认 2000 */
   limit?: number;
 }
@@ -854,6 +857,14 @@ export function listOrdersForExport(user: UserRow, query: OrdersExportQuery): Or
       `(order_no LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\' OR merchant_name_snapshot LIKE ? ESCAPE '\\' OR payer_name_snapshot LIKE ? ESCAPE '\\' OR COALESCE(reserved_note, '') LIKE ? ESCAPE '\\' OR COALESCE(actual_note, '') LIKE ? ESCAPE '\\')`,
     );
     params.push(like, like, like, like, like, like);
+  }
+  if (query.from) {
+    where.push("created_at >= ?");
+    params.push(query.from);
+  }
+  if (query.to) {
+    where.push("created_at < ?");
+    params.push(query.to);
   }
   const limit = Math.min(Math.max(query.limit ?? 2000, 1), 5000);
   return queryAll<OrderRow>(

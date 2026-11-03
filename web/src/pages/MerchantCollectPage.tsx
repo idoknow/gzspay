@@ -6,16 +6,13 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { AmountInput } from "../components/AmountInput";
-import { Avatar } from "../components/Avatar";
 import { EmptyState } from "../components/EmptyState";
-import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { MoneyText } from "../components/MoneyText";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
-import { cancelPaymentCollection, createPaymentCollection, getPaymentCollection, listPaymentCollections } from "../lib/api";
-import { formatCents, formatCountdown, formatDateTime, yuanToCents } from "../lib/format";
+import { cancelPaymentCollection, createPaymentCollection, getPaymentCollection } from "../lib/api";
+import { formatCountdown, yuanToCents } from "../lib/format";
 import { errorMessage } from "../lib/http";
-import { useAsync } from "../lib/hooks";
 import { useQrDataUrl } from "../lib/qr";
 import { useAuth } from "../lib/session";
 import type { PaymentCollection, PaymentCollectionCreateResult } from "../lib/types";
@@ -55,7 +52,6 @@ export function MerchantCollectPage(): ReactNode {
   const [cancelling, setCancelling] = useState(false);
   const pendingRef = useRef<string | null>(null);
 
-  const recent = useAsync<PaymentCollection[]>(() => listPaymentCollections(10), []);
   const { dataUrl: qrDataUrl, error: qrError } = useQrDataUrl(result?.url ?? null, 520);
 
   const amountCents = yuanToCents(amount) ?? 0;
@@ -130,7 +126,6 @@ export function MerchantCollectPage(): ReactNode {
       setResult(created);
       setAmount("");
       setNote("");
-      recent.reload();
       toast.success("收款单已生成，让对方扫页面上的二维码付款");
     } catch (cause) {
       toast.error(errorMessage(cause));
@@ -145,7 +140,6 @@ export function MerchantCollectPage(): ReactNode {
     try {
       const next = await cancelPaymentCollection(result.collection.id);
       setResult((current) => (current ? { ...current, collection: next } : current));
-      recent.reload();
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
@@ -271,35 +265,6 @@ export function MerchantCollectPage(): ReactNode {
               >
                 {creating ? "正在创建…" : "生成收款二维码"}
               </button>
-            </section>
-
-            <section className="card p-4">
-              <h2 className="text-sm font-semibold text-text">最近的收款单</h2>
-              {recent.loading ? (
-                <div className="mt-3">
-                  <LoadingBlock text="正在加载…" />
-                </div>
-              ) : (recent.data ?? []).length === 0 ? (
-                <p className="mt-2 text-xs text-muted">还没有创建过收款单。</p>
-              ) : (
-                <ul className="mt-3 space-y-3">
-                  {(recent.data ?? []).map((item) => (
-                    <li key={item.id} className="flex items-center gap-3">
-                      <Avatar name={item.merchant?.displayName} avatarUrl={item.merchant?.avatarUrl} size={36} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-text">{item.title}</p>
-                        <p className="text-[11px] text-muted">
-                          {formatDateTime(item.createdAt)} · {item.merchantName}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-sm font-semibold text-text">{formatCents(item.amountCents)}</span>
-                        <StatusBadge status={item.status} />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </section>
           </>
         )}
