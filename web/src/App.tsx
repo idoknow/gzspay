@@ -44,6 +44,7 @@ const MerchantCollectPage = lazyPage(() => import("./pages/MerchantCollectPage")
 const MerchantRegisterPage = lazyPage(() => import("./pages/MerchantRegisterPage"), "MerchantRegisterPage");
 const OnboardingPage = lazyPage(() => import("./pages/OnboardingPage"), "OnboardingPage");
 const OrderDetailPage = lazyPage(() => import("./pages/OrderDetailPage"), "OrderDetailPage");
+const OrderPrintPage = lazyPage(() => import("./pages/OrderPrintPage"), "OrderPrintPage");
 const PayPage = lazyPage(() => import("./pages/PayPage"), "PayPage");
 const ProductsPage = lazyPage(() => import("./pages/ProductsPage"), "ProductsPage");
 const ProfilePage = lazyPage(() => import("./pages/ProfilePage"), "ProfilePage");
@@ -170,6 +171,7 @@ const router = createBrowserRouter([
       { path: "/trades", element: <TradesPage /> },
       { path: "/announcements", element: <AnnouncementsPage /> },
       { path: "/announcements/:id", element: <AnnouncementDetailPage /> },
+      { path: "/orders/print", element: <OrderPrintPage /> },
       { path: "/orders/:id", element: <OrderDetailPage /> },
       { path: "/pay", element: <PayPage /> },
       { path: "/dynamic-code", element: <DynamicCodePage /> },

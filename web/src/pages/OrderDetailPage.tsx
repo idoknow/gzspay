@@ -16,6 +16,7 @@ import { useToast } from "../components/Toast";
 import {
   cancelOrder,
   confirmOrder,
+  exportOrdersBlob,
   getOrder,
   getOrderQrBlob,
   getPaymentProofBlob,
@@ -196,8 +197,9 @@ export function OrderDetailPage(): ReactNode {
   const [proofViewerOpen, setProofViewerOpen] = useState(false);
   /** 商家是否已经打开过付款截图核对 */
   const [proofChecked, setProofChecked] = useState(false);
-  /** 交易详情默认隐藏对方完整姓名，可手动展开 */
-  const [showFullName, setShowFullName] = useState(false);
+  /** 交易详情默认隐藏对方完整姓名 */
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportBusy, setExportBusy] = useState<"csv" | "xlsx" | "json" | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState<(typeof CANCEL_REASONS)[number]>("金额有误");
   const [cancelNote, setCancelNote] = useState("");
@@ -236,10 +238,9 @@ export function OrderDetailPage(): ReactNode {
   const proofFactory = order?.hasPaymentProof ? () => getPaymentProofBlob(order.id) : null;
   const proof = useBlobUrl(proofFactory, [order?.id ?? "", order?.hasPaymentProof ?? false]);
 
-  // 切换订单时重置「已核对截图」与姓名展示状态
+  // 切换订单时重置「已核对截图」状态
   useEffect(() => {
     setProofChecked(false);
-    setShowFullName(false);
   }, [id]);
 
   // 首次进入待付款订单（付款人）时弹出 3 秒倒计时的备注要求
@@ -294,6 +295,32 @@ export function OrderDetailPage(): ReactNode {
     } finally {
       setSavingQr(false);
     }
+  };
+
+  const handleExport = async (format: "csv" | "xlsx" | "json"): Promise<void> => {
+    if (!order) return;
+    setExportBusy(format);
+    try {
+      const blob = await exportOrdersBlob({
+        format,
+        scope: order.role === "payer" ? "pay" : "receive",
+        ids: [order.id],
+      });
+      downloadBlob(blob, safeFilename(`gzspay-账单-${order.orderNo}.${format}`));
+      toast.success("账单已导出");
+      setExportOpen(false);
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setExportBusy(null);
+    }
+  };
+
+  /** PDF 用浏览器打印生成：中文可正常显示，也不留服务端临时文件 */
+  const handlePrintPdf = (): void => {
+    if (!order) return;
+    setExportOpen(false);
+    navigate(`/orders/print?ids=${encodeURIComponent(order.id)}`);
   };
 
   const openPayDialog = (): void => {
@@ -409,10 +436,9 @@ export function OrderDetailPage(): ReactNode {
     order.counterparty?.displayName ||
     (order.role === "payer" ? order.merchantName : order.payerNameSnapshot) ||
     "";
+  // 对方姓名一律脱敏展示，不提供展开开关
   const counterpartyName = counterpartyFullName
-    ? showFullName
-      ? counterpartyFullName
-      : maskPersonName(counterpartyFullName)
+    ? maskPersonName(counterpartyFullName)
     : order.role === "payer"
       ? "商家"
       : "付款人";
@@ -442,9 +468,17 @@ export function OrderDetailPage(): ReactNode {
             <button
               type="button"
               className="mt-2 text-[11px] text-muted"
+              title="点击复制订单号"
               onClick={() => void handleCopy(order.orderNo, "订单号")}
             >
-              订单号 {order.orderNo} · 点击复制
+              订单号 {order.orderNo}
+            </button>
+            <button
+              type="button"
+              className="mt-2 text-[11px] font-medium text-brand"
+              onClick={() => setExportOpen(true)}
+            >
+              导出账单
             </button>
           </div>
         </section>
@@ -458,16 +492,6 @@ export function OrderDetailPage(): ReactNode {
                 <p className="truncate text-[15px] font-semibold text-text">{counterpartyName}</p>
                 {order.role === "payer" ? (
                   <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">商家</span>
-                ) : null}
-                {counterpartyFullName ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowFullName((value) => !value)}
-                    className="shrink-0 text-[11px] text-muted underline decoration-line underline-offset-2 transition hover:text-text"
-                    aria-label={showFullName ? "隐藏完整姓名" : "显示完整姓名"}
-                  >
-                    {showFullName ? "隐藏" : "显示"}
-                  </button>
                 ) : null}
               </div>
               <p className="mt-0.5 text-xs text-muted">
@@ -585,7 +609,7 @@ export function OrderDetailPage(): ReactNode {
           <section className="card p-4">
             <h2 className="text-sm font-semibold text-text">当面收款</h2>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
-              如果对方当面付款，可出示你的收款码；确认收到款项后可直接确认收款。
+              如果对方当面付款，可出示你的收款码。等对方在订单里点「我已支付」并上传付款截图后，再核对确认收款。
             </p>
             <div className="mt-3 flex gap-2">
               <button
@@ -615,22 +639,17 @@ export function OrderDetailPage(): ReactNode {
             ) : null}
 
             {order.role === "merchant" && order.status === "pending_payment" ? (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-outline flex-1"
-                  onClick={() => {
-                    setCancelReason("金额有误");
-                    setCancelNote("");
-                    setCancelOpen(true);
-                  }}
-                >
-                  取消订单
-                </button>
-                <button type="button" className="btn btn-primary flex-1" onClick={() => setConfirmOpen(true)}>
-                  对方已付款
-                </button>
-              </>
+              <button
+                type="button"
+                className="btn btn-outline btn-block"
+                onClick={() => {
+                  setCancelReason("金额有误");
+                  setCancelNote("");
+                  setCancelOpen(true);
+                }}
+              >
+                取消订单
+              </button>
             ) : null}
 
             {order.role === "merchant" && order.status === "paid" ? (
@@ -831,6 +850,48 @@ export function OrderDetailPage(): ReactNode {
         )}
       </Dialog>
 
+      {/* 导出账单 */}
+      <Dialog
+        open={exportOpen}
+        onClose={() => {
+          if (!exportBusy) setExportOpen(false);
+        }}
+        title="导出账单"
+        description="导出这一笔订单的交易信息，可选表格、文本或 PDF。"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          {(
+            [
+              { format: "csv" as const, label: "CSV 表格", hint: "Excel / WPS 可打开" },
+              { format: "xlsx" as const, label: "Excel 文件", hint: ".xlsx，带表头" },
+              { format: "json" as const, label: "JSON 数据", hint: "给程序或对账用" },
+            ]
+          ).map((item) => (
+            <button
+              key={item.format}
+              type="button"
+              className="card flex flex-col items-start gap-1 p-3 text-left"
+              disabled={exportBusy !== null}
+              onClick={() => void handleExport(item.format)}
+            >
+              <span className="text-sm font-semibold text-text">
+                {exportBusy === item.format ? "正在导出…" : item.label}
+              </span>
+              <span className="text-[11px] text-muted">{item.hint}</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            className="card flex flex-col items-start gap-1 p-3 text-left"
+            disabled={exportBusy !== null}
+            onClick={handlePrintPdf}
+          >
+            <span className="text-sm font-semibold text-text">PDF（打印）</span>
+            <span className="text-[11px] text-muted">打开打印页另存为 PDF</span>
+          </button>
+        </div>
+      </Dialog>
+
       {/* 商家出示收款码 */}
       <Dialog
         open={qrDialogOpen}
@@ -839,16 +900,6 @@ export function OrderDetailPage(): ReactNode {
         description="请对方扫码付款，确认收到款项后点击下方按钮。"
         footer={
           <div className="space-y-2">
-            <button
-              type="button"
-              className="btn btn-primary btn-block"
-              onClick={() => {
-                setQrDialogOpen(false);
-                setConfirmOpen(true);
-              }}
-            >
-              对方已付款，直接确认
-            </button>
             <button
               type="button"
               className="btn btn-outline btn-block"

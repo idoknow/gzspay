@@ -5,11 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
+import { Dialog } from "../components/Dialog";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock, Spinner } from "../components/Loading";
 import { Logo } from "../components/Logo";
 import { OrderCard } from "../components/OrderCard";
-import { listOrders, subscribeEvents } from "../lib/api";
+import { useToast } from "../components/Toast";
+import { exportOrdersBlob, listOrders, subscribeEvents } from "../lib/api";
+import { downloadBlob, safeFilename } from "../lib/download";
 import { errorMessage } from "../lib/http";
 import { cn } from "../lib/format";
 import { useDebouncedValue, useWatchLayout } from "../lib/hooks";
@@ -84,6 +87,7 @@ function CloseIcon({ className }: { className?: string }): ReactNode {
 export function TradesPage(): ReactNode {
   const navigate = useNavigate();
   const watch = useWatchLayout();
+  const toast = useToast();
   const { me } = useAuth();
   const [scope, setScope] = useState<Scope>("pay");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -94,8 +98,33 @@ export function TradesPage(): ReactNode {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportBusy, setExportBusy] = useState<"csv" | "xlsx" | "json" | null>(null);
   const [search, setSearch] = useState("");
   const keyword = useDebouncedValue(search.trim(), 300);
+
+  const handleExport = async (format: "csv" | "xlsx" | "json"): Promise<void> => {
+    setExportBusy(format);
+    try {
+      const blob = await exportOrdersBlob({ format, scope, status, q: keyword || undefined });
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadBlob(blob, safeFilename(`gzspay-账单-${stamp}.${format}`));
+      toast.success("账单已导出");
+      setExportOpen(false);
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setExportBusy(null);
+    }
+  };
+
+  /** PDF 用浏览器打印生成：中文可正常显示，也不留服务端临时文件 */
+  const handlePrintPdf = (): void => {
+    setExportOpen(false);
+    const params = new URLSearchParams({ scope, status });
+    if (keyword) params.set("q", keyword);
+    navigate(`/orders/print?${params.toString()}`);
+  };
 
   useEffect(() => {
     let active = true;
@@ -278,6 +307,13 @@ export function TradesPage(): ReactNode {
               </>
             ) : null}
           </div>
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            className="inline-flex min-h-[34px] shrink-0 items-center rounded-full border border-line bg-surface px-3.5 text-sm font-medium text-text shadow-[var(--shadow-xs)] transition watch:min-h-[30px] watch:px-2.5 watch:text-[12px]"
+          >
+            导出
+          </button>
         </div>
 
         {keyword ? (
@@ -358,6 +394,47 @@ export function TradesPage(): ReactNode {
           )}
         </div>
       </main>
+
+      <Dialog
+        open={exportOpen}
+        onClose={() => {
+          if (!exportBusy) setExportOpen(false);
+        }}
+        title="导出账单"
+        description={`按当前筛选导出：${SCOPE_LABELS[scope]} · ${STATUS_LABELS[status]}${keyword ? ` · 关键词「${keyword}」` : ""}`}
+      >
+        <div className="grid grid-cols-2 gap-2">
+          {(
+            [
+              { format: "csv" as const, label: "CSV 表格", hint: "Excel / WPS 可打开" },
+              { format: "xlsx" as const, label: "Excel 文件", hint: ".xlsx，带表头" },
+              { format: "json" as const, label: "JSON 数据", hint: "给程序或对账用" },
+            ]
+          ).map((item) => (
+            <button
+              key={item.format}
+              type="button"
+              className="card flex flex-col items-start gap-1 p-3 text-left"
+              disabled={exportBusy !== null}
+              onClick={() => void handleExport(item.format)}
+            >
+              <span className="text-sm font-semibold text-text">
+                {exportBusy === item.format ? "正在导出…" : item.label}
+              </span>
+              <span className="text-[11px] text-muted">{item.hint}</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            className="card flex flex-col items-start gap-1 p-3 text-left"
+            disabled={exportBusy !== null}
+            onClick={handlePrintPdf}
+          >
+            <span className="text-sm font-semibold text-text">PDF（打印）</span>
+            <span className="text-[11px] text-muted">打开打印页另存为 PDF</span>
+          </button>
+        </div>
+      </Dialog>
 
       <BottomNav />
     </div>

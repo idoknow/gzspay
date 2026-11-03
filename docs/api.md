@@ -178,9 +178,10 @@ interface Me {
 | `POST` | `/api/orders/:id/payment-proof` | 付款人上传付款截图：`multipart/form-data`，字段 `file`（PNG / JPG，≤5MB），仅待付款订单可传，重复上传会替换旧截图 → 返回 `Order`（`hasPaymentProof=true`） |
 | `GET` | `/api/orders/:id/payment-proof` | 读取付款截图原图（仅订单双方；`Cache-Control: private, no-store`，禁止缓存） |
 | `POST` | `/api/orders/:id/pay` | 付款人点「我已支付」：`{ channel, actualNote }`，**必须先上传付款截图**（否则 400），待付款 → 已支付 → 返回 `Order` |
-| `POST` | `/api/orders/:id/confirm` | 商家确认收款：已支付 → 已完成（已支付订单必须有付款截图，否则 400）；待付款（当面付款）→ 已完成 → 返回 `Order` |
+| `POST` | `/api/orders/:id/confirm` | 商家确认收款：仅「已支付」可确认 → 已完成（付款人必须先点「我已支付」并上传付款截图，否则 `409 ORDER_STATUS_INVALID` / `400`）→ 返回 `Order` |
 | `POST` | `/api/orders/:id/not-received` | 商家点「未收到」：已支付 → 待付款，通知付款人 → 返回 `Order` |
-| `POST` | `/api/orders/:id/cancel` | 商家取消：`{ reason: "金额有误"|"已线下结清"|"对方未付款"|"其他", note? }`，待付款 → 已取消 → 返回 `Order` |
+| `POST` | `/api/orders/:id/cancel` | 商家取消：`{ reason: "金额有误"|"已线下结清"|"对方未付款"|"其他", note? }`，**仅待付款**可取消 → 已取消（已付款请先「标记未收到」再取消，否则 409）→ 返回 `Order` |
+| `GET` | `/api/orders/export?format=csv|xlsx|json&scope=pay|receive&status=…&q=…&ids=…&tzOffset=…` | 导出当前账号可见的账单：`format` 默认 `csv`，`xlsx` 为手写 OOXML，`json` 返回 `{ exportedAt, count, orders }`（前端打印页据此生成 PDF）；`ids` 逗号分隔 ≤500（详情页单笔导出），`tzOffset` 为浏览器时区偏移分钟、用于换算导出时间；响应带 `Content-Disposition: attachment`、`Cache-Control: private, no-store`，每分钟限 20 次 |
 | `POST` | `/api/orders/:id/appeal` | 付款人申诉：`{ reason }`，写申诉记录 → 返回 `Order` |
 
 说明：状态流转类接口（pay/confirm/not-received/cancel/appeal）直接返回扁平 `Order` 对象（不包 `order` 字段）；两个创建接口返回 `{ order: Order }`。
@@ -329,7 +330,7 @@ interface PaymentCollection {
 }
 ```
 
-付款成功后收款单状态为 `used` 并写入 `orderId`；商家创建页每 3 秒轮询 `GET /api/merchant/collections/:id`，看到 `used` 即跳转订单详情。付款人扫商家校园卡时会拿到 `pendingCollection`，前端直接打开 `/collect/id/:id`，付款页展示金额、商品明细、`reservedNote` 与 `noteRequirement`（备注要求需阅读 3 秒后才能输入密码）。
+付款成功后收款单状态为 `used` 并写入 `orderId`；商家创建页每 3 秒轮询 `GET /api/merchant/collections/:id`，看到 `used` 即跳转订单详情。商家创建页只保留「输入金额」，创建后展示 `url` 对应的**实时二维码**（付款人直接扫码打开 `/collect/:token`），商家关闭页面或离开时前端会调用 `POST /api/merchant/collections/:id/cancel` 自动作废。付款人扫商家校园卡时也会拿到 `pendingCollection`，前端直接打开 `/collect/id/:id`，付款页展示金额、商品明细、`reservedNote` 与 `noteRequirement`（备注要求需阅读 3 秒后才能输入密码）。
 
 ## 8. 交易统计
 

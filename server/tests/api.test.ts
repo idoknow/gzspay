@@ -568,6 +568,86 @@ describe("商家与订单", () => {
       .expect(403);
     expect(response.body.error.code).toBe("FORBIDDEN");
   });
+
+  it("商家必须等付款人标记已支付后才能确认收款，且可取消待付款订单", async () => {
+    const created = await agentWith(payerSession)
+      .post("/api/orders")
+      .send({
+        merchantUserId: merchantId,
+        amountCents: 500,
+        reservedNote: "张三 0001",
+        paymentPassword: "123456",
+        idempotencyKey: "order-confirm-guard-0001",
+      })
+      .expect(201);
+    const guardOrderId = created.body.order.id as string;
+    expect(created.body.order.status).toBe("pending_payment");
+
+    // 付款人还没点「我已支付」：商家不能确认收款
+    const rejected = await agentWith(merchantSession)
+      .post(`/api/orders/${guardOrderId}/confirm`)
+      .send({})
+      .expect(409);
+    expect(rejected.body.error.code).toBe("ORDER_STATUS_INVALID");
+    expect(rejected.body.error.message).toContain("我已支付");
+
+    // 商家可以直接取消待付款订单（钱还没付出去，取消即作废）
+    const cancelled = await agentWith(merchantSession)
+      .post(`/api/orders/${guardOrderId}/cancel`)
+      .send({ reason: "金额有误" })
+      .expect(200);
+    expect(cancelled.body.status).toBe("cancelled");
+
+    // 已取消的订单不能再确认收款
+    const afterCancel = await agentWith(merchantSession)
+      .post(`/api/orders/${guardOrderId}/confirm`)
+      .send({})
+      .expect(409);
+    expect(afterCancel.body.error.code).toBe("ORDER_STATUS_INVALID");
+  });
+
+  it("账单可以按当前筛选导出为 CSV、JSON 与 Excel", async () => {
+    const detail = await agentWith(payerSession).get(`/api/orders/${orderId}`).expect(200);
+    const orderNo = detail.body.orderNo as string;
+
+    const csv = await agentWith(payerSession).get("/api/orders/export?format=csv&scope=pay").expect(200);
+    expect(csv.headers["content-type"]).toContain("text/csv");
+    expect(csv.headers["content-disposition"]).toContain("attachment");
+    expect(csv.text.startsWith("\uFEFF")).toBe(true);
+    expect(csv.text).toContain("订单号");
+    expect(csv.text).toContain(orderNo);
+
+    const json = await agentWith(payerSession).get("/api/orders/export?format=json&scope=pay").expect(200);
+    expect(json.body.count).toBeGreaterThanOrEqual(1);
+    expect(json.body.orders.some((item: { orderNo: string }) => item.orderNo === orderNo)).toBe(true);
+
+    const xlsx = await agentWith(payerSession)
+      .get("/api/orders/export?format=xlsx&scope=pay")
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(xlsx.headers["content-type"]).toContain("spreadsheetml");
+    expect(Buffer.isBuffer(xlsx.body)).toBe(true);
+    expect(xlsx.body.subarray(0, 2).toString("latin1")).toBe("PK");
+  });
+
+  it("导出账单支持只导出指定订单", async () => {
+    const detail = await agentWith(payerSession).get(`/api/orders/${orderId}`).expect(200);
+    const only = await agentWith(payerSession)
+      .get(`/api/orders/export?format=json&scope=pay&ids=${orderId}`)
+      .expect(200);
+    expect(only.body.count).toBe(1);
+    expect(only.body.orders[0].orderNo).toBe(detail.body.orderNo);
+
+    const missing = await agentWith(payerSession)
+      .get("/api/orders/export?format=json&scope=pay&ids=not-a-real-order")
+      .expect(200);
+    expect(missing.body.count).toBe(0);
+  });
   it("付款人的交易统计包含这笔支出与明细字段", async () => {
     const summary = await agentWith(payerSession).get("/api/stats/summary").expect(200);
     expect(summary.body.expenseCents).toBe(1200);

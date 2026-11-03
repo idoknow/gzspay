@@ -1,9 +1,9 @@
 /**
- * 商家发起收款：先填好金额或点选商品，发起一笔一次性收款单；
- * 付款人扫商家原本的校园卡二维码即可直接进入这笔收款单，输支付密码后按快照金额创建订单。
+ * 商家发起收款：输入金额后生成一笔一次性收款单，页面上展示实时二维码；
+ * 付款人扫码直接进入收款单页面付款；商家关闭页面（或点「关闭」）后收款单立即作废。
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { AmountInput } from "../components/AmountInput";
 import { Avatar } from "../components/Avatar";
@@ -11,22 +11,14 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { MoneyText } from "../components/MoneyText";
 import { PageHeader } from "../components/PageHeader";
-import { ProductPicker, selectedToItems, sumProductCents } from "../components/ProductPicker";
 import { useToast } from "../components/Toast";
-import {
-  cancelPaymentCollection,
-  createPaymentCollection,
-  getPaymentCollection,
-  listPaymentCollections,
-  listProducts,
-} from "../lib/api";
-import { cn, formatCents, formatCountdown, formatDateTime, yuanToCents } from "../lib/format";
+import { cancelPaymentCollection, createPaymentCollection, getPaymentCollection, listPaymentCollections } from "../lib/api";
+import { formatCents, formatCountdown, formatDateTime, yuanToCents } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
+import { useQrDataUrl } from "../lib/qr";
 import { useAuth } from "../lib/session";
-import type { PaymentCollection, PaymentCollectionCreateResult, Product } from "../lib/types";
-
-type Mode = "amount" | "products";
+import type { PaymentCollection, PaymentCollectionCreateResult } from "../lib/types";
 
 const STATUS_LABELS: Record<PaymentCollection["status"], string> = {
   pending: "等待付款",
@@ -55,25 +47,47 @@ export function MerchantCollectPage(): ReactNode {
   const toast = useToast();
   const navigate = useNavigate();
   const { me } = useAuth();
-  const [mode, setMode] = useState<Mode>("amount");
   const [amount, setAmount] = useState("");
-  const [selected, setSelected] = useState<Record<string, number>>({});
   const [note, setNote] = useState("");
   const [creating, setCreating] = useState(false);
   const [result, setResult] = useState<PaymentCollectionCreateResult | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [cancelling, setCancelling] = useState(false);
+  const pendingRef = useRef<string | null>(null);
 
-  const products = useAsync<Product[]>(() => listProducts(), []);
   const recent = useAsync<PaymentCollection[]>(() => listPaymentCollections(10), []);
+  const { dataUrl: qrDataUrl, error: qrError } = useQrDataUrl(result?.url ?? null, 520);
 
-  const productList = products.data ?? [];
-  const productItems = useMemo(
-    () => (mode === "products" ? selectedToItems(productList, selected) : []),
-    [mode, productList, selected],
-  );
-  const productCents = mode === "products" ? sumProductCents(productList, selected) : 0;
-  const amountCents = mode === "amount" ? (yuanToCents(amount) ?? 0) : productCents;
+  const amountCents = yuanToCents(amount) ?? 0;
+
+  // 当前待付款收款单：关闭页面/离开时自动作废
+  useEffect(() => {
+    pendingRef.current =
+      result && result.collection.status === "pending" ? result.collection.id : null;
+  }, [result]);
+
+  const cancelQuietly = useCallback((id: string): void => {
+    // 页面卸载时用 keepalive 请求，保证关闭浏览器/返回上一页也能作废
+    void fetch(`/api/merchant/collections/${encodeURIComponent(id)}/cancel`, {
+      method: "POST",
+      credentials: "same-origin",
+      keepalive: true,
+      headers: { "X-Requested-With": "gzspay" },
+    }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const handler = (): void => {
+      const id = pendingRef.current;
+      if (id) cancelQuietly(id);
+    };
+    window.addEventListener("pagehide", handler);
+    return () => {
+      window.removeEventListener("pagehide", handler);
+      const id = pendingRef.current;
+      if (id) cancelQuietly(id);
+    };
+  }, [cancelQuietly]);
 
   // 收款单倒计时
   useEffect(() => {
@@ -104,22 +118,20 @@ export function MerchantCollectPage(): ReactNode {
 
   const submit = async (): Promise<void> => {
     if (amountCents <= 0) {
-      toast.error(mode === "amount" ? "请输入大于 0 的收款金额" : "请选择商品");
+      toast.error("请输入大于 0 的收款金额");
       return;
     }
     setCreating(true);
     try {
       const created = await createPaymentCollection({
-        amountCents: mode === "amount" ? amountCents : undefined,
-        items: mode === "products" ? productItems : undefined,
+        amountCents,
         reservedNote: note.trim() || null,
       });
       setResult(created);
       setAmount("");
-      setSelected({});
       setNote("");
       recent.reload();
-      toast.success("收款单已发起，让付款人扫你的校园卡二维码");
+      toast.success("收款单已生成，让对方扫页面上的二维码付款");
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
@@ -134,12 +146,22 @@ export function MerchantCollectPage(): ReactNode {
       const next = await cancelPaymentCollection(result.collection.id);
       setResult((current) => (current ? { ...current, collection: next } : current));
       recent.reload();
-      toast.success("收款单已作废");
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
       setCancelling(false);
     }
+  };
+
+  const closeAndCancel = async (): Promise<void> => {
+    await cancelResult();
+    toast.success("收款单已关闭并作废");
+    navigate(-1);
+  };
+
+  const restart = async (): Promise<void> => {
+    await cancelResult();
+    setResult(null);
   };
 
   if (!me?.isMerchant) {
@@ -163,7 +185,7 @@ export function MerchantCollectPage(): ReactNode {
 
   return (
     <div className="min-h-[100dvh] bg-app pb-28">
-      <PageHeader title="发起收款" subtitle="填好金额或选好商品，让付款人扫你的校园卡二维码付款" back />
+      <PageHeader title="发起收款" subtitle="输入金额生成实时二维码，对方扫码即可付款" back />
 
       <div className="space-y-4 px-4">
         {result ? (
@@ -184,78 +206,44 @@ export function MerchantCollectPage(): ReactNode {
               <p className="mt-2 text-xs text-muted">备注：{result.collection.reservedNote}</p>
             ) : null}
 
-            <div className="mt-4 rounded-2xl bg-brand-soft/70 px-4 py-3 text-left">
-              <p className="text-[11px] font-semibold text-brand">让付款人扫你的校园卡二维码</p>
-              <p className="mt-1 text-xs leading-relaxed text-text">
-                不需要再出示单独的二维码：对方扫你原本的校园卡二维码，就会直接打开这笔收款单，核对金额和备注后即可付款。
-              </p>
-            </div>
+            {result.collection.status === "pending" ? (
+              <>
+                <div className="mx-auto mt-4 w-fit rounded-3xl border border-line bg-white p-3 shadow-sm">
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="收款二维码" className="h-[220px] w-[220px]" />
+                  ) : qrError ? (
+                    <p className="w-[220px] py-10 text-xs text-danger">{qrError}</p>
+                  ) : (
+                    <div className="skeleton h-[220px] w-[220px]" />
+                  )}
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-muted">
+                  让对方扫这个实时二维码付款，金额与备注会自动带过去。
+                  <br />
+                  关闭本页或点「关闭并作废」后二维码立即失效。
+                </p>
+                <p className="mt-2 break-all text-[11px] text-muted">{result.url}</p>
+              </>
+            ) : null}
 
-            <div className="mt-3 flex gap-2">
+            <div className="mt-4 flex gap-2">
               {result.collection.status === "pending" ? (
-                <button
-                  type="button"
-                  className="btn btn-ghost flex-1"
-                  disabled={cancelling}
-                  onClick={cancelResult}
-                >
-                  {cancelling ? "正在作废…" : "作废收款单"}
+                <button type="button" className="btn btn-ghost flex-1" disabled={cancelling} onClick={() => void closeAndCancel()}>
+                  {cancelling ? "正在作废…" : "关闭并作废"}
                 </button>
               ) : null}
             </div>
 
-            <button type="button" className="btn btn-primary btn-block mt-3" onClick={() => setResult(null)}>
+            <button type="button" className="btn btn-primary btn-block mt-3" onClick={() => void restart()}>
               再发起一笔
             </button>
-            <p className="mt-2 text-[11px] text-muted">
-              收款单只能使用一次，付款成功后自动失效；30 分钟内有效。
-            </p>
+            <p className="mt-2 text-[11px] text-muted">收款单只能使用一次，付款成功后自动失效；30 分钟内有效。</p>
           </section>
         ) : (
           <>
             <section className="card p-4">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className={cn("chip flex-1 justify-center", mode === "amount" && "chip-active")}
-                  onClick={() => setMode("amount")}
-                >
-                  输入金额
-                </button>
-                <button
-                  type="button"
-                  className={cn("chip flex-1 justify-center", mode === "products" && "chip-active")}
-                  onClick={() => setMode("products")}
-                >
-                  选择商品
-                </button>
-              </div>
-
-              {mode === "amount" ? (
-                <div className="mt-4">
-                  <AmountInput value={amount} onChange={setAmount} placeholder="0.00" />
-                  <p className="mt-2 text-[11px] text-muted">
-                    单笔上限与商家订单一致；付款人扫码后会看到金额与备注。
-                  </p>
-                </div>
-              ) : products.loading ? (
-                <div className="mt-4">
-                  <LoadingBlock text="正在加载商品…" />
-                </div>
-              ) : products.error ? (
-                <div className="mt-4">
-                  <ErrorBlock message={products.error} onRetry={products.reload} compact />
-                </div>
-              ) : productList.length === 0 ? (
-                <p className="mt-4 text-xs text-muted">还没有上架商品，可以先用「输入金额」收款。</p>
-              ) : (
-                <div className="mt-4">
-                  <ProductPicker products={productList} selected={selected} onChange={setSelected} />
-                  <p className="mt-2 text-sm text-muted">
-                    合计 <MoneyText cents={productCents} size="md" />
-                  </p>
-                </div>
-              )}
+              <AmountInput value={amount} onChange={setAmount} placeholder="0.00" />
+              <p className="mt-2 text-[11px] text-muted">单笔上限与商家订单一致；付款人扫码后会看到金额与备注。</p>
 
               <div className="divider my-4" />
               <label className="label" htmlFor="collectionNote">
@@ -281,7 +269,7 @@ export function MerchantCollectPage(): ReactNode {
                 disabled={creating || amountCents <= 0}
                 onClick={submit}
               >
-                {creating ? "正在创建…" : "发起收款单"}
+                {creating ? "正在创建…" : "生成收款二维码"}
               </button>
             </section>
 

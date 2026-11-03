@@ -823,8 +823,47 @@ export function listOrders(
   };
 }
 
-// ---------------- 状态流转 ----------------
+export interface OrdersExportQuery {
+  scope: "pay" | "receive";
+  status?: OrderStatusFilter;
+  keyword?: string;
+  /** 指定订单（详情页单笔导出）；为空表示按筛选条件批量导出 */
+  ids?: string[];
+  /** 最多导出多少条，默认 2000 */
+  limit?: number;
+}
 
+/** 导出用：不分页，最多 5000 条，返回原始行交给 order-export 格式化 */
+export function listOrdersForExport(user: UserRow, query: OrdersExportQuery): OrderRow[] {
+  const where: string[] = [query.scope === "pay" ? "payer_id = ?" : "merchant_id = ?"];
+  const params: unknown[] = [user.id];
+  if (query.ids && query.ids.length > 0) {
+    const ids = query.ids.slice(0, 500);
+    where.push(`id IN (${ids.map(() => "?").join(",")})`);
+    params.push(...ids);
+  }
+  if (query.status && query.status !== "all") {
+    const values = STATUS_FILTER_VALUES[query.status];
+    where.push(`status IN (${values.map(() => "?").join(",")})`);
+    params.push(...values);
+  }
+  const keyword = (query.keyword ?? "").trim();
+  if (keyword) {
+    const like = `%${keyword.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+    where.push(
+      `(order_no LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\' OR merchant_name_snapshot LIKE ? ESCAPE '\\' OR payer_name_snapshot LIKE ? ESCAPE '\\' OR COALESCE(reserved_note, '') LIKE ? ESCAPE '\\' OR COALESCE(actual_note, '') LIKE ? ESCAPE '\\')`,
+    );
+    params.push(like, like, like, like, like, like);
+  }
+  const limit = Math.min(Math.max(query.limit ?? 2000, 1), 5000);
+  return queryAll<OrderRow>(
+    `SELECT * FROM orders WHERE ${where.join(" AND ")} ORDER BY created_at DESC LIMIT ?`,
+    ...(params as never[]),
+    limit,
+  );
+}
+
+// ---------------- 状态流转 ----------------
 function assertMerchantRole(order: OrderRow, user: UserRow): void {
   if (order.merchant_id !== user.id) throw errors.forbidden("只有商家可以执行该操作");
 }
@@ -953,10 +992,14 @@ export function confirmOrder(
 ): OrderRow {
   const order = requireOrderForUser(orderId, merchantUser);
   assertMerchantRole(order, merchantUser);
-  if (order.status !== "paid" && order.status !== "pending_payment") {
-    throw errors.orderStatusInvalid("订单当前状态不能确认收款");
+  if (order.status !== "paid") {
+    throw errors.orderStatusInvalid(
+      order.status === "pending_payment"
+        ? "付款人还没有标记「我已支付」，请等对方上传付款截图并确认后再点确认收款"
+        : "订单当前状态不能确认收款",
+    );
   }
-  if (order.status === "paid" && !order.payment_proof) {
+  if (!order.payment_proof) {
     throw errors.validation("付款人还没有上传付款截图，暂时不能确认收款");
   }
   const now = nowIso();
@@ -966,13 +1009,7 @@ export function confirmOrder(
     now,
     orderId,
   );
-  addEvent(
-    orderId,
-    order.status === "pending_payment" ? "confirmed_offline" : "confirmed",
-    "merchant",
-    merchantUser.id,
-    order.status === "pending_payment" ? "商家确认当面收款完成" : "商家确认收款完成",
-  );
+  addEvent(orderId, "confirmed", "merchant", merchantUser.id, "商家确认收款完成");
   const updated = findOrderById(orderId) as OrderRow;
   notifyOrderUpdate(updated);
   for (const userId of [updated.payer_id, updated.merchant_id]) {

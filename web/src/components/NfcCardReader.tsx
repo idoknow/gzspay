@@ -124,12 +124,14 @@ export function NfcCardReader({
     }
   }, [onRead, stop]);
 
+  // 只支持 Web NFC 的浏览器（安卓 Chrome）才显示入口，其他设备不占位
+  if (!supported) return null;
+
   const dark = tone === "dark";
   const buttonClass = cn(
     dark
       ? "flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 py-3 text-xs text-white backdrop-blur active:bg-white/20 disabled:opacity-60"
       : "btn btn-outline btn-block gap-2",
-    !supported && "opacity-60",
   );
 
   return (
@@ -144,7 +146,6 @@ export function NfcCardReader({
           type="button"
           className={buttonClass}
           disabled={disabled}
-          title={supported ? undefined : "NFC 读卡需要安卓手机 Chrome 浏览器（HTTPS），并在系统设置里开启 NFC"}
           onClick={() => void start()}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -154,17 +155,6 @@ export function NfcCardReader({
           NFC 读卡
         </button>
       )}
-      {!supported ? (
-        <p
-          className={
-            dark
-              ? "mt-1.5 text-center text-[11px] leading-relaxed text-white/55"
-              : "mt-1.5 text-center text-[11px] leading-relaxed text-muted"
-          }
-        >
-          当前设备/浏览器不支持 NFC 读卡：需要安卓手机 Chrome（HTTPS）并在系统设置里开启 NFC；其他设备请用摄像头扫码或手动输入卡号。
-        </p>
-      ) : null}
       {scanning ? (
         <p
           className={

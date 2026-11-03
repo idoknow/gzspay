@@ -462,6 +462,27 @@ export function confirmOrder(id: string): Promise<Order> {
   return api.post<Order>(`/orders/${encodeURIComponent(id)}/confirm`);
 }
 
+export interface ExportOrdersParams {
+  format: "csv" | "xlsx" | "json";
+  scope?: "pay" | "receive";
+  status?: "pending" | "paid" | "closed" | "settled" | "all";
+  q?: string;
+  /** 指定订单（详情页单笔导出），批量导出时省略 */
+  ids?: string[];
+  /** 浏览器时区偏移分钟（`new Date().getTimezoneOffset()`），用于让导出时间与页面一致 */
+  tzOffset?: number;
+}
+
+/** 导出账单（CSV / Excel / JSON），返回二进制交给 downloadBlob 保存 */
+export function exportOrdersBlob(params: ExportOrdersParams): Promise<Blob> {
+  const { ids, ...rest } = params;
+  return api.blob("/orders/export", {
+    ...rest,
+    ids: ids && ids.length > 0 ? ids.join(",") : undefined,
+    tzOffset: params.tzOffset ?? new Date().getTimezoneOffset(),
+  });
+}
+
 export function markOrderNotReceived(id: string): Promise<Order> {
   return api.post<Order>(`/orders/${encodeURIComponent(id)}/not-received`);
 }

@@ -18,6 +18,7 @@ import {
   createTransfer,
   findOrderById,
   listOrders,
+  listOrdersForExport,
   markOrderNotReceived,
   markOrderPaid,
   orderQrContentForUser,
@@ -31,6 +32,7 @@ import {
 } from "../services/orders.js";
 import { requireMerchant } from "../services/merchant.js";
 import { resolveCardOwner, findUserByStudentNo, publicUserOf, verifyPaymentPassword } from "../services/users.js";
+import { buildOrdersExport } from "../lib/order-export.js";
 
 export const ordersRouter: Router = Router();
 
@@ -217,6 +219,54 @@ ordersRouter.get(
     if (target.id === user.id) throw errors.conflict("不能给自己转账");
     if (target.status === "frozen") throw errors.locked("对方账号已被冻结，暂时无法转账");
     res.json({ user: publicUserOf(target) });
+  }),
+);
+
+ordersRouter.get(
+  "/export",
+  rateLimit({
+    scope: "orders.export",
+    limit: 20,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "导出太频繁了，请稍后再试",
+  }),
+  asyncHandler((req, res) => {
+    const query = req.query as Record<string, unknown>;
+    const formatValue = typeof query.format === "string" ? query.format : "csv";
+    const format = (["csv", "json", "xlsx"] as const).includes(formatValue as "csv")
+      ? (formatValue as "csv" | "json" | "xlsx")
+      : "csv";
+    const scope = query.scope === "receive" ? "receive" : "pay";
+    const statusValue = typeof query.status === "string" ? query.status : "all";
+    const allowed: OrderStatusFilter[] = ["pending", "paid", "closed", "settled", "all"];
+    const status = allowed.includes(statusValue as OrderStatusFilter)
+      ? (statusValue as OrderStatusFilter)
+      : "all";
+    const keyword = typeof query.q === "string" ? query.q.trim().slice(0, 50) : "";
+    const ids =
+      typeof query.ids === "string"
+        ? query.ids
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean)
+            .slice(0, 500)
+        : [];
+    // 浏览器时区偏移（分钟），让导出的时间与页面显示一致
+    const tzOffsetValue = Number(query.tzOffset);
+    const tzOffset = Number.isFinite(tzOffsetValue) ? Math.trunc(Math.min(Math.max(tzOffsetValue, -840), 840)) : 0;
+    const rows = listOrdersForExport(req.auth!.user, {
+      scope,
+      status,
+      keyword: keyword || undefined,
+      ids: ids.length > 0 ? ids : undefined,
+    });
+    const result = buildOrdersExport(format, rows, tzOffset);
+    const stamp = new Date(Date.now() - tzOffset * 60_000).toISOString().slice(0, 16).replace(/[-:T]/g, "");
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="gzspay-orders-${stamp}.${result.extension}"`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(result.data);
   }),
 );
 
