@@ -519,6 +519,11 @@ describe("商家与订单", () => {
       .send({ channel: "alipay", actualNote: "张三 0001" })
       .expect(200);
     expect(paid.body.status).toBe("paid");
+    // 「进行中」= 还没完成核对：已标记支付的订单仍在进行中，不属于已结束
+    const pendingAfterPaid = await agentWith(payerSession).get("/api/orders?scope=pay&status=pending").expect(200);
+    expect(pendingAfterPaid.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
+    const settledAfterPaid = await agentWith(payerSession).get("/api/orders?scope=pay&status=settled").expect(200);
+    expect(settledAfterPaid.body.items.map((item: { id: string }) => item.id)).not.toContain(orderId);
     const detail = await agentWith(merchantSession).get(`/api/orders/${orderId}`).expect(200);
     expect(detail.body.role).toBe("merchant");
     expect(detail.body.hasPaymentProof).toBe(true);
@@ -527,7 +532,7 @@ describe("商家与订单", () => {
     expect(completed.body.status).toBe("completed");
   });
 
-  it("「已结算」筛选包含已完成订单且不再出现在待处理里", async () => {
+  it("「已结束」筛选包含已完成订单且不再出现在进行中里", async () => {
     const settled = await agentWith(payerSession).get("/api/orders?scope=pay&status=settled").expect(200);
     expect(settled.body.items.map((item: { id: string }) => item.id)).toContain(orderId);
     const pending = await agentWith(payerSession).get("/api/orders?scope=pay&status=pending").expect(200);

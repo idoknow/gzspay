@@ -771,11 +771,12 @@ export interface ListOrdersQuery {
 }
 
 const STATUS_FILTER_VALUES: Record<Exclude<OrderStatusFilter, "all">, OrderStatus[]> = {
-  pending: ["pending_payment"],
+  // 「进行中」= 还没有完成核对：待付款、已标记支付（等待商家确认收款）
+  pending: ["pending_payment", "paid"],
   paid: ["paid"],
   closed: ["completed", "cancelled"],
-  // 「已结算」= 已经发生过收付的动作：已支付待确认、已完成、已取消
-  settled: ["paid", "completed", "cancelled"],
+  // 「已结束」= 已完成核对（确认收款）或已取消
+  settled: ["completed", "cancelled"],
 };
 
 export function listOrders(

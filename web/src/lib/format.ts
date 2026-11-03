@@ -120,6 +120,14 @@ export function maskStudentNo(studentNo: string | null | undefined): string {
   return `${text.slice(0, 4)}${"*".repeat(Math.max(4, text.length - 6))}${text.slice(-2)}`;
 }
 
+/** 姓名脱敏：保留姓氏首字，其余用 ** 代替（如「陈**」） */
+export function maskPersonName(name: string | null | undefined): string {
+  const text = (name ?? "").trim();
+  if (!text) return "";
+  const head = Array.from(text)[0] ?? "";
+  return `${head}**`;
+}
+
 /** 卡号脱敏：****1234 */
 export function maskCardNo(cardNo: string | null | undefined): string {
   if (!cardNo) return "";

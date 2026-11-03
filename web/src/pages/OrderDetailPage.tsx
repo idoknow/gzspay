@@ -26,7 +26,7 @@ import {
 } from "../lib/api";
 import { copyText } from "../lib/clipboard";
 import { downloadBlob, safeFilename } from "../lib/download";
-import { cn, formatCents, formatDateTime, formatFriendlyTime, payChannelLabel } from "../lib/format";
+import { cn, formatCents, formatDateTime, formatFriendlyTime, maskPersonName, payChannelLabel } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
 import type { OrderDetail, PayChannel } from "../lib/types";
@@ -196,6 +196,8 @@ export function OrderDetailPage(): ReactNode {
   const [proofViewerOpen, setProofViewerOpen] = useState(false);
   /** 商家是否已经打开过付款截图核对 */
   const [proofChecked, setProofChecked] = useState(false);
+  /** 交易详情默认隐藏对方完整姓名，可手动展开 */
+  const [showFullName, setShowFullName] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState<(typeof CANCEL_REASONS)[number]>("金额有误");
   const [cancelNote, setCancelNote] = useState("");
@@ -234,9 +236,10 @@ export function OrderDetailPage(): ReactNode {
   const proofFactory = order?.hasPaymentProof ? () => getPaymentProofBlob(order.id) : null;
   const proof = useBlobUrl(proofFactory, [order?.id ?? "", order?.hasPaymentProof ?? false]);
 
-  // 切换订单时重置「已核对截图」状态
+  // 切换订单时重置「已核对截图」与姓名展示状态
   useEffect(() => {
     setProofChecked(false);
+    setShowFullName(false);
   }, [id]);
 
   // 首次进入待付款订单（付款人）时弹出 3 秒倒计时的备注要求
@@ -402,10 +405,17 @@ export function OrderDetailPage(): ReactNode {
   }
 
   const status = statusText(order);
-  const counterpartyName =
+  const counterpartyFullName =
     order.counterparty?.displayName ||
     (order.role === "payer" ? order.merchantName : order.payerNameSnapshot) ||
-    (order.role === "payer" ? "商家" : "付款人");
+    "";
+  const counterpartyName = counterpartyFullName
+    ? showFullName
+      ? counterpartyFullName
+      : maskPersonName(counterpartyFullName)
+    : order.role === "payer"
+      ? "商家"
+      : "付款人";
   const showActions = order.status === "pending_payment" || order.status === "paid";
 
   return (
@@ -448,6 +458,16 @@ export function OrderDetailPage(): ReactNode {
                 <p className="truncate text-[15px] font-semibold text-text">{counterpartyName}</p>
                 {order.role === "payer" ? (
                   <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">商家</span>
+                ) : null}
+                {counterpartyFullName ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowFullName((value) => !value)}
+                    className="shrink-0 text-[11px] text-muted underline decoration-line underline-offset-2 transition hover:text-text"
+                    aria-label={showFullName ? "隐藏完整姓名" : "显示完整姓名"}
+                  >
+                    {showFullName ? "隐藏" : "显示"}
+                  </button>
                 ) : null}
               </div>
               <p className="mt-0.5 text-xs text-muted">

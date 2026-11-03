@@ -172,7 +172,7 @@ interface Me {
 | `POST` | `/api/orders/merchant-create` | 商家扫客户卡代下单：`{ cardContent, items?, amountCents?, reservedNote, paymentPassword, idempotencyKey }`（`paymentPassword` 是客户在商家手机上输入的密码）；成功 `201 { order: Order }` |
 | `POST` | `/api/orders/transfer` | 转账给指定学号的用户：`{ studentNo, amountCents, note?, paymentPassword, idempotencyKey }`；创建一笔待付款订单（`title` 为「转账」，收款人记在商家侧），成功后自动出现在转账人的待付款与对方的待收款列表；学号不存在 404、给自己转账 409；金额受「转账」专用限额约束（单笔默认 200 元、当日累计默认 1000 元，`LIMIT_EXCEEDED`），成功 `201 { order: Order }` |
 | `GET` | `/api/orders/transfer/lookup?studentNo=20230002` | 转账前按学号查询收款人 → `{ user: PublicUser }`（姓名、头像、脱敏学号，不含邮箱）；学号不存在 404、自己 409、对方冻结 423；每分钟限 20 次 |
-| `GET` | `/api/orders` | 列表：`scope=pay|receive`、`status=pending|paid|closed|settled|all`（`settled`＝已支付/已完成/已取消）、`q`（关键词，模糊匹配订单号、标题、备注与对方姓名快照，最长 50 字，`%`/`_` 会被转义）、`page`、`pageSize` → `{ items: OrderSummary[], total, page, pageSize }` |
+| `GET` | `/api/orders` | 列表：`scope=pay|receive`、`status=pending|paid|closed|settled|all`（`pending`＝进行中，含待付款与已支付待确认；`settled`＝已结束，含已完成与已取消）、`q`（关键词，模糊匹配订单号、标题、备注与对方姓名快照，最长 50 字，`%`/`_` 会被转义）、`page`、`pageSize` → `{ items: OrderSummary[], total, page, pageSize }` |
 | `GET` | `/api/orders/:id` | 订单详情（付款人/商家/管理员可见，含时间线、对方公开信息、可用支付方式）→ `Order` |
 | `GET` | `/api/orders/:id/qr?channel=alipay` | 商家收款码 PNG（仅订单双方；必须该渠道已启用） |
 | `POST` | `/api/orders/:id/payment-proof` | 付款人上传付款截图：`multipart/form-data`，字段 `file`（PNG / JPG，≤5MB），仅待付款订单可传，重复上传会替换旧截图 → 返回 `Order`（`hasPaymentProof=true`） |

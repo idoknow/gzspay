@@ -25,7 +25,7 @@ const SCOPE_LABELS: Record<Scope, string> = { pay: "我发起的", receive: "我
 /** 「我发起的 / 我收到的」下面分三项，点按钮才展开菜单选择 */
 const STATUS_OPTIONS: { value: StatusFilter; label: string; hint: string }[] = [
   { value: "all", label: "全部", hint: "所有状态的订单" },
-  { value: "pending", label: "进行中", hint: "还没有完成的订单" },
+  { value: "pending", label: "进行中", hint: "还没有完成核对的订单" },
   { value: "settled", label: "已结束", hint: "已完成或已取消的订单" },
 ];
 const STATUS_LABELS: Record<StatusFilter, string> = { all: "全部", pending: "进行中", settled: "已结束" };
@@ -86,7 +86,7 @@ export function TradesPage(): ReactNode {
   const watch = useWatchLayout();
   const { me } = useAuth();
   const [scope, setScope] = useState<Scope>("pay");
-  const [status, setStatus] = useState<StatusFilter>("pending");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);

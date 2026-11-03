@@ -1,7 +1,7 @@
 /** 订单列表项。 */
 
 import type { ReactNode } from "react";
-import { formatFriendlyTime } from "../lib/format";
+import { formatFriendlyTime, maskPersonName } from "../lib/format";
 import { useWatchLayout } from "../lib/hooks";
 import type { Order } from "../lib/types";
 import { Avatar } from "./Avatar";
@@ -15,10 +15,12 @@ export interface OrderCardProps {
 
 export function OrderCard({ order, onClick }: OrderCardProps): ReactNode {
   const watch = useWatchLayout();
-  const name =
+  const rawName =
     order.counterparty?.displayName ||
     (order.role === "payer" ? order.merchantName : order.payerNameSnapshot) ||
     "对方";
+  // 列表默认只展示脱敏姓名（如「陈**」），完整姓名在订单详情里手动展开
+  const name = rawName === "对方" ? rawName : maskPersonName(rawName);
   const summary = order.items && order.items.length > 0
     ? order.items.map((item) => `${item.name}×${item.quantity}`).join("、")
     : "自定义金额";
