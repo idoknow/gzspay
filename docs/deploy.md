@@ -229,3 +229,40 @@ npm run admin:grant -- --sub <sub> --revoke                    # 撤销
 - 学号、邮箱、卡号脱敏展示；管理员查看与修改敏感数据会写入审计日志。
 - 写接口要求 `X-Requested-With: gzspay` 与同源校验（CSRF 防护）。
 - 合规提示：个人收款码用于经营性收款可能触发支付宝/微信风控，请商家核对收款方信息。
+
+## 10. 自动部署（Kubernetes，可选）
+
+如果站点跑在 Kubernetes 集群上，可以用仓库里的 `deploy/k8s/autodeploy.yaml` 让集群在 CI 构建成功后自动拉取新镜像并滚动重启。
+
+原理：
+
+1. CI（`.github/workflows/ci.yml`）在 `main` 上构建并推送 `ghcr.io/<owner>/<repo>:latest`；
+2. `gzspay-autodeploy` 每 2 分钟查询 GitHub Actions 最近一次成功的 `main` 构建 commit；
+3. 与上次部署的 commit 不同时，PATCH 应用 Deployment 的 `kubectl.kubernetes.io/restartedAt` 注解触发滚动重启；
+4. 应用 Deployment 使用 `imagePullPolicy: Always`，kubelet 重新拉取 `:latest` 完成更新。
+
+前提：
+
+- 应用 Deployment 使用 CI 构建的镜像（`:latest` + `imagePullPolicy: Always`），并保留 `gzspay.io/deployed-sha` 注解（agent 会写，用于展示当前部署的 commit）；
+- 集群里已有拉取私有 GHCR 镜像的凭据（节点级凭据或 imagePullSecret）；
+- 先创建凭据 Secret（字段说明见 `deploy/k8s/autodeploy.yaml` 顶部注释），再 apply：
+
+```bash
+kubectl -n <namespace> create secret generic gzspay-autodeploy \
+  --from-literal=token='<API 令牌>' \
+  --from-literal=base='https://<k8s api 地址>' \
+  --from-literal=repo='<owner>/<repo>' \
+  --from-literal=namespace='<namespace>'
+
+kubectl apply -f deploy/k8s/autodeploy.yaml
+kubectl -n <namespace> logs deploy/gzspay-autodeploy -f
+```
+
+日志里 `up to date: <sha>` 表示已是最新；`deploy <old> -> <new>, patch=200` 表示刚触发了一次更新。
+
+注意：
+
+- 令牌只需要能读取和 patch 应用的 Deployment，建议单独签发最小权限令牌并定期轮换；令牌只放在 Secret 里，不要提交到仓库。
+- 状态保存在 agent 的 `emptyDir` 里，Pod 重建后会以「当前最新成功构建」为起点，不会补部署停机期间错过的版本；需要立即更新时可以推一次 `main` 或手动 `kubectl rollout restart`。
+- 关闭自动更新：`kubectl -n <namespace> scale deployment/gzspay-autodeploy --replicas=0`。
+- 如果集群策略禁止常驻 agent（例如只允许默认 ServiceAccount 运行特定工作负载），也可以继续手工 `kubectl rollout restart`，不影响 CI 出镜像。

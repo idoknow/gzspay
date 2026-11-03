@@ -1,0 +1,110 @@
+# 集群自动更新镜像（可选）
+#
+# 原理：这个常驻 1 副本的 Deployment 每 2 分钟查询 GitHub Actions 最近一次成功的 main 构建，
+# 与它记录的上一次部署 commit 比较；不一致时 PATCH gzspay Deployment 的 pod 模板注解
+# kubectl.kubernetes.io/restartedAt，触发滚动重启。配合 ghcr 镜像的 :latest 与
+# imagePullPolicy: Always，kubelet 会拉取 CI 刚推送的新镜像，站点自动更新。
+#
+# 前置条件：
+#   1. 应用 Deployment 使用 CI 构建的镜像（ghcr.io/<owner>/<repo>:latest，imagePullPolicy: Always）；
+#   2. 应用 Deployment 上保留注解 gzspay.io/deployed-sha（仅用于展示最近一次部署的 commit，
+#      自动更新时由本 agent 写入）；
+#   3. 创建凭据 Secret（不要把令牌写进仓库）：
+#
+#      kubectl -n <namespace> create secret generic gzspay-autodeploy \
+#        --from-literal=token='<API 令牌>' \
+#        --from-literal=base='https://<k8s api 地址>' \
+#        --from-literal=repo='<owner>/<repo>' \
+#        --from-literal=namespace='<namespace>'
+#
+#      其中 namespace 用来决定 PATCH 哪个命名空间下的 gzspay Deployment（缺省为 default）。
+#
+#      令牌只需要能读取 / patch 应用的 Deployment（最小权限），并建议定期轮换。
+#
+# 关闭：kubectl -n <namespace> scale deployment/gzspay-autodeploy --replicas=0
+#
+# 注意：状态保存在 emptyDir 里，agent 的 Pod 重建后会以「当前最新成功构建」为起点，
+# 不会补部署 Pod 重建期间错过的版本；需要立即更新时正常推一次 main 或手动重启应用。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gzspay-autodeploy
+  labels:
+    app: gzspay-autodeploy
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: gzspay-autodeploy
+  template:
+    metadata:
+      labels:
+        app: gzspay-autodeploy
+    spec:
+      restartPolicy: Always
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+      containers:
+        - name: autodeploy
+          image: curlimages/curl:8.10.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              TOKEN=$(cat /secrets/token)
+              BASE=$(cat /secrets/base)
+              REPO=$(cat /secrets/repo)
+              STATE=/state/deployed-sha
+              echo "autodeploy agent started, repo=$REPO"
+              while true; do
+                RUN=$(curl -fsS -m 25 "https://api.github.com/repos/$REPO/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1" 2>/dev/null || true)
+                SHA=$(printf '%s' "$RUN" | tr ',' '\n' | sed -n 's/^ *"head_sha": *"\([0-9a-f]\{40\}\)".*/\1/p' | head -1)
+                if [ -z "$SHA" ]; then
+                  echo "$(date -u +%FT%TZ) github: no successful run (or unreachable)"
+                  sleep 120
+                  continue
+                fi
+                PREV=$(cat "$STATE" 2>/dev/null || true)
+                if [ -z "$PREV" ]; then
+                  echo "$(date -u +%FT%TZ) first start, remember $SHA"
+                  printf '%s' "$SHA" > "$STATE"
+                elif [ "$SHA" = "$PREV" ]; then
+                  echo "$(date -u +%FT%TZ) up to date: $SHA"
+                else
+                  NOW=$(date -u +%FT%TZ)
+                  CODE=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH \
+                    -H "Authorization: Bearer $TOKEN" \
+                    -H "Content-Type: application/merge-patch+json" \
+                    -d "{\"metadata\":{\"annotations\":{\"gzspay.io/deployed-sha\":\"$SHA\"}},\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$NOW\"}}}}}" \
+                    "$BASE/apis/apps/v1/namespaces/$(cat /secrets/namespace 2>/dev/null || echo default)/deployments/gzspay")
+                  echo "$(date -u +%FT%TZ) deploy $PREV -> $SHA, patch=$CODE"
+                  if [ "$CODE" = "200" ]; then
+                    printf '%s' "$SHA" > "$STATE"
+                  fi
+                fi
+                sleep 120
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi
+          volumeMounts:
+            - name: secrets
+              mountPath: /secrets
+              readOnly: true
+            - name: state
+              mountPath: /state
+      volumes:
+        - name: secrets
+          secret:
+            secretName: gzspay-autodeploy
+        - name: state
+          emptyDir: {}
