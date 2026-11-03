@@ -13,6 +13,7 @@
 
 ### 变更
 
+- 美化界面细节：管理后台的保存成功等提示条改为带图标、倒计时进度条与半透明背景的圆角卡片（成功为浅绿渐变），提示更清晰；ICP 备案号在登录页页脚、全站底部、使用文档页脚与关于页卡片中改为带盾牌图标的胶囊样式，开屏底部的备案号也改为居中的小胶囊。
 - 移除「管理员 QQ」的展示与配置：主站「系统尚未初始化」页不再展示管理员 QQ（改为展示站点名称），初始化向导第 3 步与管理后台「站点信息」卡片删除管理员 QQ 字段，`GET /api/setup/status`、`GET /api/admin/config` 不再返回 `system.adminQq`，`POST /api/setup/config` 与 `PUT /api/admin/config` 也不再接受该字段。
 - 静态资源改为构建期预压缩：`npm run build` 末尾的 `scripts/compress-dist.mjs` 会为 `web/dist` 下的 js/css/html/svg/json 等生成 `.br` 与 `.gz` 变体，服务端 `server/src/lib/static-assets.ts` 按 `Accept-Encoding` 协商返回（br 优先），补上 `Vary: Accept-Encoding`、`Content-Encoding`、`ETag` 与 `304`；主包从 377KB 降到约 101KB、CSS 从 74KB 降到约 11KB、首屏 HTML 从 10KB 降到约 2.2KB，缺少预压缩文件的资源回退为即时 gzip。`/assets/*` 保持一年 `immutable` 强缓存，`index.html` 改为 `no-cache`，`docs/deploy.md` 补充「反向代理不要再开 gzip」的说明。
 

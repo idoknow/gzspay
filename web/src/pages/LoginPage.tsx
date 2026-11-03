@@ -116,8 +116,8 @@ export function LoginPage(): ReactNode {
         <p className="text-[11px] text-muted watch:text-[9px]">
           <LegalDocLinks prefix="登录即代表你已阅读并同意" />
         </p>
-        <div className="mt-2 watch:mt-1">
-          <SiteIcp icp={icp} className="text-[10px] watch:text-[9px]" />
+        <div className="mt-2.5 watch:mt-1.5">
+          <SiteIcp icp={icp} size="xs" className="watch:text-[9px]" />
         </div>
       </div>
     </div>

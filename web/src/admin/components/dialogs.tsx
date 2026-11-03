@@ -73,6 +73,49 @@ interface PromptState {
 
 const TOAST_DURATION = 4200;
 
+/** 提示条图标：成功打勾、失败叉号、警告三角、信息圆圈 */
+function toastIcon(tone: ToastTone): ReactNode {
+  const common = {
+    width: 16,
+    height: 16,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2.2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+  if (tone === "success") {
+    return (
+      <svg {...common}>
+        <path d="M20 6L9 17l-5-5" />
+      </svg>
+    );
+  }
+  if (tone === "error") {
+    return (
+      <svg {...common}>
+        <path d="M18 6L6 18M6 6l12 12" />
+      </svg>
+    );
+  }
+  if (tone === "warning") {
+    return (
+      <svg {...common}>
+        <path d="M12 9v4M12 17h.01" />
+        <path d="M10.3 3.9L2.4 18a1.9 1.9 0 001.7 2.9h15.8a1.9 1.9 0 001.7-2.9L13.7 3.9a1.9 1.9 0 00-3.4 0z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5M12 8h.01" />
+    </svg>
+  );
+}
+
 export function FeedbackProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastIdRef = useRef(0);
@@ -159,25 +202,17 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
             )}
             role="status"
           >
-            <span aria-hidden="true">
-              {item.tone === "success"
-                ? "✓"
-                : item.tone === "error"
-                  ? "✕"
-                  : item.tone === "warning"
-                    ? "⚠"
-                    : "ⓘ"}
-            </span>
+            <span className="admin-toast-icon">{toastIcon(item.tone)}</span>
             <span className="admin-toast-text">{item.message}</span>
             <button
               type="button"
-              className="admin-modal-close"
-              style={{ width: 22, height: 22, fontSize: 14 }}
+              className="admin-toast-close"
               onClick={() => dismissToast(item.id)}
               aria-label="关闭提示"
             >
               ×
             </button>
+            <span className="admin-toast-progress" aria-hidden="true" />
           </div>
         ))}
       </div>

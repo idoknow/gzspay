@@ -444,8 +444,8 @@ gzspay/
 
 - 备案号存在 `app_config` 的 `system.icp`（`SYSTEM_KEYS.icp`），可在管理后台「系统配置 → 站点信息 → ICP 备案号」填写（最多 60 字符），也可以初始化向导写入；`SaveSystemInput.icp` 未传时保持原值，传空串表示不展示。
 - 对外只读接口：`GET /api/auth/session` 与 `GET /api/about` 返回 `site: { name, icp }`（未登录也返回，登录页与公开文档页可直接展示）；`GET /api/setup/status` 的 `system.icp` 供开屏与引导页使用。
-- 展示位置：启动开屏底部（`web/index.html` 内联脚本读 `/api/setup/status` 后填入，接口失败保持隐藏）、登录页页脚协议入口下方、全站底部导航胶囊上方一行小字（`web/src/components/SiteIcp.tsx`，覆盖所有业务页）、使用文档页脚、关于页首张渐变卡底部。
-- 统一组件 `SiteIcp` 渲染指向 `https://beian.miit.gov.cn/` 的外链（`target="_blank" rel="noreferrer noopener"`），备案号为空时返回 `null`（不占位）；`tone="hero"` 用于渐变卡内的浅色文本。
+- 展示位置：启动开屏底部（`web/index.html` 内联脚本读 `/api/setup/status` 后填入，接口失败保持隐藏）、登录页页脚协议入口下方、全站底部导航胶囊上方一行小字（`web/src/components/SiteIcp.tsx`，覆盖所有业务页）、使用文档页脚、关于页首张渐变卡底部。开屏与站内都渲染成居中的小胶囊（盾牌图标 + 备案号），不与页面其它文字粘连。
+- 统一组件 `SiteIcp` 渲染指向 `https://beian.miit.gov.cn/` 的外链（`target="_blank" rel="noreferrer noopener"`），带盾牌图标与 `title` 提示；胶囊外观按 `tone` 区分：默认是描边浅底胶囊，`tone="hero"` 用于渐变卡内的半透明浅色胶囊；`size` 提供 10px / 11px 两档字号；备案号为空时返回 `null`（不占位）。
 
 ## 11. 里程碑
 

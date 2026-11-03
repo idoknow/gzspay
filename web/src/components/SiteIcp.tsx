@@ -27,16 +27,40 @@ function loadIcp(): Promise<string> {
   return pending;
 }
 
+/** 备案信息的小盾牌图标 */
+function ShieldIcon(): ReactNode {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="12"
+      height="12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0 opacity-80"
+    >
+      <path d="M12 3.2 19 6v5.6c0 4.3-2.9 7.9-7 9.2-4.1-1.3-7-4.9-7-9.2V6l7-2.8Z" />
+      <path d="m9.1 12.1 2 2 3.8-3.9" />
+    </svg>
+  );
+}
+
 export function SiteIcp({
   icp,
   className,
   tone = "muted",
+  size = "sm",
 }: {
   /** 显式传入备案号（优先于会话与接口） */
   icp?: string | null;
   className?: string;
   /** hero：用于渐变卡片内的浅色文字 */
   tone?: "muted" | "hero";
+  /** 字号档位：xs 10px / sm 11px */
+  size?: "xs" | "sm";
 }): ReactNode {
   const { session } = useAuth();
   const fromSession = session.site?.icp;
@@ -62,15 +86,18 @@ export function SiteIcp({
       href={BEIAN_URL}
       target="_blank"
       rel="noreferrer noopener"
+      title={`${text} · 工业和信息化部备案`}
       className={cn(
-        "inline-block max-w-full truncate text-[11px] transition-colors duration-200",
+        "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium leading-none transition-colors duration-200",
+        size === "xs" ? "text-[10px]" : "text-[11px]",
         tone === "hero"
-          ? "text-[color:var(--hero-fg-faint)] hover:text-[color:var(--hero-fg)]"
-          : "text-muted hover:text-text",
+          ? "border-[color:var(--hero-ring)] bg-[color:var(--hero-chip)] text-[color:var(--hero-fg-soft)] hover:text-[color:var(--hero-fg)]"
+          : "border-line/60 bg-surface/55 text-muted backdrop-blur-sm hover:border-line hover:bg-surface-2 hover:text-text",
         className,
       )}
     >
-      {text}
+      <ShieldIcon />
+      <span className="truncate">{text}</span>
     </a>
   );
 }

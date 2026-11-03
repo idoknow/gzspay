@@ -167,7 +167,7 @@ export function GuidePage(): ReactNode {
           <span>gzspay · 资金通过第三方收款码流转</span>
         </div>
         <div className="mt-3 flex justify-center">
-          <SiteIcp className="text-[10px]" />
+          <SiteIcp size="xs" />
         </div>
       </main>
     </div>

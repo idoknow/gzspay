@@ -64,7 +64,7 @@ export function BottomNav(): ReactNode {
   return (
     <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 safe-bottom">
       <div className="pointer-events-auto mx-auto mb-1 px-4 text-center">
-        <SiteIcp className="text-[10px] text-muted/80 watch:text-[8px]" />
+        <SiteIcp size="xs" className="text-muted/80 watch:text-[8px]" />
       </div>
       <div className="pointer-events-auto mx-auto mb-3 w-[calc(100%-28px)] max-w-[492px] rounded-[26px] border border-line/70 bg-surface/85 px-2 py-2 shadow-[var(--shadow-float)] backdrop-blur-xl watch:mb-1.5 watch:w-[calc(100%-14px)] watch:rounded-full watch:px-1 watch:py-1">
         <div className="grid grid-cols-3 items-center">

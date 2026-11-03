@@ -1511,59 +1511,163 @@
 
 .admin-toast-stack {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 22px;
+  right: 22px;
   z-index: 400;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: min(360px, calc(100vw - 40px));
+  align-items: flex-end;
+  gap: 12px;
+  width: min(372px, calc(100vw - 36px));
   pointer-events: none;
 }
 
 @keyframes admin-toast-in {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-10px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes admin-toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
   }
 }
 
 .admin-toast {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--admin-bg-elevated);
-  border: 1px solid var(--admin-border);
-  border-left: 4px solid var(--admin-primary);
-  box-shadow: var(--admin-shadow);
-  font-size: 13px;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 13px 13px 15px 13px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--admin-bg-elevated) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--admin-border) 88%, transparent);
+  box-shadow:
+    0 18px 38px -18px rgb(15 23 42 / 0.32),
+    0 2px 8px -2px rgb(15 23 42 / 0.12);
+  backdrop-filter: blur(14px);
   color: var(--admin-text);
   pointer-events: auto;
-  animation: admin-toast-in 0.18s ease;
+  animation: admin-toast-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--admin-primary-soft);
+  color: var(--admin-primary);
 }
 
 .admin-toast.is-success {
-  border-left-color: var(--admin-success);
+  border-color: color-mix(in srgb, var(--admin-success) 34%, transparent);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--admin-success-soft) 62%, var(--admin-bg-elevated)),
+      color-mix(in srgb, var(--admin-bg-elevated) 96%, transparent)
+    );
+}
+
+.admin-toast.is-success .admin-toast-icon {
+  background: var(--admin-success-soft);
+  color: var(--admin-success);
 }
 
 .admin-toast.is-error {
-  border-left-color: var(--admin-danger);
+  border-color: color-mix(in srgb, var(--admin-danger) 34%, transparent);
+}
+
+.admin-toast.is-error .admin-toast-icon {
+  background: var(--admin-danger-soft);
+  color: var(--admin-danger);
 }
 
 .admin-toast.is-warning {
-  border-left-color: var(--admin-warning);
+  border-color: color-mix(in srgb, var(--admin-warning) 34%, transparent);
+}
+
+.admin-toast.is-warning .admin-toast-icon {
+  background: var(--admin-warning-soft);
+  color: var(--admin-warning);
 }
 
 .admin-toast-text {
   flex: 1;
   min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.55;
   word-break: break-word;
+}
+
+.admin-toast.is-success .admin-toast-text {
+  color: color-mix(in srgb, var(--admin-text) 88%, var(--admin-success));
+}
+
+.admin-toast-close {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-text-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.admin-toast-close:hover {
+  background: var(--admin-bg-hover);
+  color: var(--admin-text);
+}
+
+.admin-toast-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  border-radius: 0 3px 3px 0;
+  background: currentColor;
+  color: var(--admin-primary);
+  opacity: 0.5;
+  transform-origin: left center;
+  animation: admin-toast-progress 4.2s linear forwards;
+}
+
+.admin-toast.is-success .admin-toast-progress {
+  color: var(--admin-success);
+}
+
+.admin-toast.is-error .admin-toast-progress {
+  color: var(--admin-danger);
+}
+
+.admin-toast.is-warning .admin-toast-progress {
+  color: var(--admin-warning);
 }
 
 /* ------------------------------------------------------------ 页签 */
