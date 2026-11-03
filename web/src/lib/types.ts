@@ -245,6 +245,10 @@ export interface Order {
   noteRequirement: string;
   events: OrderEvent[];
   hasAppeal: boolean;
+  /** 付款人是否已上传付款截图（商家确认收款前需要核对） */
+  hasPaymentProof: boolean;
+  /** 付款截图地址（仅订单双方可读），没有截图时为 null */
+  paymentProofUrl: string | null;
 }
 
 /** 订单详情：在列表字段基础上附带商家已启用的收款方式 */

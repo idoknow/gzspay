@@ -151,6 +151,10 @@ export const config = {
     paymentMaxAttempts: int("PAYMENT_MAX_ATTEMPTS", 5),
     orderMaxAmountCents: int("ORDER_MAX_AMOUNT_CENTS", 500_000),
     dailyMaxAmountCents: int("DAILY_MAX_AMOUNT_CENTS", 2_000_000),
+    /** 转账单笔上限（分），默认 200 元；与商家订单限额分开 */
+    transferMaxAmountCents: int("TRANSFER_MAX_AMOUNT_CENTS", 20_000),
+    /** 转账当日累计上限（分），默认 1000 元；按本地自然日统计 */
+    transferDailyMaxAmountCents: int("TRANSFER_DAILY_MAX_AMOUNT_CENTS", 100_000),
     emailCodeTtlMinutes: int("EMAIL_CODE_TTL_MINUTES", 10),
     emailCodeResendSeconds: int("EMAIL_CODE_RESEND_SECONDS", 60),
     emailCodeMaxAttempts: int("EMAIL_CODE_MAX_ATTEMPTS", 5),

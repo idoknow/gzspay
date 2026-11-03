@@ -22,6 +22,7 @@ import {
   getMerchantPublic,
   getPaymentRequest,
   listProducts,
+  lookupTransferTarget,
   merchantCreateOrder,
   resolveDynamicCode,
   scanCard,
@@ -135,6 +136,11 @@ export function PayPage(): ReactNode {
     note: string;
   } | null>(null);
   const transferKey = useRef(randomIdempotencyKey());
+  const [transferTarget, setTransferTarget] = useState<PublicUser | null>(null);
+  const [transferLookupState, setTransferLookupState] = useState<"idle" | "loading" | "error">("idle");
+  const [transferLookupError, setTransferLookupError] = useState("");
+  /** 找到收款人后的 3 秒核对倒计时，归零才能继续 */
+  const [transferCountdown, setTransferCountdown] = useState(0);
 
   // 收款
   const [collectStep, setCollectStep] = useState<CollectStep>("scan");
@@ -469,11 +475,61 @@ export function PayPage(): ReactNode {
     }
   };
 
+  // 学号变化后自动查询收款人（防抖 350ms），拿到结果再开始 3 秒核对倒计时
+  useEffect(() => {
+    if (!transferOpen) {
+      setTransferTarget(null);
+      setTransferLookupState("idle");
+      setTransferLookupError("");
+      setTransferCountdown(0);
+      return;
+    }
+    const value = transferStudentNo.trim();
+    setTransferTarget(null);
+    setTransferLookupError("");
+    setTransferCountdown(0);
+    if (value.length < 4) {
+      setTransferLookupState("idle");
+      return;
+    }
+    let active = true;
+    setTransferLookupState("loading");
+    const timer = window.setTimeout(() => {
+      lookupTransferTarget(value)
+        .then((user) => {
+          if (!active) return;
+          setTransferTarget(user);
+          setTransferLookupState("idle");
+          setTransferCountdown(3);
+        })
+        .catch((cause: unknown) => {
+          if (!active) return;
+          setTransferLookupState("error");
+          setTransferLookupError(errorMessage(cause));
+        });
+    }, 350);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [transferOpen, transferStudentNo]);
+
+  // 核对倒计时：3 → 2 → 1 → 0
+  useEffect(() => {
+    if (transferCountdown <= 0) return;
+    const timer = window.setTimeout(() => setTransferCountdown((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [transferCountdown]);
+
   /** 打开转账弹窗：每次清空上次填写的内容 */
   const openTransfer = (): void => {
     setTransferStudentNo("");
     setTransferAmount("");
     setTransferNote("");
+    setTransferTarget(null);
+    setTransferLookupState("idle");
+    setTransferLookupError("");
+    setTransferCountdown(0);
     setTransferOpen(true);
   };
 
@@ -484,13 +540,21 @@ export function PayPage(): ReactNode {
       toast.error("请输入对方的学号");
       return;
     }
+    if (!transferTarget) {
+      toast.error("请先确认收款人，没有找到这个学号对应的账号");
+      return;
+    }
+    if (transferCountdown > 0) {
+      toast.error(`请核对姓名与头像，${transferCountdown} 秒后即可继续`);
+      return;
+    }
     const amountCents = yuanToCents(transferAmount);
     if (amountCents === null || amountCents < 1) {
       toast.error("请输入转账金额");
       return;
     }
-    if (amountCents > 500000) {
-      toast.error("单笔转账不能超过 5000 元");
+    if (amountCents > 20000) {
+      toast.error("单笔转账不能超过 200 元");
       return;
     }
     setPendingTransfer({ studentNo, amountCents, note: transferNote.trim() });
@@ -1104,14 +1168,19 @@ export function PayPage(): ReactNode {
         open={transferOpen}
         onClose={() => setTransferOpen(false)}
         title="转账给同学"
-        description="输入对方的学号与转账金额，下一步需要输入支付密码。"
+        description="输入对方学号后会显示姓名与头像，核对满 3 秒才能继续。单笔最多 200 元，每天最多 1000 元。"
         footer={
           <div className="flex gap-2">
             <button type="button" className="btn btn-outline flex-1" onClick={() => setTransferOpen(false)}>
               取消
             </button>
-            <button type="button" className="btn btn-primary flex-1" onClick={confirmTransfer}>
-              下一步
+            <button
+              type="button"
+              className="btn btn-primary flex-1"
+              disabled={!transferTarget || transferCountdown > 0}
+              onClick={confirmTransfer}
+            >
+              {!transferTarget ? "下一步" : transferCountdown > 0 ? `核对中 ${transferCountdown}s` : "下一步"}
             </button>
           </div>
         }
@@ -1127,7 +1196,31 @@ export function PayPage(): ReactNode {
               placeholder="例如 20231234"
               onChange={(event) => setTransferStudentNo(event.target.value)}
             />
+            <span className="mt-1 block text-[11px] text-muted">输入完整学号后会自动显示对方的姓名与头像</span>
           </label>
+          {transferLookupState === "loading" ? (
+            <p className="flex items-center gap-2 text-xs text-muted">
+              <Spinner size={14} />
+              正在核对学号…
+            </p>
+          ) : null}
+          {transferLookupState === "error" ? <p className="text-xs text-danger">{transferLookupError}</p> : null}
+          {transferTarget ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface-2 p-3">
+              <Avatar name={transferTarget.displayName} avatarUrl={transferTarget.avatarUrl} size={44} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-text">{transferTarget.displayName}</p>
+                <p className="text-xs text-muted">
+                  {transferTarget.studentNoMasked ? `学号 ${transferTarget.studentNoMasked}` : "已找到该学号"}
+                </p>
+              </div>
+              {transferCountdown > 0 ? (
+                <span className="chip chip-active shrink-0">{transferCountdown}s</span>
+              ) : (
+                <span className="shrink-0 text-xs font-semibold text-brand">已核对</span>
+              )}
+            </div>
+          ) : null}
           <label className="block">
             <span className="label">转账金额（元）</span>
             <input
@@ -1137,6 +1230,7 @@ export function PayPage(): ReactNode {
               placeholder="例如 20.00"
               onChange={(event) => setTransferAmount(event.target.value)}
             />
+            <span className="mt-1 block text-[11px] text-muted">单笔最多 200 元，当天累计最多 1000 元</span>
           </label>
           <label className="block">
             <span className="label">备注（可选）</span>
@@ -1176,7 +1270,7 @@ export function PayPage(): ReactNode {
         title="输入支付密码"
         description={
           pendingTransfer
-            ? `向学号 ${pendingTransfer.studentNo} 转账 ¥${formatCents(pendingTransfer.amountCents)}`
+            ? `向 ${transferTarget?.displayName ?? `学号 ${pendingTransfer.studentNo}`} 转账 ¥${formatCents(pendingTransfer.amountCents)}`
             : `向 ${merchant?.merchantName ?? "商家"} 支付 ¥${formatCents(payAmountCents)}`
         }
       />

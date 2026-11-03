@@ -18,7 +18,7 @@ import {
   verifyOnboardingEmail,
 } from "../lib/api";
 import { errorMessage } from "../lib/http";
-import { isQqEmail, isSixDigitCode, isStudentNo } from "../lib/format";
+import { isQqNumber, isSixDigitCode, isStudentNo, normalizeQqNumber, qqEmailOf } from "../lib/format";
 import { useCountdown, useAsync } from "../lib/hooks";
 import { extractCardContent } from "../lib/scan";
 import { useAuth } from "../lib/session";
@@ -188,7 +188,8 @@ function StudentNoStep({ me, onDone }: StepProps): ReactNode {
 
 function EmailStep({ me, onDone }: StepProps): ReactNode {
   const toast = useToast();
-  const [email, setEmail] = useState(me?.email ?? "");
+  // 只保存 QQ 号数字部分，@qq.com 在提交时自动补上
+  const [email, setEmail] = useState(() => normalizeQqNumber(me?.email ?? ""));
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
   const [devCode, setDevCode] = useState<string | null>(null);
@@ -198,17 +199,17 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
 
   const sendCode = async (): Promise<void> => {
     if (sending) return;
-    if (!isQqEmail(email)) {
-      toast.error("请输入 QQ 邮箱，格式为 QQ号@qq.com（QQ 号需为纯数字）");
+    if (!isQqNumber(email)) {
+      toast.error("请输入 5–12 位数字 QQ 号，@qq.com 会自动补上");
       return;
     }
     setSending(true);
     try {
-      const result = await startOnboardingEmail(email.trim());
+      const result = await startOnboardingEmail(qqEmailOf(email));
       setSent(true);
       setDevCode(result.devCode ?? null);
       countdown.restart(60);
-      toast.success("验证码已发送，请查收邮箱");
+      toast.success("验证码已发送，请查收 QQ 邮箱");
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
@@ -217,8 +218,8 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
   };
 
   const submit = async (): Promise<void> => {
-    if (!isQqEmail(email)) {
-      toast.error("请输入 QQ 邮箱，格式为 QQ号@qq.com（QQ 号需为纯数字）");
+    if (!isQqNumber(email)) {
+      toast.error("请输入 5–12 位数字 QQ 号，@qq.com 会自动补上");
       return;
     }
     if (!isSixDigitCode(code)) {
@@ -227,7 +228,7 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
     }
     setBusy(true);
     try {
-      onDone(await verifyOnboardingEmail({ email: email.trim(), code }));
+      onDone(await verifyOnboardingEmail({ email: qqEmailOf(email), code }));
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
@@ -238,7 +239,7 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
   return (
     <StepShell
       title={STEP_TITLES.email}
-      description="绑定 QQ 邮箱用于找回支付密码和接收交易通知：@qq.com 前填纯数字 QQ 号。验证码 10 分钟内有效。"
+      description="绑定 QQ 邮箱用于找回支付密码和接收交易通知：只需填写 QQ 号，@qq.com 会自动补上。验证码 10 分钟内有效。"
     >
       <form
         className="space-y-4"
@@ -249,19 +250,25 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
       >
         <div>
           <label className="label" htmlFor="email">
-            邮箱
+            QQ 号
           </label>
           <div className="flex gap-2">
-            <input
-              id="email"
-              className="input flex-1"
-              value={email}
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              placeholder="QQ号@qq.com"
-              onChange={(event) => setEmail(event.target.value)}
-            />
+            <div className="relative flex-1">
+              <input
+                id="email"
+                className="input pr-16"
+                value={email}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={12}
+                placeholder="例如 12345678"
+                onChange={(event) => setEmail(normalizeQqNumber(event.target.value).slice(0, 12))}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted">
+                @qq.com
+              </span>
+            </div>
             <button
               type="button"
               className="btn btn-outline shrink-0 px-3.5 text-sm"
@@ -272,6 +279,7 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
               {countdown.remaining > 0 ? `${countdown.remaining}s 后重发` : sent ? "重新发送" : "发送验证码"}
             </button>
           </div>
+          <p className="mt-1.5 text-xs text-muted">@qq.com 固定，只需填写前面的纯数字 QQ 号</p>
         </div>
         <div>
           <label className="label" htmlFor="emailCode">

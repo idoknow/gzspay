@@ -1,4 +1,4 @@
-/** 交易页：我发起的 / 我收到的 + 关键词搜索 + 状态筛选（进行中 / 已结束，点按钮弹出菜单）+ 订单列表 + 公告红点 + 空态。 */
+/** 交易页：我发起的 / 我收到的 + 关键词搜索 + 状态筛选（全部 / 进行中 / 已结束，点按钮弹出菜单）+ 订单列表 + 公告红点 + 空态。 */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -17,20 +17,21 @@ import { useAuth } from "../lib/session";
 import type { Order } from "../lib/types";
 
 type Scope = "pay" | "receive";
-type StatusFilter = "pending" | "settled";
+type StatusFilter = "all" | "pending" | "settled";
 
 const PAGE_SIZE = 20;
 
 const SCOPE_LABELS: Record<Scope, string> = { pay: "我发起的", receive: "我收到的" };
-/** 「我发起的 / 我收到的」下面只分两项，点按钮才展开菜单选择 */
+/** 「我发起的 / 我收到的」下面分三项，点按钮才展开菜单选择 */
 const STATUS_OPTIONS: { value: StatusFilter; label: string; hint: string }[] = [
+  { value: "all", label: "全部", hint: "所有状态的订单" },
   { value: "pending", label: "进行中", hint: "还没有完成的订单" },
   { value: "settled", label: "已结束", hint: "已完成或已取消的订单" },
 ];
-const STATUS_LABELS: Record<StatusFilter, string> = { pending: "进行中", settled: "已结束" };
+const STATUS_LABELS: Record<StatusFilter, string> = { all: "全部", pending: "进行中", settled: "已结束" };
 const EMPTY_TEXT: Record<Scope, Record<StatusFilter, string>> = {
-  pay: { pending: "暂无进行中的订单", settled: "暂无已结束的订单" },
-  receive: { pending: "暂无进行中的订单", settled: "暂无已结束的订单" },
+  pay: { all: "暂无订单", pending: "暂无进行中的订单", settled: "暂无已结束的订单" },
+  receive: { all: "暂无订单", pending: "暂无进行中的订单", settled: "暂无已结束的订单" },
 };
 
 function ChevronIcon({ open }: { open: boolean }): ReactNode {

@@ -190,7 +190,7 @@ export function AnnouncementsPage(): ReactNode {
         )}
       </main>
 
-      <BottomNav />
+      <BottomNav icp />
     </div>
   );
 }

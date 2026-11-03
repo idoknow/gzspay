@@ -18,9 +18,11 @@ import {
   confirmOrder,
   getOrder,
   getOrderQrBlob,
+  getPaymentProofBlob,
   markOrderNotReceived,
   payOrder,
   subscribeEvents,
+  uploadPaymentProof,
 } from "../lib/api";
 import { copyText } from "../lib/clipboard";
 import { downloadBlob, safeFilename } from "../lib/download";
@@ -190,6 +192,10 @@ export function OrderDetailPage(): ReactNode {
   const [payChannel, setPayChannel] = useState<PayChannel | null>(null);
   const [payNote, setPayNote] = useState("");
   const [payBusy, setPayBusy] = useState(false);
+  const [payProofFile, setPayProofFile] = useState<File | null>(null);
+  const [proofViewerOpen, setProofViewerOpen] = useState(false);
+  /** 商家是否已经打开过付款截图核对 */
+  const [proofChecked, setProofChecked] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState<(typeof CANCEL_REASONS)[number]>("金额有误");
   const [cancelNote, setCancelNote] = useState("");
@@ -224,6 +230,14 @@ export function OrderDetailPage(): ReactNode {
   const qrDialogFactory =
     order && pending && qrDialogChannelResolved ? () => getOrderQrBlob(order.id, qrDialogChannelResolved) : null;
   const qrDialog = useBlobUrl(qrDialogFactory, [order?.id ?? "", order?.status ?? "", qrDialogChannelResolved]);
+
+  const proofFactory = order?.hasPaymentProof ? () => getPaymentProofBlob(order.id) : null;
+  const proof = useBlobUrl(proofFactory, [order?.id ?? "", order?.hasPaymentProof ?? false]);
+
+  // 切换订单时重置「已核对截图」状态
+  useEffect(() => {
+    setProofChecked(false);
+  }, [id]);
 
   // 首次进入待付款订单（付款人）时弹出 3 秒倒计时的备注要求
   useEffect(() => {
@@ -282,6 +296,7 @@ export function OrderDetailPage(): ReactNode {
   const openPayDialog = (): void => {
     setPayChannel(channel);
     setPayNote(order?.reservedNote ?? "");
+    setPayProofFile(null);
     setPayOpen(true);
   };
 
@@ -291,10 +306,16 @@ export function OrderDetailPage(): ReactNode {
       toast.error("请选择实际支付方式");
       return;
     }
+    if (!payProofFile && !order.hasPaymentProof) {
+      toast.error("请先上传付款截图，商家确认收款前会核对");
+      return;
+    }
     setPayBusy(true);
     try {
+      if (payProofFile) await uploadPaymentProof(order.id, payProofFile);
       await payOrder(order.id, { channel: payChannel, actualNote: payNote.trim() });
       setPayOpen(false);
+      setPayProofFile(null);
       toast.success("已标记为已支付，等待商家确认");
       reload();
     } catch (cause) {
@@ -503,6 +524,29 @@ export function OrderDetailPage(): ReactNode {
           </section>
         ) : null}
 
+        {order.hasPaymentProof ? (
+          <section className="card p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-text">付款截图</h2>
+              <button
+                type="button"
+                className="text-xs font-medium text-brand"
+                onClick={() => {
+                  setProofChecked(true);
+                  setProofViewerOpen(true);
+                }}
+              >
+                查看截图
+              </button>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              {order.role === "merchant"
+                ? "确认收款前请打开截图，核对收款账户与金额是否与实际到账一致。"
+                : "已上传给商家核对，商家确认收款后交易完成。"}
+            </p>
+          </section>
+        ) : null}
+
         {order.role === "payer" && order.status === "pending_payment" ? (
           <OrderQrPanel
             title="商家收款码"
@@ -574,7 +618,13 @@ export function OrderDetailPage(): ReactNode {
                 <button type="button" className="btn btn-outline flex-1" onClick={() => setNotReceivedOpen(true)}>
                   未收到
                 </button>
-                <button type="button" className="btn btn-primary flex-1" onClick={() => setConfirmOpen(true)}>
+                <button
+                  type="button"
+                  className="btn btn-primary flex-1"
+                  disabled={!proofChecked}
+                  title={proofChecked ? undefined : "请先查看付款截图"}
+                  onClick={() => setConfirmOpen(true)}
+                >
                   确认收款
                 </button>
               </>
@@ -605,7 +655,7 @@ export function OrderDetailPage(): ReactNode {
           if (!payBusy) setPayOpen(false);
         }}
         title="我已支付"
-        description="请填写你实际使用的支付方式与备注，商家将据此核对收款。"
+        description="请上传付款截图并填写实际支付方式，商家会逐一核对后再确认收款。"
         footer={
           <div className="flex gap-2">
             <button type="button" className="btn btn-outline flex-1" disabled={payBusy} onClick={() => setPayOpen(false)}>
@@ -638,6 +688,24 @@ export function OrderDetailPage(): ReactNode {
                 ))
               )}
             </div>
+          </div>
+          <div>
+            <label className="label" htmlFor="paymentProof">
+              付款截图（必填）
+            </label>
+            <input
+              id="paymentProof"
+              type="file"
+              accept="image/png,image/jpeg"
+              className="input py-2 text-xs"
+              disabled={payBusy}
+              onChange={(event) => setPayProofFile(event.target.files?.[0] ?? null)}
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              支持 PNG / JPG，最大 5MB。商家确认收款前会核对这张截图
+              {order.hasPaymentProof ? "（已上传过，不上传则沿用原截图）" : ""}。
+            </p>
+            {payProofFile ? <p className="mt-1 truncate text-[11px] text-brand">已选择：{payProofFile.name}</p> : null}
           </div>
           <div>
             <label className="label" htmlFor="actualNote">
@@ -720,6 +788,28 @@ export function OrderDetailPage(): ReactNode {
         onConfirm={() => void submitNotReceived()}
         onClose={() => setNotReceivedOpen(false)}
       />
+
+      {/* 付款截图核对 */}
+      <Dialog
+        open={proofViewerOpen}
+        onClose={() => setProofViewerOpen(false)}
+        title="付款截图"
+        description="请核对截图中的收款账户、金额与时间是否与实际到账一致。"
+      >
+        {proof.error ? (
+          <p className="py-6 text-center text-xs text-danger">{proof.error}</p>
+        ) : proof.loading ? (
+          <div className="skeleton h-[260px] w-full" />
+        ) : proof.url ? (
+          <img
+            src={proof.url}
+            alt="付款截图"
+            className="max-h-[70vh] w-full rounded-xl border border-line object-contain"
+          />
+        ) : (
+          <p className="py-6 text-center text-xs text-muted">暂无可查看的截图</p>
+        )}
+      </Dialog>
 
       {/* 商家出示收款码 */}
       <Dialog

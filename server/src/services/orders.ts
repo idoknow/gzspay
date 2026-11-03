@@ -4,6 +4,7 @@ import { writeAudit, writeRiskLog } from "../lib/audit.js";
 import { newId } from "../lib/crypto.js";
 import { errors } from "../lib/errors.js";
 import { sendMailInBackground, templates } from "../lib/mail.js";
+import { readPaymentProofFile, removePaymentProofFile, savePaymentProofFile } from "../lib/payment-proof.js";
 import {
   CHANNEL_LABELS,
   CHANNELS,
@@ -69,6 +70,10 @@ export interface OrderDto {
   /** 商家当前启用的收款方式（付款人视角用于展示二维码 Tab） */
   availableChannels: Channel[];
   createdBy: "payer" | "merchant";
+  /** 付款人是否已上传付款截图（商家确认收款前需要核对） */
+  hasPaymentProof: boolean;
+  /** 付款截图读取地址（仅订单双方可用），没有截图时为 null */
+  paymentProofUrl: string | null;
 }
 
 export interface OrderSummaryDto {
@@ -166,6 +171,8 @@ export function toOrderDto(order: OrderRow, viewerId: string): OrderDto {
     hasAppeal: hasOpenAppeal(order.id),
     availableChannels: enabledChannels(order.merchant_id),
     createdBy: order.created_by,
+    hasPaymentProof: Boolean(order.payment_proof),
+    paymentProofUrl: order.payment_proof ? `/api/orders/${order.id}/payment-proof` : null,
   };
 }
 
@@ -377,6 +384,39 @@ function assertAmountLimits(payerId: string, amountCents: number): void {
   }
 }
 
+/**
+ * 转账限额：单笔与当日累计都只统计「转账」订单，互不影响商家订单限额。
+ * 日界按服务器本地时区的自然日计算，符合用户「一天」的直觉。
+ */
+function assertTransferAmountLimits(payerId: string, amountCents: number): void {
+  const max = config.security.transferMaxAmountCents;
+  if (amountCents > max) {
+    writeRiskLog({
+      userId: payerId,
+      type: "limit_exceeded",
+      detail: `转账单笔 ${amountCents} 分超过上限 ${max} 分`,
+    });
+    throw errors.limitExceeded(`单笔转账金额不能超过 ${(max / 100).toFixed(2)} 元`);
+  }
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const row = queryOne<{ total: number | null }>(
+    "SELECT SUM(amount_cents) AS total FROM orders WHERE payer_id = ? AND title = '转账' AND status != 'cancelled' AND created_at >= ?",
+    payerId,
+    start.toISOString(),
+  );
+  const used = row?.total ?? 0;
+  const dailyMax = config.security.transferDailyMaxAmountCents;
+  if (used + amountCents > dailyMax) {
+    writeRiskLog({
+      userId: payerId,
+      type: "limit_exceeded",
+      detail: `转账当日累计将超过上限 ${dailyMax} 分`,
+    });
+    throw errors.limitExceeded(`当日累计转账金额不能超过 ${(dailyMax / 100).toFixed(2)} 元`);
+  }
+}
+
 function generateOrderNo(): string {
   const now = new Date();
   const pad = (value: number, size = 2): string => String(value).padStart(size, "0");
@@ -564,7 +604,7 @@ export function createTransfer(payer: UserRow, input: CreateTransferInput, ip: s
   if (!Number.isInteger(input.amountCents) || input.amountCents < 1) {
     throw errors.validation("请填写转账金额");
   }
-  assertAmountLimits(payer.id, input.amountCents);
+  assertTransferAmountLimits(payer.id, input.amountCents);
 
   const note = (input.note ?? "").trim().slice(0, 200) || null;
   const now = nowIso();
@@ -750,6 +790,51 @@ function mailToUser(userId: string, message: Parameters<typeof sendMailInBackgro
   sendMailInBackground({ ...message, to: user.email });
 }
 
+/** 付款人上传付款截图：待付款订单可上传，重复上传会覆盖旧图 */
+export function savePaymentProof(
+  orderId: string,
+  payer: UserRow,
+  buffer: Buffer | undefined,
+  ip: string,
+): OrderRow {
+  const order = requireOrderForUser(orderId, payer);
+  assertPayerRole(order, payer);
+  if (order.status !== "pending_payment") throw errors.orderStatusInvalid("订单当前状态不能上传付款截图");
+  const filename = savePaymentProofFile(orderId, buffer);
+  removePaymentProofFile(order.payment_proof);
+  execute(
+    "UPDATE orders SET payment_proof = ?, updated_at = ? WHERE id = ?",
+    filename,
+    nowIso(),
+    orderId,
+  );
+  addEvent(orderId, "payment_proof_uploaded", "payer", payer.id, "付款人上传了付款截图");
+  const updated = findOrderById(orderId) as OrderRow;
+  notifyOrderUpdate(updated);
+  writeAudit({
+    actorId: payer.id,
+    actorRole: "user",
+    action: "order.payment_proof",
+    targetType: "order",
+    targetId: orderId,
+    detail: "上传付款截图",
+    ip,
+  });
+  return updated;
+}
+
+/** 读取付款截图：只有订单双方可以看，商家确认收款前用它核对 */
+export function paymentProofForUser(
+  orderId: string,
+  user: UserRow,
+): { data: Buffer; contentType: string } {
+  const order = requireOrderForUser(orderId, user);
+  if (!order.payment_proof) throw errors.notFound("付款人还没有上传付款截图");
+  const file = readPaymentProofFile(order.payment_proof);
+  if (!file) throw errors.notFound("付款截图已失效，请让付款人重新上传");
+  return file;
+}
+
 export function markOrderPaid(
   orderId: string,
   payer: UserRow,
@@ -759,6 +844,9 @@ export function markOrderPaid(
   const order = requireOrderForUser(orderId, payer);
   assertPayerRole(order, payer);
   if (order.status !== "pending_payment") throw errors.orderStatusInvalid("订单当前状态不能标记为已支付");
+  if (!order.payment_proof) {
+    throw errors.validation("请先上传付款截图，商家确认收款前会核对");
+  }
   const channels = enabledChannels(order.merchant_id);
   if (!channels.includes(input.channel)) {
     throw errors.validation("商家未启用该收款方式");
@@ -817,6 +905,9 @@ export function confirmOrder(
   if (order.status !== "paid" && order.status !== "pending_payment") {
     throw errors.orderStatusInvalid("订单当前状态不能确认收款");
   }
+  if (order.status === "paid" && !order.payment_proof) {
+    throw errors.validation("付款人还没有上传付款截图，暂时不能确认收款");
+  }
   const now = nowIso();
   execute(
     "UPDATE orders SET status = 'completed', completed_at = ?, updated_at = ? WHERE id = ?",
@@ -868,10 +959,11 @@ export function markOrderNotReceived(
   assertMerchantRole(order, merchantUser);
   if (order.status !== "paid") throw errors.orderStatusInvalid("只有已支付的订单可以标记为未收到");
   execute(
-    "UPDATE orders SET status = 'pending_payment', paid_at = NULL, actual_note = NULL, pay_channel = NULL, updated_at = ? WHERE id = ?",
+    "UPDATE orders SET status = 'pending_payment', paid_at = NULL, actual_note = NULL, pay_channel = NULL, payment_proof = NULL, updated_at = ? WHERE id = ?",
     nowIso(),
     orderId,
   );
+  removePaymentProofFile(order.payment_proof);
   addEvent(orderId, "not_received", "merchant", merchantUser.id, "商家未收到款项，订单退回待付款");
   const updated = findOrderById(orderId) as OrderRow;
   notifyOrderUpdate(updated);

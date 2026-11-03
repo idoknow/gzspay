@@ -11,7 +11,7 @@ import { QrScanner } from "../components/QrScanner";
 import { Spinner } from "../components/Loading";
 import { useToast } from "../components/Toast";
 import { bindCard, startEmailChange, updateProfile, verifyEmailChange } from "../lib/api";
-import { cn, isQqEmail, isSixDigitCode, isStudentNo } from "../lib/format";
+import { cn, isQqNumber, isSixDigitCode, isStudentNo, normalizeQqNumber, qqEmailOf } from "../lib/format";
 import { useCountdown, useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 import { extractCardContent } from "../lib/scan";
@@ -280,11 +280,11 @@ export function ProfilePage(): ReactNode {
   };
 
   const sendEmailCode = (): void => {
-    const target = email.trim();
-    if (!isQqEmail(target)) {
-      toast.error("只能绑定 QQ 邮箱，格式为 QQ号@qq.com（QQ 号需为纯数字）");
+    if (!isQqNumber(email)) {
+      toast.error("请输入 5–12 位数字 QQ 号，@qq.com 会自动补上");
       return;
     }
+    const target = qqEmailOf(email);
     if (sendingEmail) return;
     setSendingEmail(true);
     withPassword(async (password) => {
@@ -301,9 +301,9 @@ export function ProfilePage(): ReactNode {
   };
 
   const confirmEmail = (): void => {
-    const target = email.trim();
+    const target = qqEmailOf(email);
     const code = emailCode.trim();
-    if (!startedEmail(target)) {
+    if (!startedEmail()) {
       toast.error("请先获取验证码");
       return;
     }
@@ -330,7 +330,7 @@ export function ProfilePage(): ReactNode {
     });
   };
 
-  const startedEmail = (target: string): boolean => emailStarted && isQqEmail(target);
+  const startedEmail = (): boolean => emailStarted && isQqNumber(email);
 
   const bindWithContent = (content: string): void => {
     withPassword(async (password) => {
@@ -635,23 +635,29 @@ export function ProfilePage(): ReactNode {
           </div>
           <div>
             <label className="label" htmlFor="profile-email">
-              新邮箱
+              新 QQ 号
             </label>
-            <input
-              id="profile-email"
-              className="input"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              value={email}
-              placeholder="QQ号@qq.com"
-              onChange={(event) => {
-                setEmail(event.target.value);
-                setEmailStarted(false);
-                setEmailCode("");
-                countdown.stop();
-              }}
-            />
+            <div className="relative">
+              <input
+                id="profile-email"
+                className="input pr-16"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={12}
+                value={email}
+                placeholder="例如 12345678"
+                onChange={(event) => {
+                  setEmail(normalizeQqNumber(event.target.value).slice(0, 12));
+                  setEmailStarted(false);
+                  setEmailCode("");
+                  countdown.stop();
+                }}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted">
+                @qq.com
+              </span>
+            </div>
           </div>
           <div>
             <label className="label" htmlFor="profile-email-code">
@@ -689,7 +695,7 @@ export function ProfilePage(): ReactNode {
             <p className="rounded-xl bg-accent-soft px-3 py-2 text-[11px] text-warning">开发环境验证码：{devCode}</p>
           ) : (
             <p className="text-[11px] leading-relaxed text-muted">
-              只支持 QQ 邮箱（QQ号@qq.com，QQ 号需为纯数字）。验证码会发送到新邮箱，验证通过后才会替换当前邮箱。
+              只需填写 5–12 位数字 QQ 号，@qq.com 固定。验证码会发送到新邮箱，验证通过后才会替换当前邮箱。
             </p>
           )}
         </div>

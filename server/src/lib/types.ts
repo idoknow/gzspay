@@ -130,6 +130,8 @@ export interface OrderRow {
   flagged: number;
   flag_reason: string | null;
   closed_by_admin_id: string | null;
+  /** 付款截图文件名（存放在数据目录的 payment-proofs 下，仅订单双方可读） */
+  payment_proof: string | null;
 }
 
 export interface OrderEventRow {

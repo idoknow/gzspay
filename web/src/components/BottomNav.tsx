@@ -60,12 +60,18 @@ function NavItem({ to, label, icon }: { to: string; label: string; icon: "trade"
   );
 }
 
-export function BottomNav(): ReactNode {
+/**
+ * 底部导航：交易｜扫码（中间凸起主按钮）｜我的。
+ * 备案号按需显示：交易 / 我的 / 扫码三个主页面不显示，只在次级页面（公告、动态码）显示。
+ */
+export function BottomNav({ icp = false }: { icp?: boolean }): ReactNode {
   return (
     <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 safe-bottom">
-      <div className="pointer-events-auto mx-auto mb-1 px-4 text-center">
-        <SiteIcp size="xs" className="text-muted/80 watch:text-[8px]" />
-      </div>
+      {icp ? (
+        <div className="pointer-events-auto mx-auto mb-1 px-4 text-center">
+          <SiteIcp size="xs" className="text-muted/80 watch:text-[8px]" />
+        </div>
+      ) : null}
       <div className="pointer-events-auto mx-auto mb-3 w-[calc(100%-28px)] max-w-[492px] rounded-[26px] border border-line/70 bg-surface/85 px-2 py-2 shadow-[var(--shadow-float)] backdrop-blur-xl watch:mb-1.5 watch:w-[calc(100%-14px)] watch:rounded-full watch:px-1 watch:py-1">
         <div className="grid grid-cols-3 items-center">
           <NavItem to="/trades" label="交易" icon="trade" />

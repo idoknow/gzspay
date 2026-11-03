@@ -441,7 +441,79 @@ describe("商家与订单", () => {
     expect(missing.body.error.code).toBe("NOT_FOUND");
   });
 
+  it("转账前可按学号查询收款人，并校验单笔与当日限额", async () => {
+    const found = await agentWith(payerSession)
+      .get("/api/orders/transfer/lookup?studentNo=20230002")
+      .expect(200);
+    expect(found.body.user.displayName).toBe("张三");
+    expect(found.body.user.studentNoMasked).toBeTruthy();
+    expect(found.body.user).not.toHaveProperty("email");
+
+    const missing = await agentWith(payerSession)
+      .get("/api/orders/transfer/lookup?studentNo=99999999")
+      .expect(404);
+    expect(missing.body.error.code).toBe("NOT_FOUND");
+
+    const self = await agentWith(payerSession)
+      .get("/api/orders/transfer/lookup?studentNo=20230003")
+      .expect(409);
+    expect(self.body.error.code).toBe("CONFLICT");
+
+    // 单笔上限 200 元
+    const tooLarge = await agentWith(payerSession)
+      .post("/api/orders/transfer")
+      .send({
+        studentNo: "20230002",
+        amountCents: 20001,
+        paymentPassword: "123456",
+        idempotencyKey: "transfer-limit-single-01",
+      })
+      .expect(400);
+    expect(tooLarge.body.error.code).toBe("LIMIT_EXCEEDED");
+    expect(tooLarge.body.error.message).toContain("单笔转账金额不能超过");
+
+    // 当日累计上限 1000 元：连续转账 199 元，累计超过 1000 后被拦截
+    for (let index = 0; index < 4; index += 1) {
+      await agentWith(payerSession)
+        .post("/api/orders/transfer")
+        .send({
+          studentNo: "20230002",
+          amountCents: 19900,
+          paymentPassword: "123456",
+          idempotencyKey: `transfer-daily-ok-0${index}`,
+        })
+        .expect(201);
+    }
+    const tooMuchToday = await agentWith(payerSession)
+      .post("/api/orders/transfer")
+      .send({
+        studentNo: "20230002",
+        amountCents: 19900,
+        paymentPassword: "123456",
+        idempotencyKey: "transfer-limit-daily-01",
+      })
+      .expect(400);
+    expect(tooMuchToday.body.error.code).toBe("LIMIT_EXCEEDED");
+    expect(tooMuchToday.body.error.message).toContain("当日累计转账金额不能超过");
+  });
+
   it("付款、确认收款的状态流转", async () => {
+    // 没有付款截图不能标记已支付
+    const noProof = await agentWith(payerSession)
+      .post(`/api/orders/${orderId}/pay`)
+      .send({ channel: "alipay", actualNote: "" })
+      .expect(400);
+    expect(noProof.body.error.message).toContain("付款截图");
+
+    // 商家确认收款前必须有付款截图：先上传一张最小 PNG
+    const proofPng = await generateQrPngBuffer("https://example.com/gzspay-payment-proof");
+    const uploaded = await agentWith(payerSession)
+      .post(`/api/orders/${orderId}/payment-proof`)
+      .attach("file", proofPng, "proof.png")
+      .expect(200);
+    expect(uploaded.body.hasPaymentProof).toBe(true);
+    const proofDownload = await agentWith(merchantSession).get(`/api/orders/${orderId}/payment-proof`).expect(200);
+    expect(proofDownload.headers["content-type"]).toContain("image/png");
     const paid = await agentWith(payerSession)
       .post(`/api/orders/${orderId}/pay`)
       .send({ channel: "alipay", actualNote: "张三 0001" })
@@ -449,6 +521,7 @@ describe("商家与订单", () => {
     expect(paid.body.status).toBe("paid");
     const detail = await agentWith(merchantSession).get(`/api/orders/${orderId}`).expect(200);
     expect(detail.body.role).toBe("merchant");
+    expect(detail.body.hasPaymentProof).toBe(true);
     expect(detail.body.events.length).toBeGreaterThanOrEqual(2);
     const completed = await agentWith(merchantSession).post(`/api/orders/${orderId}/confirm`).send({}).expect(200);
     expect(completed.body.status).toBe("completed");

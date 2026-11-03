@@ -76,6 +76,9 @@ function applyLegacyMigrations(): void {
   if (!orderColumns.some((column) => column.name === "flag_reason")) {
     db.exec("ALTER TABLE orders ADD COLUMN flag_reason TEXT;");
   }
+  if (!orderColumns.some((column) => column.name === "payment_proof")) {
+    db.exec("ALTER TABLE orders ADD COLUMN payment_proof TEXT;");
+  }
   const announcementColumns = db
     .prepare("PRAGMA table_info(announcements)")
     .all() as { name: string }[];

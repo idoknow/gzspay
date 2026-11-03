@@ -33,6 +33,7 @@ import type {
   PayChannel,
   PaymentRequest,
   Product,
+  PublicUser,
   ScanCardResponse,
   SessionResponse,
   SetupStatus,
@@ -413,6 +414,13 @@ export async function transferOrder(payload: TransferOrderPayload): Promise<Orde
   return unwrapOrder(raw);
 }
 
+/** 转账前按学号预览对方昵称与头像（服务端限流防枚举） */
+export async function lookupTransferTarget(studentNo: string): Promise<PublicUser> {
+  const raw = await api.get<unknown>("/orders/transfer/lookup", { studentNo });
+  if (isRecord(raw) && isRecord(raw.user)) return raw.user as unknown as PublicUser;
+  throw new Error("没有找到这个学号对应的账号");
+}
+
 export function listOrders(query: {
   scope: "pay" | "receive";
   status: "pending" | "paid" | "closed" | "settled" | "all";
@@ -431,6 +439,19 @@ export async function getOrder(id: string): Promise<OrderDetail> {
 
 export function payOrder(id: string, payload: { channel: PayChannel; actualNote: string }): Promise<Order> {
   return api.post<Order>(`/orders/${encodeURIComponent(id)}/pay`, payload);
+}
+
+/** 上传付款截图（PNG / JPG，≤5MB），返回更新后的订单详情 */
+export async function uploadPaymentProof(id: string, file: File): Promise<OrderDetail> {
+  const form = new FormData();
+  form.append("file", file);
+  const raw = await api.upload<unknown>(`/orders/${encodeURIComponent(id)}/payment-proof`, form);
+  return unwrapOrder(raw) as OrderDetail;
+}
+
+/** 读取付款截图（仅订单双方），用于展示与核对 */
+export function getPaymentProofBlob(id: string): Promise<Blob> {
+  return api.blob(`/orders/${encodeURIComponent(id)}/payment-proof`);
 }
 
 export function confirmOrder(id: string): Promise<Order> {

@@ -187,7 +187,7 @@ export function DynamicCodePage(): ReactNode {
         )}
       </main>
 
-      <BottomNav />
+      <BottomNav icp />
     </div>
   );
 }

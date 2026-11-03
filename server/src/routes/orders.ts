@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import { z } from "zod";
 import { config } from "../config.js";
 import { errors } from "../lib/errors.js";
@@ -20,16 +21,28 @@ import {
   markOrderNotReceived,
   markOrderPaid,
   orderQrContentForUser,
+  paymentProofForUser,
   readIdempotentResponse,
   requireOrderForUser,
+  savePaymentProof,
   toOrderDto,
   writeIdempotentResponse,
   type OrderStatusFilter,
 } from "../services/orders.js";
 import { requireMerchant } from "../services/merchant.js";
-import { resolveCardOwner, findUserByStudentNo, verifyPaymentPassword } from "../services/users.js";
+import { resolveCardOwner, findUserByStudentNo, publicUserOf, verifyPaymentPassword } from "../services/users.js";
 
 export const ordersRouter: Router = Router();
+
+const transferLookupSchema = z.object({
+  studentNo: z.string().trim().min(1, "请输入对方的学号").max(40),
+});
+
+/** 付款截图：只收一张不超过 5MB 的图片，具体类型由服务端嗅探文件头 */
+const proofUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 5 },
+});
 
 type ParsedItem = { productId: string; quantity?: number };
 
@@ -186,6 +199,27 @@ ordersRouter.post(
   }),
 );
 
+/** 转账前预览：按学号查对方昵称与头像，避免转错人（限流防枚举） */
+ordersRouter.get(
+  "/transfer/lookup",
+  rateLimit({
+    scope: "orders.transfer_lookup",
+    limit: 20,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "查询太频繁了，请稍后再试",
+  }),
+  asyncHandler((req, res) => {
+    const { studentNo } = parse(transferLookupSchema, req.query);
+    const user = req.auth!.user;
+    const target = findUserByStudentNo(studentNo);
+    if (!target) throw errors.notFound("没有找到这个学号对应的账号，请核对后重试");
+    if (target.id === user.id) throw errors.conflict("不能给自己转账");
+    if (target.status === "frozen") throw errors.locked("对方账号已被冻结，暂时无法转账");
+    res.json({ user: publicUserOf(target) });
+  }),
+);
+
 ordersRouter.get(
   "/",
   asyncHandler((req, res) => {
@@ -217,6 +251,28 @@ ordersRouter.get(
     const content = orderQrContentForUser(String(req.params.id), req.auth!.user, channel);
     const png = await generateQrPngBuffer(content);
     res.type("png").send(png);
+  }),
+);
+
+ordersRouter.post(
+  "/:id/payment-proof",
+  proofUpload.single("file"),
+  asyncHandler((req, res) => {
+    const file = (req as unknown as { file?: Express.Multer.File }).file;
+    const order = savePaymentProof(String(req.params.id), req.auth!.user, file?.buffer, requestIp(req));
+    res.json(toOrderDto(order, req.auth!.user.id));
+  }),
+);
+
+ordersRouter.get(
+  "/:id/payment-proof",
+  asyncHandler((req, res) => {
+    const proof = paymentProofForUser(String(req.params.id), req.auth!.user);
+    res.type(proof.contentType);
+    // 截图含转账细节：禁止缓存与嗅探，避免留在共享代理/浏览器缓存里
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(proof.data);
   }),
 );
 

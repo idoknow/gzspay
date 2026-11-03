@@ -9,10 +9,15 @@
 
 ### 新增
 
+- 新增「付款截图」：付款人点「我已支付」前必须上传一张 PNG / JPG 付款截图（≤5MB，`POST /api/orders/:id/payment-proof`；截图存放在数据目录的 `payment-proofs/`，只通过 `GET /api/orders/:id/payment-proof` 对订单双方开放、禁止缓存），商家在订单详情里查看放大核对后才能确认收款（未上传时后端拒绝标记已支付与确认收款，`Order` 增加 `hasPaymentProof` / `paymentProofUrl`）。
+- 新增转账安全细节：转账前输入完整学号会自动查询收款人并显示姓名、头像与脱敏学号（`GET /api/orders/transfer/lookup`，每分钟 20 次），核对满 3 秒才能继续；转账单笔上限 200 元、当日累计 1000 元（`TRANSFER_MAX_AMOUNT_CENTS` / `TRANSFER_DAILY_MAX_AMOUNT_CENTS`，只统计「转账」订单，不影响商家订单限额）。
+- 交易页状态筛选新增「全部」，可在进行中 / 已结束之外查看所有订单。
 - 管理后台「系统配置」新增「站点信息」卡片，可修改站点名称、对外地址与 **ICP 备案号**（最多 60 字符）；备案号填写后显示在启动开屏底部、登录页页脚、全站底部导航上方、使用文档页脚与关于页首张卡片，点击跳转工信部备案系统，留空则不展示。`GET /api/auth/session` 与 `GET /api/about` 增加 `site: { name, icp }`（未登录也返回），前端统一由 `web/src/components/SiteIcp.tsx` 渲染；同时把默认站点名称改为「gzspay 桂中校园服务」。
 
 ### 变更
 
+- 绑定 / 换绑邮箱只需填写 QQ 号：注册引导与「我的 → 账号安全」只需填 5–12 位数字 QQ 号，`@qq.com` 由界面自动补全并固定显示在输入框右侧（服务端仍只接受「纯数字 QQ 号@qq.com」）。
+- 交易、我的、扫码三个主页面不再显示 ICP 备案号（备案号保留在登录页、全站底部导航之外的公告/动态码页、使用文档与关于页）。
 - 美化界面细节：管理后台的保存成功等提示条改为带图标、倒计时进度条与半透明背景的圆角卡片（成功为浅绿渐变），提示更清晰；ICP 备案号在登录页页脚、全站底部、使用文档页脚与关于页卡片中改为带盾牌图标的胶囊样式，开屏底部的备案号也改为居中的小胶囊。
 - 移除「管理员 QQ」的展示与配置：主站「系统尚未初始化」页不再展示管理员 QQ（改为展示站点名称），初始化向导第 3 步与管理后台「站点信息」卡片删除管理员 QQ 字段，`GET /api/setup/status`、`GET /api/admin/config` 不再返回 `system.adminQq`，`POST /api/setup/config` 与 `PUT /api/admin/config` 也不再接受该字段。
 - 静态资源改为构建期预压缩：`npm run build` 末尾的 `scripts/compress-dist.mjs` 会为 `web/dist` 下的 js/css/html/svg/json 等生成 `.br` 与 `.gz` 变体，服务端 `server/src/lib/static-assets.ts` 按 `Accept-Encoding` 协商返回（br 优先），补上 `Vary: Accept-Encoding`、`Content-Encoding`、`ETag` 与 `304`；主包从 377KB 降到约 101KB、CSS 从 74KB 降到约 11KB、首屏 HTML 从 10KB 降到约 2.2KB，缺少预压缩文件的资源回退为即时 gzip。`/assets/*` 保持一年 `immutable` 强缓存，`index.html` 改为 `no-cache`，`docs/deploy.md` 补充「反向代理不要再开 gzip」的说明。

@@ -183,7 +183,8 @@ CREATE TABLE IF NOT EXISTS orders (
   cancelled_at TEXT,
   flagged INTEGER NOT NULL DEFAULT 0,
   flag_reason TEXT,
-  closed_by_admin_id TEXT
+  closed_by_admin_id TEXT,
+  payment_proof TEXT                        -- 付款截图文件名（仅订单双方可读）
 );
 CREATE INDEX IF NOT EXISTS idx_orders_payer ON orders(payer_id, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_merchant ON orders(merchant_id, status, created_at);

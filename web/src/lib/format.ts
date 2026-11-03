@@ -231,6 +231,24 @@ export function isQqEmail(value: string): boolean {
   return /^\d{5,12}@qq\.com$/i.test(value.trim());
 }
 
+/** 从输入中提取 QQ 号：允许只填数字，也兼容粘贴完整 QQ 邮箱 */
+export function normalizeQqNumber(value: string): string {
+  return value
+    .trim()
+    .replace(/@qq\.com$/i, "")
+    .replace(/\D/g, "");
+}
+
+/** 纯 QQ 号校验（5–12 位数字），界面只让用户填这一段 */
+export function isQqNumber(value: string): boolean {
+  return /^\d{5,12}$/.test(normalizeQqNumber(value));
+}
+
+/** QQ 号 → QQ 邮箱 */
+export function qqEmailOf(qq: string): string {
+  return `${normalizeQqNumber(qq)}@qq.com`;
+}
+
 /** 校学号格式校验（字母数字，4-20 位） */
 export function isStudentNo(value: string): boolean {
   return /^[A-Za-z0-9]{4,20}$/.test(value.trim());
