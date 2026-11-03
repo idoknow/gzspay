@@ -299,7 +299,6 @@ function mapSetupStatus(payload: unknown): SetupStatus {
         firstText(system, ["siteName", "name"]),
         "gzspay 桂中校园支付",
       ),
-      adminQq: textOr(firstText(system, ["adminQq"]), ""),
       publicBaseUrl: textOr(firstText(system, ["publicBaseUrl", "baseUrl"]), ""),
       icp: textOr(firstText(system, ["icp", "icpNumber", "beian"]), ""),
     },
@@ -1811,7 +1810,6 @@ export async function getConfig(): Promise<AdminConfig> {
         firstText(systemSource, ["siteName", "name", "title"]),
         "gzspay",
       ),
-      adminQq: textOr(firstText(systemSource, ["adminQq", "adminQQ", "qq"]), ""),
       publicBaseUrl: textOr(
         firstText(systemSource, ["publicBaseUrl", "publicUrl", "baseUrl"]),
         "",

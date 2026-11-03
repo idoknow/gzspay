@@ -593,7 +593,6 @@ export interface CampuxConfig {
 /** 站点信息 */
 export interface SiteConfig {
   siteName: string;
-  adminQq: string;
   publicBaseUrl: string;
   /** ICP 备案号，空字符串表示不展示 */
   icp: string;
@@ -675,7 +674,6 @@ export interface AdminConfigInput {
   security?: SecurityConfig;
   system?: {
     siteName: string;
-    adminQq: string;
     publicBaseUrl: string;
     /** ICP 备案号，空字符串表示不展示 */
     icp?: string;
@@ -708,7 +706,6 @@ export interface SetupCurrentUser {
 /** 站点信息（GET /setup/status 的 system） */
 export interface SetupSystemInfo {
   siteName: string;
-  adminQq: string;
   publicBaseUrl: string;
   /** ICP 备案号，空字符串表示未填写 */
   icp: string;
@@ -769,7 +766,8 @@ export interface SetupConfigInput {
   };
   system?: {
     siteName: string;
-    adminQq: string;
+    /** 站点对外地址，留空表示使用当前访问地址 */
+    publicBaseUrl?: string;
   };
 }
 

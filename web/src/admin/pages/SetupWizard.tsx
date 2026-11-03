@@ -46,7 +46,7 @@ const STEPS: Array<{ key: StepKey; title: string; desc: string }> = [
     desc: "配置校园墙 OAuth 应用，主站登录即使用它",
   },
   { key: 2, title: "发件配置", desc: "配置 SMTP，用于发送通知邮件" },
-  { key: 3, title: "站点信息", desc: "站点名称与管理员 QQ" },
+  { key: 3, title: "站点信息", desc: "站点名称与对外地址" },
   { key: 4, title: "完成初始化", desc: "登录主站账号并成为超级管理员" },
 ];
 
@@ -68,8 +68,8 @@ const EMPTY_MAIL: MailFormState = {
 };
 
 const EMPTY_SYSTEM: SystemFormState = {
-  siteName: "gzspay 桂中校园支付",
-  adminQq: "",
+  siteName: "gzspay 桂中校园服务",
+  publicBaseUrl: "",
 };
 
 /** 取步骤元信息；step 恒在 1–4 内，兜底仅为类型安全 */
@@ -138,7 +138,7 @@ export function SetupWizard({
     });
     setSystem({
       siteName: next.system.siteName,
-      adminQq: next.system.adminQq,
+      publicBaseUrl: next.system.publicBaseUrl,
     });
   }, []);
 
@@ -194,8 +194,9 @@ export function SetupWizard({
     }
     if (target === 3) {
       if (!system.siteName.trim()) return "请填写站点名称。";
-      if (!/^\d{5,12}$/.test(system.adminQq.trim())) {
-        return "管理员 QQ 需为 5–12 位数字。";
+      const base = (system.publicBaseUrl ?? "").trim();
+      if (base && !/^https?:\/\//i.test(base)) {
+        return "站点地址需以 http:// 或 https:// 开头。";
       }
       return null;
     }
@@ -231,7 +232,7 @@ export function SetupWizard({
       return {
         system: {
           siteName: system.siteName.trim(),
-          adminQq: system.adminQq.trim(),
+          publicBaseUrl: (system.publicBaseUrl ?? "").trim(),
         },
       };
     }

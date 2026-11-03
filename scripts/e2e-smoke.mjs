@@ -167,7 +167,7 @@ async function main() {
     method: "POST",
     body: {
       campux: { baseUrl: "https://campux.example.com", clientId: "e2e-client", clientSecret: "e2e-secret" },
-      system: { siteName: "桂中校园支付", adminQq: "1692138502" },
+      system: { siteName: "桂中校园服务" },
     },
   });
   check(

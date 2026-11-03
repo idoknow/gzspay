@@ -26,7 +26,8 @@ export interface MailFormState {
 
 export interface SystemFormState {
   siteName: string;
-  adminQq: string;
+  /** 站点对外地址，留空表示使用当前访问地址 */
+  publicBaseUrl?: string;
 }
 
 /* ------------------------------------------------------------------ 第 1 步 */
@@ -243,21 +244,17 @@ export function SetupStepSystem({
         />
       </Field>
       <Field
-        label="管理员 QQ"
-        hint="用于接收系统通知，必须为 5–12 位数字"
-        required
+        label="站点地址"
+        hint="用于生成校园墙登录回调与邮件里的链接，例如 https://pay.idoknow.top；留空则使用当前访问地址"
         className="admin-field-full"
       >
         <input
           className="admin-input"
-          value={value.adminQq}
-          inputMode="numeric"
-          placeholder="123456789"
+          value={value.publicBaseUrl ?? ""}
+          placeholder="https://pay.idoknow.top"
           autoComplete="off"
           disabled={disabled}
-          onChange={(event) =>
-            onChange({ adminQq: event.target.value.replace(/\D/g, "") })
-          }
+          onChange={(event) => onChange({ publicBaseUrl: event.target.value })}
         />
       </Field>
     </div>

@@ -43,7 +43,6 @@ const CAMPUX_KEYS = {
 
 const SYSTEM_KEYS = {
   siteName: "system.siteName",
-  adminQq: "system.adminQq",
   publicBaseUrl: "system.publicBaseUrl",
   /** ICP 备案号（如「桂ICP备2025000000号-1」），为空表示不展示 */
   icp: "system.icp",
@@ -125,7 +124,6 @@ export interface CampuxConfigView {
 
 export interface SystemConfigView {
   siteName: string;
-  adminQq: string;
   publicBaseUrl: string;
   icp: string;
 }
@@ -193,7 +191,6 @@ export function readSystemConfig(): SystemConfigView {
   const stored = storedMap();
   return {
     siteName: stored.get(SYSTEM_KEYS.siteName) ?? DEFAULT_SITE_NAME,
-    adminQq: stored.get(SYSTEM_KEYS.adminQq) ?? "",
     publicBaseUrl: stored.get(SYSTEM_KEYS.publicBaseUrl) ?? config.publicBaseUrl,
     icp: stored.get(SYSTEM_KEYS.icp) ?? "",
   };
@@ -399,7 +396,6 @@ export interface SaveCampuxInput {
 
 export interface SaveSystemInput {
   siteName: string;
-  adminQq: string;
   publicBaseUrl: string;
   /** 未提供表示保持已保存的备案号不变 */
   icp?: string;
@@ -441,7 +437,6 @@ function writeCampux(input: SaveCampuxInput): void {
 
 function writeSystem(input: SaveSystemInput): void {
   setConfigValue(SYSTEM_KEYS.siteName, input.siteName.trim() || DEFAULT_SITE_NAME);
-  setConfigValue(SYSTEM_KEYS.adminQq, input.adminQq.trim());
   setConfigValue(
     SYSTEM_KEYS.publicBaseUrl,
     input.publicBaseUrl.trim().replace(/\/+$/, "") || config.appBaseUrl,

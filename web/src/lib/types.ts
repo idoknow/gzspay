@@ -100,7 +100,6 @@ export interface SessionResponse {
 /** 站点信息（GET /api/setup/status 中的 system） */
 export interface SetupSystemInfo {
   siteName: string;
-  adminQq: string;
   publicBaseUrl: string;
   /** ICP 备案号，空字符串表示未填写 */
   icp: string;

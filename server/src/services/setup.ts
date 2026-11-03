@@ -22,7 +22,7 @@ export interface SetupStatus {
   campuxConfigured: boolean;
   mailConfigured: boolean;
   adminCount: number;
-  system: { siteName: string; adminQq: string; publicBaseUrl: string; icp: string };
+  system: { siteName: string; publicBaseUrl: string; icp: string };
   campux: { baseUrl: string; clientId: string; clientSecretConfigured: boolean; scope: string };
   mail: MailConfigView;
 }
@@ -63,7 +63,6 @@ export interface SetupMailInput {
 
 export interface SetupSystemInput {
   siteName: string;
-  adminQq: string;
   publicBaseUrl?: string;
   /** ICP 备案号，留空表示暂不填写 */
   icp?: string;
@@ -101,7 +100,6 @@ export function saveSetupConfig(input: SetupConfigInput, ip: string): SetupStatu
     },
     system: {
       siteName: input.system?.siteName ?? system.siteName,
-      adminQq: input.system?.adminQq ?? system.adminQq,
       publicBaseUrl: input.system?.publicBaseUrl ?? system.publicBaseUrl,
       ...(input.system?.icp !== undefined ? { icp: input.system.icp } : {}),
     },

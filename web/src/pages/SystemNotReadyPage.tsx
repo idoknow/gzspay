@@ -17,7 +17,7 @@ export function SystemNotReadyPage({ status }: SystemNotReadyPageProps): ReactNo
   const watch = useWatchLayout();
   const [checking, setChecking] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const adminQq = status?.system?.adminQq?.trim() ?? "";
+  const siteName = status?.system?.siteName?.trim() ?? "";
 
   /** 前往管理后台（同 SPA 的不同入口，整页跳转确保后台状态机重新初始化） */
   const handleGoAdmin = (): void => {
@@ -56,8 +56,8 @@ export function SystemNotReadyPage({ status }: SystemNotReadyPageProps): ReactNo
           请管理员前往管理后台完成初始化配置（校园墙登录、发件配置、站点信息）
         </p>
 
-        {adminQq ? (
-          <p className="mt-3 text-sm text-muted watch:mt-2 watch:text-[12px]">管理员 QQ：{adminQq}</p>
+        {siteName ? (
+          <p className="mt-3 text-sm text-muted watch:mt-2 watch:text-[12px]">站点：{siteName}</p>
         ) : null}
 
         <button

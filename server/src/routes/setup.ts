@@ -53,7 +53,6 @@ const setupConfigSchema = z.object({
   system: z
     .object({
       siteName: z.string().trim().min(1, "请填写站点名称").max(100),
-      adminQq: z.string().trim().max(30).optional().default(""),
       publicBaseUrl: urlField.optional(),
       /** ICP 备案号，可留空 */
       icp: z.string().trim().max(60).optional(),

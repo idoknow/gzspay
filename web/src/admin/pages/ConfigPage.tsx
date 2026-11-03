@@ -136,7 +136,6 @@ interface EntryFormState {
 
 interface SiteFormState {
   siteName: string;
-  adminQq: string;
   publicBaseUrl: string;
   icp: string;
 }
@@ -146,7 +145,6 @@ function initialState(config: AdminConfig) {
   return {
     site: {
       siteName: system.siteName ?? "",
-      adminQq: system.adminQq ?? "",
       publicBaseUrl: system.publicBaseUrl ?? "",
       icp: system.icp ?? "",
     } satisfies SiteFormState,
@@ -268,7 +266,6 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
       const geoChanged = geoChangedFrom(geo, config.geo);
       const siteChanged =
         site.siteName.trim() !== (config.system.siteName ?? "") ||
-        site.adminQq.trim() !== (config.system.adminQq ?? "") ||
         site.publicBaseUrl.trim().replace(/\/+$/, "") !==
           (config.system.publicBaseUrl ?? "").replace(/\/+$/, "") ||
         site.icp.trim() !== (config.system.icp ?? "");
@@ -309,7 +306,6 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           ? {
               system: {
                 siteName: site.siteName.trim(),
-                adminQq: site.adminQq.trim(),
                 publicBaseUrl: site.publicBaseUrl.trim(),
                 icp: site.icp.trim(),
               },
@@ -346,7 +342,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
     <div className="admin-stack">
       <Card
         title="站点信息"
-        subtitle="站点名称、管理员 QQ、对外地址与 ICP 备案号"
+        subtitle="站点名称、对外地址与 ICP 备案号"
         extra={
           site.icp.trim() ? (
             <Badge tone="success" dot>
@@ -369,21 +365,9 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               onChange={(event) => setSite({ ...site, siteName: event.target.value })}
             />
           </Field>
-          <Field label="管理员 QQ" hint="站点初始化后用于联系管理员，主站「系统未就绪」页会展示。">
-            <input
-              className="admin-input"
-              placeholder="例如 1692138502"
-              inputMode="numeric"
-              value={site.adminQq}
-              disabled={readOnly}
-              onChange={(event) =>
-                setSite({ ...site, adminQq: event.target.value.replace(/\D/g, "") })
-              }
-            />
-          </Field>
           <Field
             label="站点地址"
-            hint="用于生成校园墙登录回调、邮件里的链接，例如 https://pay.idoknow.top。"
+            hint="用于生成校园墙登录回调与邮件里的链接，例如 https://pay.idoknow.top。"
           >
             <input
               className="admin-input"
@@ -957,10 +941,6 @@ function validate(
 ): { error?: string } {
   if (!site.siteName.trim()) return { error: "请填写站点名称。" };
   if (site.siteName.trim().length > 80) return { error: "站点名称不能超过 80 个字符。" };
-  const adminQq = site.adminQq.trim();
-  if (adminQq && !/^\d{5,12}$/.test(adminQq)) {
-    return { error: "管理员 QQ 需为 5–12 位数字。" };
-  }
   const siteUrl = site.publicBaseUrl.trim().replace(/\/+$/, "");
   if (siteUrl && !/^https?:\/\/[^\s]+$/i.test(siteUrl)) {
     return { error: "站点地址必须以 http:// 或 https:// 开头。" };
