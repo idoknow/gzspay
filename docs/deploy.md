@@ -258,11 +258,12 @@ kubectl apply -f deploy/k8s/autodeploy.yaml
 kubectl -n <namespace> logs deploy/gzspay-autodeploy -f
 ```
 
-日志里 `up to date: <sha>` 表示已是最新；`deploy <old> -> <new>, patch=200` 表示刚触发了一次更新。
+日志里 `up to date: <sha>` 表示已是最新；`deploy <old|unknown> -> <new>, patch=200` 表示刚触发了一次更新。
+首行为 `no state, deploy latest` 时说明 agent 是刚启动（或重建），会先补部署一次当前最新构建。
 
 注意：
 
 - 令牌只需要能读取和 patch 应用的 Deployment，建议单独签发最小权限令牌并定期轮换；令牌只放在 Secret 里，不要提交到仓库。
-- 状态保存在 agent 的 `emptyDir` 里，Pod 重建后会以「当前最新成功构建」为起点，不会补部署停机期间错过的版本；需要立即更新时可以推一次 `main` 或手动 `kubectl rollout restart`。
+- 状态保存在 agent 的 `emptyDir` 里，Pod 首次启动（含重建）时会主动部署一次「当前最新成功构建」，之后按 commit 变化增量更新；需要立即更新时推一次 `main` 即可。
 - 关闭自动更新：`kubectl -n <namespace> scale deployment/gzspay-autodeploy --replicas=0`。
 - 如果集群策略禁止常驻 agent（例如只允许默认 ServiceAccount 运行特定工作负载），也可以继续手工 `kubectl rollout restart`，不影响 CI 出镜像。

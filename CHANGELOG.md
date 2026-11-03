@@ -16,7 +16,7 @@
 - 管理后台「系统配置」新增「站点信息」卡片，可修改站点名称、对外地址与 **ICP 备案号**（最多 60 字符）；备案号填写后显示在启动开屏底部、登录页页脚、全站底部导航上方、使用文档页脚与关于页首张卡片，点击跳转工信部备案系统，留空则不展示。`GET /api/auth/session` 与 `GET /api/about` 增加 `site: { name, schoolName, icp }`（未登录也返回），前端统一由 `web/src/components/SiteIcp.tsx` 渲染；同时把默认站点名称改为「gzspay 校园服务」。
 - 新增可配置「校名」：管理后台「系统配置 → 站点信息」可填学校简称（最多 20 字符），登录页副标、关于页首张卡片标题与邮件品牌行会显示成「{校名}校园服务 / {校名}校园收付款」，开屏与站点标题也会同步改写；留空则只显示「校园服务」，适合开源部署自己填。`system.schoolName` 通过 `GET /api/auth/session`、`GET /api/about` 与 `GET /api/setup/status` 对外只读暴露。
 - 新增**安卓 NFC 读卡**（Web NFC）：在绑定 / 换绑校园卡与收付款扫码处，支持 Web NFC 的安卓 Chrome 可以把卡片贴到手机背面，直接读取卡片 NDEF 文本（即卡号）并填入，读取成功会有轻微振动反馈；需要 HTTPS 且系统已开启 NFC。不支持的设备（iOS、桌面、微信等内置浏览器）也会显示「NFC 读卡」按钮，并明确提示当前设备不支持、请改用扫码或手动输入。组件在 `web/src/components/NfcCardReader.tsx`。
-- 新增**集群自动更新镜像**（可选，Kubernetes）：`deploy/k8s/autodeploy.yaml` 提供一个常驻的 1 副本 Deployment，每 2 分钟查询 GitHub Actions 最近一次成功的 `main` 构建 commit，与上次部署的 commit 不同时 PATCH 应用 Deployment 触发滚动重启；配合镜像 `:latest` 与 `imagePullPolicy: Always`，CI 推送新镜像后集群会自动更新。凭据放在 Secret `gzspay-autodeploy`（不提交到仓库），用法与关闭方式见 `docs/deploy.md` 第 10 节。
+- 新增**集群自动更新镜像**（可选，Kubernetes）：`deploy/k8s/autodeploy.yaml` 提供一个常驻的 1 副本 Deployment，每 2 分钟查询 GitHub Actions 最近一次成功的 `main` 构建 commit，与上次部署的 commit 不同时 PATCH 应用 Deployment 触发滚动重启；配合镜像 `:latest` 与 `imagePullPolicy: Always`，CI 推送新镜像后集群会自动更新。凭据放在 Secret `gzspay-autodeploy`（不提交到仓库），用法与关闭方式见 `docs/deploy.md` 第 10 节；agent 首次启动（含 Pod 重建）会先补部署一次当前最新构建，之后按 commit 变化增量更新。
 
 ### 变更
 
