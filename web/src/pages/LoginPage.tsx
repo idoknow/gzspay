@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { LegalDocLinks } from "../components/LegalDocLinks";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
+import { SiteIcp } from "../components/SiteIcp";
 import { getSetupStatus, LOGIN_URL } from "../lib/api";
 import { useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
@@ -33,6 +34,8 @@ export function LoginPage(): ReactNode {
   const { authenticated, onboarded } = useAuth();
   /** 校园墙登录是否可用：null 表示状态未知（读取失败或仍在读取） */
   const [campuxConfigured, setCampuxConfigured] = useState<boolean | null>(null);
+  /** 站点备案号（读取失败则留空，不展示） */
+  const [icp, setIcp] = useState("");
   const redirect = safeRedirect(params.get("redirect"));
   const authError = params.get("auth_error");
 
@@ -41,7 +44,9 @@ export function LoginPage(): ReactNode {
     let active = true;
     getSetupStatus()
       .then((status) => {
-        if (active) setCampuxConfigured(status.campuxConfigured);
+        if (!active) return;
+        setCampuxConfigured(status.campuxConfigured);
+        setIcp(status.system.icp ?? "");
       })
       .catch(() => {
         // 忽略：状态未知时保持入口可用
@@ -111,6 +116,9 @@ export function LoginPage(): ReactNode {
         <p className="text-[11px] text-muted watch:text-[9px]">
           <LegalDocLinks prefix="登录即代表你已阅读并同意" />
         </p>
+        <div className="mt-2 watch:mt-1">
+          <SiteIcp icp={icp} className="text-[10px] watch:text-[9px]" />
+        </div>
       </div>
     </div>
   );

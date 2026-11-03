@@ -5,6 +5,7 @@ import { asyncHandler, requireUser } from "../lib/http.js";
 import { LEGAL_EFFECTIVE_AT, LEGAL_UPDATED_AT, PRIVACY_POLICY, TERMS_OF_SERVICE } from "../content/legal.js";
 import { markAnnouncementRead, userAnnouncements } from "../services/announcements.js";
 import { readChangelog } from "./me.js";
+import { readSystemConfig } from "../lib/runtime-config.js";
 import { eventStreamHandler } from "../services/events.js";
 
 export const miscRouter: Router = Router();
@@ -21,6 +22,7 @@ miscRouter.get("/health", (_req, res) => {
 });
 
 miscRouter.get("/about", (_req, res) => {
+  const system = readSystemConfig();
   res.json({
     version: config.version,
     changelog: readChangelog(),
@@ -29,6 +31,7 @@ miscRouter.get("/about", (_req, res) => {
     privacyUpdatedAt: LEGAL_UPDATED_AT,
     termsUpdatedAt: LEGAL_UPDATED_AT,
     legalEffectiveAt: LEGAL_EFFECTIVE_AT,
+    site: { name: system.siteName, icp: system.icp },
   });
 });
 

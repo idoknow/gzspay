@@ -301,6 +301,7 @@ function mapSetupStatus(payload: unknown): SetupStatus {
       ),
       adminQq: textOr(firstText(system, ["adminQq"]), ""),
       publicBaseUrl: textOr(firstText(system, ["publicBaseUrl", "baseUrl"]), ""),
+      icp: textOr(firstText(system, ["icp", "icpNumber", "beian"]), ""),
     },
     campux: {
       baseUrl: textOr(firstText(campux, ["baseUrl"]), ""),
@@ -1815,6 +1816,7 @@ export async function getConfig(): Promise<AdminConfig> {
         firstText(systemSource, ["publicBaseUrl", "publicUrl", "baseUrl"]),
         "",
       ),
+      icp: textOr(firstText(systemSource, ["icp", "icpNumber", "beian"]), ""),
     },
     geo: mapGeoConfig(source),
     securityEntry: mapAdminEntryConfig(source),

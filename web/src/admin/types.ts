@@ -595,6 +595,8 @@ export interface SiteConfig {
   siteName: string;
   adminQq: string;
   publicBaseUrl: string;
+  /** ICP 备案号，空字符串表示不展示 */
+  icp: string;
 }
 
 /** 地区访问限制（仅允许中国大陆 IP） */
@@ -675,6 +677,8 @@ export interface AdminConfigInput {
     siteName: string;
     adminQq: string;
     publicBaseUrl: string;
+    /** ICP 备案号，空字符串表示不展示 */
+    icp?: string;
   };
   geo?: {
     blockNonChina: boolean;
@@ -706,6 +710,8 @@ export interface SetupSystemInfo {
   siteName: string;
   adminQq: string;
   publicBaseUrl: string;
+  /** ICP 备案号，空字符串表示未填写 */
+  icp: string;
 }
 
 /** 校园墙登录配置（GET /setup/status 的 campux，密钥不回显） */

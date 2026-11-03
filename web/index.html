@@ -249,6 +249,21 @@
           transform: translateY(0);
         }
       }
+      #boot-icp {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: max(env(safe-area-inset-bottom), 18px);
+        display: none;
+        text-align: center;
+        font-size: 10px;
+        letter-spacing: 0.02em;
+        color: var(--boot-muted);
+        text-decoration: none;
+      }
+      #boot-icp:hover {
+        color: var(--boot-text);
+      }
       @media (max-width: 359px) {
         #boot-splash {
           gap: 12px;
@@ -298,8 +313,31 @@
         <p class="boot-tagline">CAMPUS SERVICE</p>
       </div>
       <div id="boot-bar"><i></i></div>
+      <a
+        id="boot-icp"
+        href="https://beian.miit.gov.cn/"
+        target="_blank"
+        rel="noreferrer noopener"
+      ></a>
     </div>
     <noscript>gzspay 需要启用 JavaScript 才能使用。</noscript>
+    <script>
+      // 开屏底部备案号：初始化状态接口对未初始化也放行，读取失败则保持隐藏
+      (function () {
+        fetch("/api/setup/status", { headers: { accept: "application/json" } })
+          .then(function (res) {
+            return res.ok ? res.json() : null;
+          })
+          .then(function (data) {
+            var icp = data && data.system && data.system.icp;
+            var el = document.getElementById("boot-icp");
+            if (!icp || !el) return;
+            el.textContent = icp;
+            el.style.display = "block";
+          })
+          .catch(function () {});
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

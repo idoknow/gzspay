@@ -45,6 +45,8 @@ const SYSTEM_KEYS = {
   siteName: "system.siteName",
   adminQq: "system.adminQq",
   publicBaseUrl: "system.publicBaseUrl",
+  /** ICP 备案号（如「桂ICP备2025000000号-1」），为空表示不展示 */
+  icp: "system.icp",
   initialized: "system.initialized",
 } as const;
 
@@ -60,7 +62,7 @@ const ADMIN_KEYS = {
   entryPath: "admin.entryPath",
 } as const;
 
-const DEFAULT_SITE_NAME = "gzspay 桂中校园支付";
+const DEFAULT_SITE_NAME = "gzspay 桂中校园服务";
 
 /**
  * app_config 的读取非常频繁：systemGate 每个 /api 请求都要判断系统是否初始化、
@@ -125,6 +127,7 @@ export interface SystemConfigView {
   siteName: string;
   adminQq: string;
   publicBaseUrl: string;
+  icp: string;
 }
 
 export interface GeoConfigView {
@@ -192,6 +195,7 @@ export function readSystemConfig(): SystemConfigView {
     siteName: stored.get(SYSTEM_KEYS.siteName) ?? DEFAULT_SITE_NAME,
     adminQq: stored.get(SYSTEM_KEYS.adminQq) ?? "",
     publicBaseUrl: stored.get(SYSTEM_KEYS.publicBaseUrl) ?? config.publicBaseUrl,
+    icp: stored.get(SYSTEM_KEYS.icp) ?? "",
   };
 }
 
@@ -397,6 +401,8 @@ export interface SaveSystemInput {
   siteName: string;
   adminQq: string;
   publicBaseUrl: string;
+  /** 未提供表示保持已保存的备案号不变 */
+  icp?: string;
 }
 
 export interface SaveGeoInput {
@@ -440,6 +446,9 @@ function writeSystem(input: SaveSystemInput): void {
     SYSTEM_KEYS.publicBaseUrl,
     input.publicBaseUrl.trim().replace(/\/+$/, "") || config.appBaseUrl,
   );
+  if (input.icp !== undefined) {
+    setConfigValue(SYSTEM_KEYS.icp, input.icp.trim());
+  }
 }
 
 function writeSecurity(input: SaveSecurityInput): void {

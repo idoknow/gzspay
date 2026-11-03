@@ -7,6 +7,7 @@ import { randomToken } from "../lib/crypto.js";
 import { AppError, errors } from "../lib/errors.js";
 import { asyncHandler, attachUser } from "../lib/http.js";
 import { rateLimit } from "../lib/rate-limit.js";
+import { readSystemConfig } from "../lib/runtime-config.js";
 import {
   clearSessionCookie,
   issueSession,
@@ -30,11 +31,14 @@ function adminRoleOf(userId: string): AdminRow | undefined {
 
 authRouter.get("/session", attachUser, (req, res) => {
   const auth = req.auth;
+  const system = readSystemConfig();
+  const site = { name: system.siteName, icp: system.icp };
   if (!auth) {
     res.json({
       authenticated: false,
       isAdmin: false,
       campuxConfigured: isCampuxConfigured(),
+      site,
     });
     return;
   }
@@ -44,6 +48,7 @@ authRouter.get("/session", attachUser, (req, res) => {
     onboardStep: auth.user.onboard_step,
     isAdmin: adminRoleOf(auth.user.id) !== undefined,
     campuxConfigured: isCampuxConfigured(),
+    site,
     me: toMe(auth.user),
   });
 });

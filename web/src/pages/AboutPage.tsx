@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { LogoMark, Tagline, Wordmark } from "../components/Logo";
+import { SiteIcp } from "../components/SiteIcp";
 import { PageHeader } from "../components/PageHeader";
 import { getAbout } from "../lib/api";
 import { cn } from "../lib/format";
@@ -124,6 +125,9 @@ export function AboutPage(): ReactNode {
             <p className="mt-3.5 max-w-[19rem] text-[11px] leading-relaxed text-[color:var(--hero-fg-faint)]">
               gzspay 提供校园内的收付款记录与沟通工具，资金通过第三方收款码流转，不代收代付。
             </p>
+            <div className="mt-2">
+              <SiteIcp tone="hero" icp={data?.site?.icp} className="text-[10.5px] watch:text-[9.5px]" />
+            </div>
           </div>
         </section>
 

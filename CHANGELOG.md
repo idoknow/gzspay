@@ -7,6 +7,10 @@
 
 > 下一个版本的改动记录在这里：发布时把本小节标题改成 `## [版本号] - 日期`。
 
+### 新增
+
+- 管理后台「系统配置」新增「站点信息」卡片，可修改站点名称、管理员 QQ、对外地址与 **ICP 备案号**（最多 60 字符）；备案号填写后显示在启动开屏底部、登录页页脚、全站底部导航上方、使用文档页脚与关于页首张卡片，点击跳转工信部备案系统，留空则不展示。`GET /api/auth/session` 与 `GET /api/about` 增加 `site: { name, icp }`（未登录也返回），前端统一由 `web/src/components/SiteIcp.tsx` 渲染；同时把默认站点名称改为「gzspay 桂中校园服务」。
+
 ### 变更
 
 - 静态资源改为构建期预压缩：`npm run build` 末尾的 `scripts/compress-dist.mjs` 会为 `web/dist` 下的 js/css/html/svg/json 等生成 `.br` 与 `.gz` 变体，服务端 `server/src/lib/static-assets.ts` 按 `Accept-Encoding` 协商返回（br 优先），补上 `Vary: Accept-Encoding`、`Content-Encoding`、`ETag` 与 `304`；主包从 377KB 降到约 101KB、CSS 从 74KB 降到约 11KB、首屏 HTML 从 10KB 降到约 2.2KB，缺少预压缩文件的资源回退为即时 gzip。`/assets/*` 保持一年 `immutable` 强缓存，`index.html` 改为 `no-cache`，`docs/deploy.md` 补充「反向代理不要再开 gzip」的说明。

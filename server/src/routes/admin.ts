@@ -582,6 +582,8 @@ const configSchema = z
         siteName: z.string().trim().max(80),
         adminQq: z.string().trim().max(40),
         publicBaseUrl: configUrlSchema,
+        /** ICP 备案号（如「桂ICP备2025000000号-1」），留空表示不展示 */
+        icp: z.string().trim().max(60).optional(),
       })
       .optional(),
     geo: z
@@ -633,7 +635,10 @@ adminRouter.put(
     // 站点信息全空时同样不写入
     const system =
       body.system &&
-      (body.system.siteName || body.system.adminQq || body.system.publicBaseUrl)
+      (body.system.siteName ||
+        body.system.adminQq ||
+        body.system.publicBaseUrl ||
+        body.system.icp !== undefined)
         ? body.system
         : undefined;
 

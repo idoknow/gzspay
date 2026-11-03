@@ -85,7 +85,7 @@ interface Me {
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/api/auth/session` | 当前登录态：`{ authenticated, me?, onboardStep?, isAdmin, campuxConfigured }`；`campuxConfigured` 表示是否已配置校园墙 OAuth |
+| `GET` | `/api/auth/session` | 当前登录态：`{ authenticated, me?, onboardStep?, isAdmin, campuxConfigured, site: { name, icp } }`；`campuxConfigured` 表示是否已配置校园墙 OAuth；`site.icp` 为站点备案号（空字符串表示未填写，未登录也会返回，登录页与全站页脚据此展示） |
 | `GET` | `/api/auth/login` | 302 跳转校园墙授权页（生成 state + PKCE） |
 | `GET` | `/api/auth/callback?code&state` | 校园墙回调，成功后 302 到 `APP_BASE_URL/`（新用户到 `/onboarding`，`redirect=/admin` 时到 `/admin`）；系统未初始化时第一个登录的账号自动成为超级管理员。state 带 `purpose=password_verify` 时不切换登录态，只核对授权账号与当前登录账号一致后写入一次性验证记录，再跳回 `/me/password?campux=1` |
 | `POST` | `/api/auth/logout` | 退出登录，清 Cookie |
@@ -145,7 +145,7 @@ interface Me {
 | `GET` | `/api/me/devices` | `{ items: LoginDevice[], onlineWindowMinutes }` 登录设备列表；`LoginDevice = { id, current, deviceName, deviceType: "mobile"\|"tablet"\|"desktop"\|"other", os, browser, ip, createdAt, lastSeenAt, expiresAt, online }`，`current` 为当前请求所属会话，`online` 指会话未过期且最近 `onlineWindowMinutes`（5）分钟内有请求 |
 | `POST` | `/api/me/devices/:id/logout` | 退出指定设备，`{ ok: true, current }`；退出的是当前设备时会同时清掉会话 Cookie |
 | `POST` | `/api/me/devices/logout-others` | 退出除当前设备外的所有设备，`{ ok: true, revoked }` |
-| `GET` | `/api/about` | `{ version, changelog: [{version, date, items[], groups: [{title, items[]}]}], privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文，日期为 YYYY-MM-DD） |
+| `GET` | `/api/about` | `{ version, changelog: [{version, date, items[], groups: [{title, items[]}]}], site: { name, icp }, privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文，日期为 YYYY-MM-DD；`site.icp` 为空字符串表示未填写备案号） |
 
 ## 5. 商家
 
@@ -378,8 +378,8 @@ interface Announcement {
 | `DELETE` | `/api/admin/announcements/:id` | 删除（super/ops） |
 | `GET` | `/api/admin/logs?type=audit|login|risk|error&from&to&query&page&pageSize` | `{ items: AdminLog[], ... }` |
 | `GET` | `/api/admin/logs/export?type&from&to&query` | 日志 CSV |
-| `GET` | `/api/admin/config` | `AdminConfig`：`{ campux: CampuxConfig, mail: MailConfig, security: SecurityConfig, system: SystemConfig, geo: GeoConfig, securityEntry: SecurityEntryConfig }`；`mail.passwordConfigured` / `campux.clientSecretConfigured` 表示是否已配置，不返回明文；`system` 含 `siteName/adminQq/publicBaseUrl`；`geo` 含 `blockNonChina/bypassPaths/ipWhitelist/unknownPolicy/trustHeader` 与只读的 `dataUpdatedAt/ipv4Count/ipv6Count`；`securityEntry` 含 `entryPath`（空字符串表示未启用）与 `entryUrl` |
-| `PUT` | `/api/admin/config` | 更新配置（仅 super）；body 为 `{ campux?, mail?, security?, system?, geo?, securityEntry? }`，各块可只传其一，未传的块保持不变。`campux` 为 `{ baseUrl, clientId, clientSecret?, scope? }`，`baseUrl`/`clientId` 都为空时视为「未配置」跳过写入（保留 `.env` 兜底），`clientSecret` 留空表示保留原密钥；`geo` 为 `{ blockNonChina, bypassPaths[], ipWhitelist, unknownPolicy: "deny"|"allow", trustHeader }`（白名单逗号分隔，逐项校验 IP/CIDR，非法返回 `400 VALIDATION_FAILED`）；`securityEntry` 为 `{ entryPath }`，`""` 表示关闭安全入口，否则需 4–32 位字母/数字/下划线/短横线且不能与站点已有路径冲突。保存后立即生效，返回更新后的 `AdminConfig` |
+| `GET` | `/api/admin/config` | `AdminConfig`：`{ campux: CampuxConfig, mail: MailConfig, security: SecurityConfig, system: SystemConfig, geo: GeoConfig, securityEntry: SecurityEntryConfig }`；`mail.passwordConfigured` / `campux.clientSecretConfigured` 表示是否已配置，不返回明文；`system` 含 `siteName/adminQq/publicBaseUrl/icp`；`geo` 含 `blockNonChina/bypassPaths/ipWhitelist/unknownPolicy/trustHeader` 与只读的 `dataUpdatedAt/ipv4Count/ipv6Count`；`securityEntry` 含 `entryPath`（空字符串表示未启用）与 `entryUrl` |
+| `PUT` | `/api/admin/config` | 更新配置（仅 super）；body 为 `{ campux?, mail?, security?, system?, geo?, securityEntry? }`，各块可只传其一，未传的块保持不变。`campux` 为 `{ baseUrl, clientId, clientSecret?, scope? }`，`baseUrl`/`clientId` 都为空时视为「未配置」跳过写入（保留 `.env` 兜底），`clientSecret` 留空表示保留原密钥；`geo` 为 `{ blockNonChina, bypassPaths[], ipWhitelist, unknownPolicy: "deny"|"allow", trustHeader }`（白名单逗号分隔，逐项校验 IP/CIDR，非法返回 `400 VALIDATION_FAILED`）；`securityEntry` 为 `{ entryPath }`，`""` 表示关闭安全入口，否则需 4–32 位字母/数字/下划线/短横线且不能与站点已有路径冲突。`system` 为 `{ siteName, adminQq, publicBaseUrl, icp? }`，`icp` 为 ICP 备案号（最多 60 字符，空字符串表示不展示，不传表示保持原值）。保存后立即生效，返回更新后的 `AdminConfig` |
 | `GET` | `/api/admin/security/entry-visits?limit=20` | `{ total, items: AdminEntryVisit[] }`：绕过安全入口直接访问 `/admin` 的访问记录（`id/ip/method/path/query/userAgent/referer/createdAt`），按时间倒序，最多保留约 3000 条 |
 | `GET` | `/api/admin/traffic?days=7` | `TrafficStats`：最近 `days`（1–90，默认 7）天的访问统计。`{ days, since, until, requests: { total, today, averagePerDay }, scans: { total, items: TrafficBreakdownItem[] }, security: { total, items }, routes/statuses/devices/browsers/systems/regions: TrafficBreakdownItem[], series: [{ day, label, requests, scans, security }], generatedAt }`；`TrafficBreakdownItem` = `{ key, label, count, share }`。统计只保存按天聚合的计数（`traffic_counters` 表），**不保存 IP 与 User-Agent**，仅管理员可访问 |
 
@@ -391,4 +391,4 @@ interface Announcement {
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/health` | `{ status: "ok"|"degraded", version, time, uptimeSeconds, database: "up"|"down" }` |
-| `GET` | `/api/about` | `{ version, changelog: [{ version, date, items[], groups: [{ title, items[] }] }], privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文） |
+| `GET` | `/api/about` | `{ version, changelog: [{ version, date, items[], groups: [{ title, items[] }] }], site: { name, icp }, privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文） |

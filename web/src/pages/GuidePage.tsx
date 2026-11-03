@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogoMark, Wordmark } from "../components/Logo";
+import { SiteIcp } from "../components/SiteIcp";
 import { GUIDE_SECTIONS, GUIDE_UPDATED_AT } from "../content/guide";
 import { Markdown } from "../lib/markdown";
 import { useAuth } from "../lib/session";
@@ -164,6 +165,9 @@ export function GuidePage(): ReactNode {
           </a>
           <span aria-hidden="true">·</span>
           <span>gzspay · 资金通过第三方收款码流转</span>
+        </div>
+        <div className="mt-3 flex justify-center">
+          <SiteIcp className="text-[10px]" />
         </div>
       </main>
     </div>

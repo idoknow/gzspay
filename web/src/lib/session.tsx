@@ -25,8 +25,17 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** 保留站点公开信息（登录页与开屏要显示备案号），未登录时其它字段清空 */
+function anonymousState(previous?: SessionResponse): SessionResponse {
+  return {
+    authenticated: false,
+    site: previous?.site,
+    campuxConfigured: previous?.campuxConfigured,
+  };
+}
+
 function toSessionState(session: SessionResponse): SessionResponse {
-  if (!session.authenticated) return { authenticated: false };
+  if (!session.authenticated) return anonymousState(session);
   return session;
 }
 
@@ -68,9 +77,8 @@ export function AuthProvider({
       return next;
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
-        const anonymous: SessionResponse = { authenticated: false };
-        setSessionState(anonymous);
-        return anonymous;
+        setSessionState((current) => anonymousState(current));
+        return { authenticated: false };
       }
       throw error;
     }
@@ -83,7 +91,7 @@ export function AuthProvider({
       // 退出失败也继续清理本地态；下次进入会被 401 拦回登录页
       if (!(error instanceof ApiError)) throw error;
     }
-    setSessionState({ authenticated: false });
+    setSessionState((current) => anonymousState(current));
     window.location.assign("/login");
   }, []);
 

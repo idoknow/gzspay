@@ -72,7 +72,7 @@ export function ConfigPage() {
       {error && !data ? (
         <ErrorState message={errorMessage(error)} onRetry={() => refresh()} />
       ) : loading && !data ? (
-        <SkeletonCards count={5} />
+        <SkeletonCards count={6} />
       ) : data ? (
         <ConfigForm
           key={`${data.campux.baseUrl}:${data.campux.clientId}:${data.campux.clientSecretConfigured}:${data.mail.host}:${data.mail.passwordConfigured}:${data.security.paymentPasswordMaxAttempts}:${data.security.sessionTtlDays}:${data.geo.blockNonChina}:${data.geo.unknownPolicy}:${data.geo.bypassPaths.join(",")}:${data.geo.ipWhitelist}:${data.geo.trustHeader}:${data.securityEntry.entryPath}`}
@@ -134,9 +134,22 @@ interface EntryFormState {
   entryPath: string;
 }
 
+interface SiteFormState {
+  siteName: string;
+  adminQq: string;
+  publicBaseUrl: string;
+  icp: string;
+}
+
 function initialState(config: AdminConfig) {
-  const { campux, mail, security, geo, securityEntry } = config;
+  const { campux, mail, security, geo, securityEntry, system } = config;
   return {
+    site: {
+      siteName: system.siteName ?? "",
+      adminQq: system.adminQq ?? "",
+      publicBaseUrl: system.publicBaseUrl ?? "",
+      icp: system.icp ?? "",
+    } satisfies SiteFormState,
     campux: {
       baseUrl: campux.baseUrl ?? "",
       clientId: campux.clientId ?? "",
@@ -216,6 +229,7 @@ function centsToYuanInput(cents: number): string {
 function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
   const feedback = useFeedback();
   const initial = initialState(config);
+  const [site, setSite] = useState<SiteFormState>(initial.site);
   const [campux, setCampux] = useState<CampuxFormState>(initial.campux);
   const [mail, setMail] = useState<MailFormState>(initial.mail);
   const [security, setSecurity] = useState<SecurityFormState>(initial.security);
@@ -224,13 +238,14 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const callbackUrl = `${(config.system.publicBaseUrl || "").replace(/\/+$/, "")}/api/auth/callback`;
+  const callbackUrl = `${(site.publicBaseUrl || "").replace(/\/+$/, "")}/api/auth/callback`;
   const entryUrlPreview = `${window.location.origin}${
     entry.entryPath.trim() ? `/${entry.entryPath.trim()}/admin` : "/admin"
   }`;
 
   async function handleSave() {
     const validation = validate(
+      site,
       campux,
       mail,
       security,
@@ -251,6 +266,12 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
         Boolean(campux.clientId.trim()) ||
         Boolean(campux.clientSecret);
       const geoChanged = geoChangedFrom(geo, config.geo);
+      const siteChanged =
+        site.siteName.trim() !== (config.system.siteName ?? "") ||
+        site.adminQq.trim() !== (config.system.adminQq ?? "") ||
+        site.publicBaseUrl.trim().replace(/\/+$/, "") !==
+          (config.system.publicBaseUrl ?? "").replace(/\/+$/, "") ||
+        site.icp.trim() !== (config.system.icp ?? "");
       const entryPath = entry.entryPath.trim();
       const entryChanged = entryPath !== (config.securityEntry.entryPath ?? "");
       const input: AdminConfigInput = {
@@ -284,6 +305,16 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           emailCodeTtlSeconds: Number(security.emailCodeTtl),
           sessionTtlDays: Number(security.sessionTtlDays),
         },
+        ...(siteChanged
+          ? {
+              system: {
+                siteName: site.siteName.trim(),
+                adminQq: site.adminQq.trim(),
+                publicBaseUrl: site.publicBaseUrl.trim(),
+                icp: site.icp.trim(),
+              },
+            }
+          : {}),
         ...(geoChanged
           ? {
               geo: {
@@ -313,6 +344,72 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
 
   return (
     <div className="admin-stack">
+      <Card
+        title="站点信息"
+        subtitle="站点名称、管理员 QQ、对外地址与 ICP 备案号"
+        extra={
+          site.icp.trim() ? (
+            <Badge tone="success" dot>
+              已填写备案号
+            </Badge>
+          ) : (
+            <Badge tone="neutral" dot>
+              未填写备案号
+            </Badge>
+          )
+        }
+      >
+        <div className="admin-form-grid">
+          <Field label="站点名称" required hint="显示在关于页、登录页与邮件署名中。">
+            <input
+              className="admin-input"
+              placeholder="gzspay 桂中校园服务"
+              value={site.siteName}
+              disabled={readOnly}
+              onChange={(event) => setSite({ ...site, siteName: event.target.value })}
+            />
+          </Field>
+          <Field label="管理员 QQ" hint="站点初始化后用于联系管理员，主站「系统未就绪」页会展示。">
+            <input
+              className="admin-input"
+              placeholder="例如 1692138502"
+              inputMode="numeric"
+              value={site.adminQq}
+              disabled={readOnly}
+              onChange={(event) =>
+                setSite({ ...site, adminQq: event.target.value.replace(/\D/g, "") })
+              }
+            />
+          </Field>
+          <Field
+            label="站点地址"
+            hint="用于生成校园墙登录回调、邮件里的链接，例如 https://pay.idoknow.top。"
+          >
+            <input
+              className="admin-input"
+              placeholder="https://pay.idoknow.top"
+              value={site.publicBaseUrl}
+              disabled={readOnly}
+              onChange={(event) =>
+                setSite({ ...site, publicBaseUrl: event.target.value })
+              }
+            />
+          </Field>
+          <Field
+            label="ICP 备案号"
+            hint="例如「桂ICP备2025000000号-1」。填写后会显示在开屏、登录页、全站底部与关于页，留空则不展示。"
+          >
+            <input
+              className="admin-input"
+              placeholder="桂ICP备2025000000号-1"
+              value={site.icp}
+              disabled={readOnly}
+              onChange={(event) => setSite({ ...site, icp: event.target.value })}
+            />
+          </Field>
+        </div>
+      </Card>
+
       <Card
         title="校园墙 OAuth 登录"
         subtitle="用户使用校园墙账号扫码登录本站，需在校园墙后台登记回调地址"
@@ -850,6 +947,7 @@ function geoChangedFrom(geo: GeoFormState, saved: AdminConfig["geo"]): boolean {
 }
 
 function validate(
+  site: SiteFormState,
   campux: CampuxFormState,
   mail: MailFormState,
   security: SecurityFormState,
@@ -857,6 +955,18 @@ function validate(
   geo: GeoFormState,
   entry: EntryFormState,
 ): { error?: string } {
+  if (!site.siteName.trim()) return { error: "请填写站点名称。" };
+  if (site.siteName.trim().length > 80) return { error: "站点名称不能超过 80 个字符。" };
+  const adminQq = site.adminQq.trim();
+  if (adminQq && !/^\d{5,12}$/.test(adminQq)) {
+    return { error: "管理员 QQ 需为 5–12 位数字。" };
+  }
+  const siteUrl = site.publicBaseUrl.trim().replace(/\/+$/, "");
+  if (siteUrl && !/^https?:\/\/[^\s]+$/i.test(siteUrl)) {
+    return { error: "站点地址必须以 http:// 或 https:// 开头。" };
+  }
+  if (site.icp.trim().length > 60) return { error: "备案号不能超过 60 个字符。" };
+
   const baseUrl = campux.baseUrl.trim();
   const clientId = campux.clientId.trim();
   const campuxTouched = Boolean(baseUrl) || Boolean(clientId) || Boolean(campux.clientSecret);

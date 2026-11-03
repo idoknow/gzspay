@@ -77,6 +77,14 @@ export interface Me {
   createdAt: string;
 }
 
+/** 站点公开信息（会话与关于接口都会带上） */
+export interface SiteInfo {
+  /** 站点名称 */
+  name: string;
+  /** ICP 备案号，空字符串表示未填写 */
+  icp: string;
+}
+
 /** GET /api/auth/session */
 export interface SessionResponse {
   authenticated: boolean;
@@ -85,6 +93,8 @@ export interface SessionResponse {
   isAdmin?: boolean;
   /** 是否已配置校园墙 OAuth（未配置时只能使用邮箱验证等替代方式） */
   campuxConfigured?: boolean;
+  /** 站点公开信息（名称 / 备案号），登录页与全站页脚用 */
+  site?: SiteInfo;
 }
 
 /** 站点信息（GET /api/setup/status 中的 system） */
@@ -92,6 +102,8 @@ export interface SetupSystemInfo {
   siteName: string;
   adminQq: string;
   publicBaseUrl: string;
+  /** ICP 备案号，空字符串表示未填写 */
+  icp: string;
 }
 
 /**
@@ -455,6 +467,8 @@ export interface ChangelogEntry {
 export interface AboutResponse {
   version: string;
   changelog: ChangelogEntry[];
+  /** 站点公开信息（名称 / 备案号） */
+  site?: SiteInfo;
   /** Markdown 原文 */
   privacy: string;
   /** Markdown 原文 */
