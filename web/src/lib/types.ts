@@ -354,6 +354,44 @@ export interface CreatePaymentRequestPayload {
   reservedNote: string;
 }
 
+export type PaymentCollectionStatus = "pending" | "used" | "cancelled" | "expired";
+
+/** 商家自建的固定金额收款单（一次性，付款后失效） */
+export interface PaymentCollection {
+  id: string;
+  status: PaymentCollectionStatus;
+  amountCents: number;
+  title: string;
+  items: OrderItem[] | null;
+  reservedNote: string | null;
+  merchant: PublicUser;
+  merchantName: string;
+  createdAt: string;
+  expiresAt: string;
+  decidedAt: string | null;
+  orderId: string | null;
+}
+
+/** 商家创建收款单后返回：含二维码/链接内容，库内只存令牌哈希 */
+export interface PaymentCollectionCreateResult {
+  collection: PaymentCollection;
+  url: string;
+}
+
+/** 付款人扫码后的收款单预览 */
+export interface PaymentCollectionPreview extends PaymentCollection {
+  /** 当前是否还能付款 */
+  payeable: boolean;
+}
+
+/** POST /api/merchant/collections 请求体 */
+export interface CreatePaymentCollectionPayload {
+  amountCents?: number;
+  items?: { productId: string; quantity: number }[];
+  reservedNote?: string | null;
+  title?: string | null;
+}
+
 /** SSE payment_request 事件的 data：扁平收款请求 */
 export type PaymentRequestEvent = PaymentRequest;
 

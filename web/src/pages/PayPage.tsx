@@ -981,7 +981,23 @@ export function PayPage(): ReactNode {
           </>
         ) : (
           <>
-            {collectStep === "scan" ? scanPanel("collect") : null}
+            {collectStep === "scan" ? (
+              <>
+                {scanPanel("collect")}
+                <section className="card p-4 text-center">
+                  <p className="text-xs leading-relaxed text-muted">
+                    不想先扫对方的动态码？可以直接定好金额或商品，生成二维码让对方扫码付款。
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-block mt-3"
+                    onClick={() => navigate("/merchant/collect")}
+                  >
+                    发起指定金额收款
+                  </button>
+                </section>
+              </>
+            ) : null}
 
             {collectStep === "amount" && customer ? (
               <>

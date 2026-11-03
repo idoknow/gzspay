@@ -64,6 +64,23 @@ export interface PaymentRequestRow {
   decided_at: string | null;
 }
 
+/** 商家自建收款单：生成二维码，付款人扫码按固定金额付款（一次性） */
+export interface PaymentCollectionRow {
+  id: string;
+  token_hash: string;
+  merchant_id: string;
+  amount_cents: number;
+  title: string;
+  items_json: string | null;
+  reserved_note: string | null;
+  status: "pending" | "used" | "cancelled" | "expired";
+  order_id: string | null;
+  payer_id: string | null;
+  created_at: string;
+  expires_at: string;
+  decided_at: string | null;
+}
+
 export interface AppealRow {
   id: string;
   order_id: string;

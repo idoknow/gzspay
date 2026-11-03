@@ -4,9 +4,16 @@ import { z } from "zod";
 import { generateQrPngBuffer } from "../lib/qr.js";
 import { errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
+import { rateLimit, userKey } from "../lib/rate-limit.js";
 import { CHANNELS, type Channel } from "../lib/types.js";
 import { requestIp } from "../lib/types.js";
 import { parse } from "../lib/validate.js";
+import {
+  cancelPaymentCollection,
+  createPaymentCollection,
+  getPaymentCollection,
+  listPaymentCollections,
+} from "../services/collections.js";
 import {
   channelQrContent,
   createProduct,
@@ -203,5 +210,72 @@ merchantRouter.delete(
   asyncHandler((req, res) => {
     deleteProduct(req.auth!.user, String(req.params.id));
     res.json({ ok: true });
+  }),
+);
+
+// ---------------- 指定金额收款单 ----------------
+//
+// 商家先建好带金额（或商品）的收款单，二维码/链接给付款人扫；
+// 付款人扫码确认并输入支付密码后按快照金额创建订单，收款单随即失效。
+
+const collectionSchema = z.object({
+  amountCents: z.number().int().positive("收款金额必须大于 0").optional(),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        quantity: z.number().int().min(1).max(99).default(1),
+      }),
+    )
+    .max(20)
+    .optional(),
+  reservedNote: z.string().max(200).nullable().optional(),
+  title: z.string().max(40).nullable().optional(),
+});
+
+merchantRouter.post(
+  "/collections",
+  requireUser(),
+  rateLimit({
+    scope: "merchant.collections",
+    limit: 30,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "创建收款单太频繁了，请稍后再试",
+  }),
+  asyncHandler((req, res) => {
+    const body = parse(collectionSchema, req.body);
+    const result = createPaymentCollection(
+      req.auth!.user,
+      {
+        amountCents: body.amountCents,
+        items: body.items,
+        reservedNote: body.reservedNote ?? null,
+        title: body.title ?? null,
+      },
+      requestIp(req),
+    );
+    res.status(201).json(result);
+  }),
+);
+
+merchantRouter.get("/collections", requireUser(), (req, res) => {
+  const limit = Number(req.query.limit ?? 20);
+  res.json({ items: listPaymentCollections(req.auth!.user, Number.isFinite(limit) ? limit : 20) });
+});
+
+merchantRouter.get(
+  "/collections/:id",
+  requireUser(),
+  asyncHandler((req, res) => {
+    res.json(getPaymentCollection(String(req.params.id), req.auth!.user));
+  }),
+);
+
+merchantRouter.post(
+  "/collections/:id/cancel",
+  requireUser(),
+  asyncHandler((req, res) => {
+    res.json(cancelPaymentCollection(String(req.params.id), req.auth!.user, requestIp(req)));
   }),
 );

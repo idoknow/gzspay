@@ -9,6 +9,7 @@
 
 ### 新增
 
+- 新增「商家发起收款（指定金额）」：商家可先输入金额或点选商品、填写备注，生成**一次性收款二维码 / 链接**（`POST /api/merchant/collections`，链接形如 `https://<站点>/collect/<token>`，默认 30 分钟有效）；付款人扫码核对商家、金额与明细后输入支付密码，系统按快照创建待付款订单并把收款单置为已使用。商家可查看最近收款单、轮询付款状态，也可作废；收款单令牌只存哈希、只展示一次，付款的并发保护在数据库层完成。新增接口：`GET /api/merchant/collections`、`GET /api/merchant/collections/:id`、`POST /api/merchant/collections/:id/cancel`、`GET /api/collections/:token`、`POST /api/collections/:token/pay`；新增表 `payment_collections` 与配置 `COLLECTION_TTL_SECONDS`（默认 1800 秒）。
 - 新增「付款截图」：付款人点「我已支付」前必须上传一张 PNG / JPG 付款截图（≤5MB，`POST /api/orders/:id/payment-proof`；截图存放在数据目录的 `payment-proofs/`，只通过 `GET /api/orders/:id/payment-proof` 对订单双方开放、禁止缓存），商家在订单详情里查看放大核对后才能确认收款（未上传时后端拒绝标记已支付与确认收款，`Order` 增加 `hasPaymentProof` / `paymentProofUrl`）。
 - 新增转账安全细节：转账前输入完整学号会自动查询收款人并显示姓名、头像与脱敏学号（`GET /api/orders/transfer/lookup`，每分钟 20 次），核对满 3 秒才能继续；转账单笔上限 200 元、当日累计 1000 元（`TRANSFER_MAX_AMOUNT_CENTS` / `TRANSFER_DAILY_MAX_AMOUNT_CENTS`，只统计「转账」订单，不影响商家订单限额）。
 - 交易页状态筛选新增「全部」，可在进行中 / 已结束之外查看所有订单。

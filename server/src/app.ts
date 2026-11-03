@@ -21,6 +21,7 @@ import { createTrafficMiddleware } from "./lib/traffic.js";
 import { geoGuardConfig } from "./lib/runtime-config.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
+import { collectionsRouter } from "./routes/collections.js";
 import { dynamicRouter } from "./routes/dynamic.js";
 import { meRouter } from "./routes/me.js";
 import { merchantRouter } from "./routes/merchant.js";
@@ -157,6 +158,7 @@ export function createApp(): Express {
   api.use("/orders", ordersRouter);
   api.use("/scan", scanRouter);
   api.use("/dynamic-code", dynamicRouter);
+  api.use("/collections", collectionsRouter);
   api.use("/stats", statsRouter);
   api.use("/admin", adminRouter);
   api.use(miscRouter);

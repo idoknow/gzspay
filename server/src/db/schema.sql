@@ -252,6 +252,24 @@ CREATE TABLE IF NOT EXISTS payment_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_payment_requests_customer ON payment_requests(customer_id, status);
 
+-- 商家自建收款单：生成二维码 / 链接，付款人扫码按固定金额付款（一次性，付款后失效）
+CREATE TABLE IF NOT EXISTS payment_collections (
+  id TEXT PRIMARY KEY,
+  token_hash TEXT NOT NULL UNIQUE,
+  merchant_id TEXT NOT NULL REFERENCES users(id),
+  amount_cents INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  items_json TEXT,
+  reserved_note TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',     -- pending|used|cancelled|expired
+  order_id TEXT,
+  payer_id TEXT,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  decided_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_payment_collections_merchant ON payment_collections(merchant_id, status, created_at);
+
 CREATE TABLE IF NOT EXISTS notification_settings (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   new_order INTEGER NOT NULL DEFAULT 1,

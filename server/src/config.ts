@@ -162,6 +162,8 @@ export const config = {
     dynamicCodeTtlSeconds: 60,
     dynamicCodeRefreshSeconds: 30,
     paymentRequestTtlSeconds: 180,
+    /** 商家自建收款单（固定金额二维码）有效期（秒），默认 30 分钟 */
+    collectionTtlSeconds: int("COLLECTION_TTL_SECONDS", 1_800),
     /** 限流阈值（每分钟），设为 0 表示关闭对应限流 */
     rateLimitLoginPerMinute: int("RATE_LIMIT_LOGIN_PER_MINUTE", 20),
     rateLimitCallbackPerMinute: int("RATE_LIMIT_CALLBACK_PER_MINUTE", 30),

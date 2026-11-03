@@ -34,11 +34,13 @@ const AboutPage = lazyPage(() => import("./pages/AboutPage"), "AboutPage");
 const AnnouncementDetailPage = lazyPage(() => import("./pages/AnnouncementDetailPage"), "AnnouncementDetailPage");
 const AnnouncementsPage = lazyPage(() => import("./pages/AnnouncementsPage"), "AnnouncementsPage");
 const ChangePasswordPage = lazyPage(() => import("./pages/ChangePasswordPage"), "ChangePasswordPage");
+const CollectPage = lazyPage(() => import("./pages/CollectPage"), "CollectPage");
 const DevicesPage = lazyPage(() => import("./pages/DevicesPage"), "DevicesPage");
 const DynamicCodePage = lazyPage(() => import("./pages/DynamicCodePage"), "DynamicCodePage");
 const GuidePage = lazyPage(() => import("./pages/GuidePage"), "GuidePage");
 const MePage = lazyPage(() => import("./pages/MePage"), "MePage");
 const MerchantPage = lazyPage(() => import("./pages/MerchantPage"), "MerchantPage");
+const MerchantCollectPage = lazyPage(() => import("./pages/MerchantCollectPage"), "MerchantCollectPage");
 const MerchantRegisterPage = lazyPage(() => import("./pages/MerchantRegisterPage"), "MerchantRegisterPage");
 const OnboardingPage = lazyPage(() => import("./pages/OnboardingPage"), "OnboardingPage");
 const OrderDetailPage = lazyPage(() => import("./pages/OrderDetailPage"), "OrderDetailPage");
@@ -181,6 +183,8 @@ const router = createBrowserRouter([
       { path: "/merchant", element: <MerchantPage /> },
       { path: "/merchant/register", element: <MerchantRegisterPage /> },
       { path: "/merchant/products", element: <ProductsPage /> },
+      { path: "/merchant/collect", element: <MerchantCollectPage /> },
+      { path: "/collect/:token", element: <CollectPage /> },
     ],
   },
   { path: "/admin/*", element: <AdminRoute /> },

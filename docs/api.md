@@ -296,6 +296,38 @@ interface SSEOrderUpdate {
 }
 ```
 
+### 7.3 商家自建收款单
+
+商家先填好金额（或点选商品）生成一次性收款单，展示二维码/链接；付款人扫码确认后输入支付密码，系统按收款单快照创建订单，收款单随即失效（`pending → used`）。库内只保存令牌哈希，收款链接只在创建成功时返回一次。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/merchant/collections` | 商家创建收款单：`{ amountCents?, items?, reservedNote?, title? }`（`amountCents` 与 `items` 二选一；金额受商家订单单笔上限约束）→ `201 { collection: PaymentCollection, url }`，`url` 形如 `https://<站点>/collect/<token>`；每分钟限 30 次 |
+| `GET` | `/api/merchant/collections?limit=20` | 商家自己的收款单列表 → `{ items: PaymentCollection[] }` |
+| `GET` | `/api/merchant/collections/:id` | 商家查看单个收款单（用于创建页轮询付款状态） |
+| `POST` | `/api/merchant/collections/:id/cancel` | 商家作废待付款收款单 → `PaymentCollection`（已使用/已过期时 409） |
+| `GET` | `/api/collections/:token` | 付款人扫码预览：`PaymentCollection & { payeable: boolean }`；商家看自己的收款单 409，令牌无效 404 |
+| `POST` | `/api/collections/:token/pay` | 付款人确认付款：`{ paymentPassword }` → `201 { collection, order }`（订单状态 `pending_payment`）；已被使用/过期/作废 409，密码错误按支付密码规则返回 4xx；每分钟限 10 次 |
+
+```ts
+interface PaymentCollection {
+  id: string;
+  status: "pending" | "used" | "cancelled" | "expired";
+  amountCents: number;
+  title: string;                       // 默认「自定义收款」，或首个商品名
+  items: { name: string; priceCents: number; quantity: number }[] | null;
+  reservedNote: string | null;
+  merchant: PublicUser;
+  merchantName: string;
+  createdAt: string;
+  expiresAt: string;                   // 默认 30 分钟（COLLECTION_TTL_SECONDS）
+  decidedAt: string | null;
+  orderId: string | null;              // 付款后对应的订单
+}
+```
+
+付款成功后收款单状态为 `used` 并写入 `orderId`；商家创建页每 3 秒轮询 `GET /api/merchant/collections/:id`，看到 `used` 即跳转订单详情。
+
 ## 8. 交易统计
 
 | 方法 | 路径 | 说明 |

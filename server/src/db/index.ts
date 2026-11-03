@@ -247,6 +247,11 @@ export function cleanupExpired(): void {
   execute("DELETE FROM password_reset_tokens WHERE expires_at < ?", now);
   execute("DELETE FROM dynamic_codes WHERE expires_at < ?", now);
   execute("DELETE FROM payment_requests WHERE expires_at < ? AND status = 'pending'", now);
+  execute(
+    "UPDATE payment_collections SET status = 'expired', decided_at = ? WHERE status = 'pending' AND expires_at < ?",
+    now,
+    now,
+  );
   execute("DELETE FROM idempotency_keys WHERE created_at < ?", isoAfter(-86400));
   execute("DELETE FROM request_metrics WHERE created_at < ?", isoAfter(-7 * 86400));
 }

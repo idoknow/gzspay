@@ -439,6 +439,10 @@ interface BuildOrderParams {
   amountCents?: number;
   reservedNote?: string | null;
   createdBy: "payer" | "merchant";
+  /** 已快照好的商品明细（商家收款单）：跳过实时商品解析，用创建收款单时的名称与价格 */
+  preparedItems?: OrderItemDto[] | null;
+  /** 收款单标题（未提供时按商品/自定义付款生成） */
+  preparedTitle?: string;
 }
 
 function buildOrder(params: BuildOrderParams): OrderRow {
@@ -452,15 +456,26 @@ function buildOrder(params: BuildOrderParams): OrderRow {
   if (channels.length === 0) throw errors.conflict("商家当前暂停收款，请稍后再试");
   if (params.payer.id === params.merchantUser.id) throw errors.conflict("不能向自己付款");
 
-  const { items, amountCents } = resolveItems(
-    merchant.user_id,
-    params.items,
-    params.amountCents,
-  );
+  const usePrepared = params.preparedItems !== undefined;
+  let items: OrderItemDto[] | null;
+  let amountCents: number;
+  if (usePrepared) {
+    items = params.preparedItems ?? null;
+    amountCents = params.amountCents ?? 0;
+  } else {
+    const resolved = resolveItems(merchant.user_id, params.items, params.amountCents);
+    items = resolved.items;
+    amountCents = resolved.amountCents;
+  }
+  if (usePrepared && (!Number.isInteger(amountCents) || amountCents < 1)) {
+    throw errors.validation("收款金额不正确");
+  }
   assertAmountLimits(params.payer.id, amountCents);
 
   const reservedNote = (params.reservedNote ?? "").trim().slice(0, 200) || null;
-  const title = items ? `${items[0]?.name ?? "商品"}${items.length > 1 ? ` 等 ${items.length} 种商品` : ""}` : "自定义付款";
+  const title =
+    params.preparedTitle ??
+    (items ? `${items[0]?.name ?? "商品"}${items.length > 1 ? ` 等 ${items.length} 种商品` : ""}` : "自定义付款");
   const now = nowIso();
   const orderId = newId();
   const orderNo = generateOrderNo();
@@ -581,6 +596,41 @@ export function createOrderByMerchant(
     targetType: "order",
     targetId: order.id,
     detail: `付款人 ${order.payer_name_snapshot}，金额 ￥${(order.amount_cents / 100).toFixed(2)}`,
+    ip,
+  });
+  return order;
+}
+
+/** 收款单付款：用创建时快照好的金额与明细创建订单（付款人扫码后确认） */
+export interface CollectionOrderInput {
+  amountCents: number;
+  title: string;
+  items: OrderItemDto[] | null;
+  reservedNote?: string | null;
+}
+
+export function createOrderFromCollection(
+  payer: UserRow,
+  merchantUser: UserRow,
+  input: CollectionOrderInput,
+  ip: string,
+): OrderRow {
+  const order = buildOrder({
+    payer,
+    merchantUser,
+    amountCents: input.amountCents,
+    reservedNote: input.reservedNote,
+    createdBy: "payer",
+    preparedItems: input.items,
+    preparedTitle: input.title,
+  });
+  writeAudit({
+    actorId: payer.id,
+    actorRole: "user",
+    action: "order.created_from_collection",
+    targetType: "order",
+    targetId: order.id,
+    detail: `收款单付款：商家 ${order.merchant_name_snapshot}，金额 ￥${(order.amount_cents / 100).toFixed(2)}`,
     ip,
   });
   return order;

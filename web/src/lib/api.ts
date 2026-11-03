@@ -8,6 +8,7 @@ import type {
   AnnouncementsResponse,
   CardQrResponse,
   CreateOrderPayload,
+  CreatePaymentCollectionPayload,
   CreatePaymentRequestPayload,
   DynamicCodeResolveResponse,
   DynamicCodeResponse,
@@ -31,6 +32,9 @@ import type {
   OrderListResponse,
   OrderStatus,
   PayChannel,
+  PaymentCollection,
+  PaymentCollectionCreateResult,
+  PaymentCollectionPreview,
   PaymentRequest,
   Product,
   PublicUser,
@@ -543,6 +547,50 @@ export async function acceptPaymentRequest(id: string, paymentPassword: string):
 
 export async function rejectPaymentRequest(id: string): Promise<void> {
   await api.post<unknown>(`/dynamic-code/requests/${encodeURIComponent(id)}/reject`);
+}
+
+/* ------------------------------------------------------------------ */
+/* 8.1 商家自建收款单（一次性，付款后失效）                            */
+/* ------------------------------------------------------------------ */
+
+/** 商家创建固定金额收款单，返回二维码内容（url） */
+export function createPaymentCollection(
+  payload: CreatePaymentCollectionPayload,
+): Promise<PaymentCollectionCreateResult> {
+  return api.post<PaymentCollectionCreateResult>("/merchant/collections", payload);
+}
+
+export async function listPaymentCollections(limit = 20): Promise<PaymentCollection[]> {
+  const raw = await api.get<{ items?: PaymentCollection[] }>("/merchant/collections", { limit });
+  return Array.isArray(raw?.items) ? raw.items : [];
+}
+
+export function getPaymentCollection(id: string): Promise<PaymentCollection> {
+  return api.get<PaymentCollection>(`/merchant/collections/${encodeURIComponent(id)}`);
+}
+
+export function cancelPaymentCollection(id: string): Promise<PaymentCollection> {
+  return api.post<PaymentCollection>(`/merchant/collections/${encodeURIComponent(id)}/cancel`);
+}
+
+/** 付款人扫码后的收款单预览 */
+export function previewPaymentCollection(token: string): Promise<PaymentCollectionPreview> {
+  return api.get<PaymentCollectionPreview>(`/collections/${encodeURIComponent(token)}`);
+}
+
+/** 付款人确认付款：校验支付密码后按收款单金额创建订单 */
+export async function payPaymentCollection(
+  token: string,
+  paymentPassword: string,
+): Promise<{ collection: PaymentCollection; order: OrderDetail }> {
+  const raw = await api.post<{ collection?: PaymentCollection; order?: OrderDetail }>(
+    `/collections/${encodeURIComponent(token)}/pay`,
+    { paymentPassword },
+  );
+  if (!raw || !raw.order) {
+    throw new ApiError(500, "COLLECTION_PAY_INVALID", "付款已完成，但未获取到订单号，请到订单列表查看");
+  }
+  return { collection: raw.collection as PaymentCollection, order: raw.order };
 }
 
 /* ------------------------------------------------------------------ */

@@ -140,7 +140,13 @@ function findPaymentRequest(id: string): PaymentRequestRow {
   return expireIfNeeded(row);
 }
 
-function resolveRequestItems(merchantId: string, items: { productId: string; quantity: number }[] | undefined, amountCents: number | undefined): {
+/** 把「商品列表 / 自定义金额」解析成收款明细（收款请求与商家收款单共用） */
+export function resolveRequestItems(
+  merchantId: string,
+  items: { productId: string; quantity: number }[] | undefined,
+  amountCents: number | undefined,
+  amountTitle = "自定义付款",
+): {
   items: { name: string; priceCents: number; quantity: number }[] | null;
   amountCents: number;
   title: string;
@@ -170,7 +176,7 @@ function resolveRequestItems(merchantId: string, items: { productId: string; qua
   if (!Number.isInteger(amountCents) || (amountCents as number) < 1) {
     throw errors.validation("请填写收款金额（单位：分）");
   }
-  return { items: null, amountCents: amountCents as number, title: "自定义付款" };
+  return { items: null, amountCents: amountCents as number, title: amountTitle };
 }
 
 /** 商家扫客户动态码后发起收款请求，实时推送到客户手机 */
