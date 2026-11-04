@@ -268,11 +268,11 @@ img {
     min-height: 34px;
     box-shadow: var(--shadow-xs);
   }
+  /* 选中态：固定深色实心胶囊 + 白色文字，避免与浅色主题的页面文字色（--text）撞色导致看不清 */
   .chip-active {
-    @apply border-transparent;
-    background: var(--chip-active-bg);
-    color: var(--chip-active-fg);
-    box-shadow: 0 10px 22px -14px rgba(0, 0, 0, 0.55);
+    @apply border-transparent font-medium text-white;
+    background: #171a20;
+    box-shadow: 0 10px 22px -14px rgba(0, 0, 0, 0.45);
   }
   /* 分段控件（滑动胶囊）：容器 .segmented，滑块 .segmented-thumb，选项 .segmented-item */
   .segmented {

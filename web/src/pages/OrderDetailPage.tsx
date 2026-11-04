@@ -602,10 +602,30 @@ export function OrderDetailPage(): ReactNode {
           </section>
         ) : null}
 
-        {order.actualNote ? (
+        {order.status !== "pending_payment" ? (
           <section className="card p-4">
-            <h2 className="text-sm font-semibold text-text">实际支付备注</h2>
-            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">{order.actualNote}</p>
+            <h2 className="text-sm font-semibold text-text">支付信息</h2>
+            <div className="mt-2.5 space-y-2.5">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="shrink-0 text-muted">实际支付方式</span>
+                {order.payChannel ? (
+                  <span className="inline-flex items-center gap-1.5 font-medium text-text">
+                    <ChannelIcon channel={order.payChannel} size={16} />
+                    {payChannelLabel(order.payChannel)}
+                  </span>
+                ) : (
+                  <span className="text-muted">未记录</span>
+                )}
+              </div>
+              <div className="flex items-start justify-between gap-4 text-sm">
+                <span className="shrink-0 text-muted">实际支付备注</span>
+                {order.actualNote?.trim() ? (
+                  <span className="min-w-0 whitespace-pre-wrap break-words text-right text-text">{order.actualNote}</span>
+                ) : (
+                  <span className="text-muted">客户未填写备注</span>
+                )}
+              </div>
+            </div>
           </section>
         ) : null}
 
