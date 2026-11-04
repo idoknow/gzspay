@@ -46,6 +46,8 @@ import type {
   AdminTicket,
   AdminTicketDetail,
   AdminTicketMessage,
+  AdminTicketParties,
+  AdminTicketParty,
   AdminUser,
   AdminUserDetail,
   AdminUserLogin,
@@ -107,8 +109,30 @@ function mapTicketMessage(raw: unknown): AdminTicketMessage {
     senderId: textOr(source.senderId, ""),
     senderRole: (textOr(source.senderRole, "payer") as AdminTicketMessage["senderRole"]),
     senderName: textOr(source.senderName, "未知用户"),
+    senderAvatarUrl: textOr(source.senderAvatarUrl, "") || null,
     body: textOr(source.body, ""),
     createdAt: textOr(source.createdAt, ""),
+  };
+}
+
+function mapParty(raw: unknown): AdminTicketParty {
+  const source = record(raw);
+  return {
+    id: textOr(source.id, ""),
+    role: textOr(source.role, "payer") === "merchant" ? "merchant" : "payer",
+    displayName: textOr(source.displayName, "未知用户"),
+    studentNo: text(source.studentNo),
+    qq: text(source.qq),
+    email: text(source.email),
+    avatarUrl: text(source.avatarUrl),
+  };
+}
+
+function mapParties(raw: unknown): AdminTicketParties {
+  const source = record(raw);
+  return {
+    payer: mapParty(source.payer),
+    merchant: mapParty(source.merchant),
   };
 }
 
@@ -147,18 +171,40 @@ export async function getAdminTickets(
   return mapPage(payload, mapTicket);
 }
 
-/** GET /admin/tickets/:id（只读，含完整对话） */
-export async function getAdminTicket(id: string): Promise<AdminTicketDetail> {
-  const payload = await getJson<unknown>(`/admin/tickets/${encodeURIComponent(id)}`);
+/** 把后台返回的工单详情（可能是 `{ ticket }` 包装）映射成 AdminTicketDetail */
+function mapTicketDetail(payload: unknown): AdminTicketDetail {
   const rawPayload = record(payload);
   const source = isRecord(rawPayload.ticket) ? rawPayload.ticket : rawPayload;
   return {
     ...mapTicket(source),
+    parties: mapParties(source.parties),
     messages: firstArray(source, ["messages"]).map(mapTicketMessage),
     closedAt: isoOrNull(source.closedAt),
     closedReason: (text(source.closedReason) as AdminTicketDetail["closedReason"]) ?? null,
     resolutionNote: text(source.resolutionNote),
   };
+}
+
+/** GET /admin/tickets/:id（含完整对话与双方资料） */
+export async function getAdminTicket(id: string): Promise<AdminTicketDetail> {
+  const payload = await getJson<unknown>(`/admin/tickets/${encodeURIComponent(id)}`);
+  return mapTicketDetail(payload);
+}
+
+/** POST /admin/tickets/:id/messages：运营（super / ops）以平台客服身份介入沟通 */
+export async function sendAdminTicketMessage(id: string, body: string): Promise<AdminTicketDetail> {
+  const payload = await writeJson<unknown>("POST", `/admin/tickets/${encodeURIComponent(id)}/messages`, {
+    body,
+  });
+  return mapTicketDetail(payload);
+}
+
+/** POST /admin/tickets/:id/close：运营结束工单，可附处理说明 */
+export async function closeAdminTicket(id: string, note?: string | null): Promise<AdminTicketDetail> {
+  const payload = await writeJson<unknown>("POST", `/admin/tickets/${encodeURIComponent(id)}/close`, {
+    note: note?.trim() || null,
+  });
+  return mapTicketDetail(payload);
 }
 
 /* ------------------------------------------------------------ 基础请求层 */

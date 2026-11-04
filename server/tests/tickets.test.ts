@@ -54,8 +54,19 @@ async function completeOnboarding(api: Agent, cardNo: string, studentNo: string)
   await api.post("/api/onboarding/payment-password").send({ password: "123456", confirm: "123456" }).expect(200);
 }
 
-function initializeSystem(): void {
-  const now = new Date().toISOString();
+/** 建一个管理后台账号（super / ops / auditor）并返回管理员会话 */
+async function loginAdmin(seed: string, role: "super" | "ops" | "auditor"): Promise<Agent> {
+  const { api, id } = await login(`admin-${seed}`, `管理${seed}`);
+  execute(
+    "INSERT INTO admins (user_id, role, created_by, created_at) VALUES (?, ?, NULL, ?)",
+    id,
+    role,
+    new Date().toISOString(),
+  );
+  return api;
+}
+
+function initializeSystem(): void {  const now = new Date().toISOString();
   const rows: [string, string][] = [
     ["system.initialized", "1"],
     ["system.siteName", "校园服务"],
@@ -236,5 +247,55 @@ describe("交易工单", () => {
     const response = await payerApi.get("/api/admin/tickets");
     // 管理后台使用独立的管理员会话，普通用户既可能被判定未登录（401），也可能被判定无权限（403）
     expect([401, 403]).toContain(response.status);
+  });
+
+  it("工单详情展示双方资料，平台客服可以介入发言并结束工单", async () => {
+    const orderId = await createPaidOrder();
+    const created = await payerApi
+      .post("/api/tickets")
+      .send({ orderId, category: "not_as_described", description: "收到的商品和描述不太一样，希望平台帮忙看一下" })
+      .expect(201);
+    const ticketId = created.body.ticket.id as string;
+
+    const detail = await payerApi.get(`/api/tickets/${ticketId}`).expect(200);
+    expect(detail.body.parties.payer.displayName).toBeTruthy();
+    expect(detail.body.parties.payer.studentNo).toBe("20239102");
+    expect(detail.body.parties.merchant.studentNo).toBe("20239101");
+    expect(detail.body.parties.payer.qq).toBeTruthy();
+    expect(detail.body.parties.payer.email).toContain("@qq.com");
+
+    const auditor = await loginAdmin("auditor", "auditor");
+    const auditorTry = await auditor
+      .post(`/api/admin/tickets/${ticketId}/messages`)
+      .send({ body: "审计员不应该能发言" });
+    expect(auditorTry.status).toBe(403);
+
+    const ops = await loginAdmin("ops", "ops");
+    const replied = await ops
+      .post(`/api/admin/tickets/${ticketId}/messages`)
+      .send({ body: "平台客服已介入，请双方核对付款截图后在这里回复" })
+      .expect(201);
+    const adminMessage = replied.body.messages.at(-1);
+    expect(adminMessage.senderRole).toBe("admin");
+    expect(adminMessage.senderName).toBe("平台客服");
+    expect(adminMessage.senderAvatarUrl).toBeNull();
+    expect(replied.body.parties.payer.studentNo).toBe("20239102");
+
+    const payerView = await payerApi.get(`/api/tickets/${ticketId}`).expect(200);
+    expect(payerView.body.messages.at(-1).senderRole).toBe("admin");
+    expect(payerView.body.messages.at(-1).body).toContain("平台客服已介入");
+
+    const closed = await ops
+      .post(`/api/admin/tickets/${ticketId}/close`)
+      .send({ note: "双方已协商一致，金额差额由商家补退" })
+      .expect(200);
+    expect(closed.body.status).toBe("closed");
+    expect(closed.body.closedReason).toBe("admin");
+    expect(closed.body.resolutionNote).toContain("协商一致");
+
+    const replyAfterClose = await ops
+      .post(`/api/admin/tickets/${ticketId}/messages`)
+      .send({ body: "已经结束了还能说话吗" });
+    expect(replyAfterClose.status).toBe(400);
   });
 });

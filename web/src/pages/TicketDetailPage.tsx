@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Avatar } from "../components/Avatar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
@@ -11,35 +12,79 @@ import { closeTicket, getTicket, markTicketRead, sendTicketMessage } from "../li
 import { cn, formatCents, formatDateTime, maskPersonName } from "../lib/format";
 import { useAsync, useInterval, useVisible } from "../lib/hooks";
 import { errorMessage } from "../lib/http";
-import type { TicketMessage } from "../lib/types";
+import type { TicketMessage, TicketParty } from "../lib/types";
 
 const CLOSED_REASON_TEXT: Record<string, string> = {
   user: "双方已经结束沟通，工单已关闭",
-  admin: "管理员关闭了工单",
+  admin: "平台客服结束了这个工单",
   timeout: "超过 7 天没有新消息，工单已自动关闭",
 };
 
+/** 平台客服留言用站点 logo 代替头像 */
+function PlatformLogo({ size = 28 }: { size?: number }): ReactNode {
+  return (
+    <span
+      className="mt-1 flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-2"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      <img src="/logo.svg" alt="" className="h-[68%] w-[68%] object-contain" />
+    </span>
+  );
+}
+
 function MessageBubble({ message, mine }: { message: TicketMessage; mine: boolean }): ReactNode {
+  const isAdmin = message.senderRole === "admin";
   return (
     <div className={cn("flex w-full gap-2", mine ? "justify-end" : "justify-start")}>
       {!mine ? (
-        <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-2 text-[10px] font-semibold text-muted">
-          {message.senderName.slice(0, 1)}
-        </span>
+        isAdmin ? (
+          <PlatformLogo />
+        ) : (
+          <Avatar name={message.senderName} avatarUrl={message.senderAvatarUrl} size={28} rounded />
+        )
       ) : null}
       <div className={cn("max-w-[78%] min-w-0", mine && "items-end")}>
+        {!mine ? (
+          <p className="mb-1 text-[10.5px] text-muted">
+            {isAdmin ? "平台客服" : message.senderName}
+          </p>
+        ) : null}
         <div
           className={cn(
             "whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-relaxed watch:text-[12.5px]",
             mine
               ? "rounded-br-md bg-brand text-white"
-              : "rounded-bl-md border border-line/70 bg-surface text-text",
+              : isAdmin
+                ? "rounded-bl-md border border-brand/30 bg-brand-soft/60 text-text"
+                : "rounded-bl-md border border-line/70 bg-surface text-text",
           )}
         >
           {message.body}
         </div>
         <p className={cn("mt-1 text-[10px] text-muted/80", mine ? "text-right" : "text-left")}>
           {formatDateTime(message.createdAt)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PartyRow({ party, self }: { party: TicketParty; self: boolean }): ReactNode {
+  return (
+    <div className="flex items-start gap-3">
+      <Avatar name={party.displayName} avatarUrl={party.avatarUrl} size={38} />
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 text-[13px] font-medium text-text">
+          <span className="truncate">{party.displayName}</span>
+          <span className="chip px-1.5 py-0.5 text-[10px]">
+            {party.role === "merchant" ? "商家" : "付款人"}
+          </span>
+          {self ? <span className="text-[10px] text-muted">（我）</span> : null}
+        </p>
+        <p className="mt-1 text-[11.5px] text-muted">学号 {party.studentNo ?? "未填写"}</p>
+        <p className="text-[11.5px] text-muted">
+          QQ {party.qq ?? "未填写"} · 邮箱 {party.email ?? "未填写"}
         </p>
       </div>
     </div>
@@ -178,6 +223,16 @@ export function TicketDetailPage(): ReactNode {
         </svg>
       </button>
 
+      <div className="mx-4 mt-3 rounded-xl border border-line/70 bg-surface px-3.5 py-3">
+        <p className="mb-2.5 text-[11px] font-medium text-muted">双方信息</p>
+        <div className="space-y-3">
+          <PartyRow party={data.parties.payer} self={data.role === "payer"} />
+          <div className="h-px bg-line/60" />
+          <PartyRow party={data.parties.merchant} self={data.role === "merchant"} />
+        </div>
+        <p className="mt-2.5 text-[10px] text-muted/80">双方资料仅对工单双方与平台客服可见。</p>
+      </div>
+
       {closed ? (
         <p className="mx-4 mt-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted">
           {CLOSED_REASON_TEXT[data.closedReason ?? "user"] ?? "工单已关闭"}
@@ -239,7 +294,7 @@ export function TicketDetailPage(): ReactNode {
             </button>
           </div>
           <p className="mx-auto mt-1.5 w-full max-w-[520px] text-[10px] text-muted/80">
-            工单仅订单双方可见；超过 7 天没有新消息会自动关闭。
+            工单仅订单双方与平台客服可见；超过 7 天没有新消息会自动关闭。
           </p>
         </div>
       )}

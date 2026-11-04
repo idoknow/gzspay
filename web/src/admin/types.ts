@@ -811,11 +811,29 @@ export interface AdminTicketMessage {
   senderId: string;
   senderRole: "payer" | "merchant" | "admin";
   senderName: string;
+  /** 头像地址；平台客服消息为 null，展示站点 logo */
+  senderAvatarUrl: string | null;
   body: string;
   createdAt: string;
 }
 
-/** GET /admin/tickets 列表项（后台只读） */
+/** 工单双方资料（后台可核对姓名、学号、QQ、邮箱） */
+export interface AdminTicketParty {
+  id: string;
+  role: "payer" | "merchant";
+  displayName: string;
+  studentNo: string | null;
+  qq: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+}
+
+export interface AdminTicketParties {
+  payer: AdminTicketParty;
+  merchant: AdminTicketParty;
+}
+
+/** GET /admin/tickets 列表项 */
 export interface AdminTicket {
   id: string;
   orderId: string;
@@ -833,8 +851,9 @@ export interface AdminTicket {
   messageCount: number;
 }
 
-/** GET /admin/tickets/:id（含完整对话，只读） */
+/** GET /admin/tickets/:id（含完整对话与双方资料） */
 export interface AdminTicketDetail extends AdminTicket {
+  parties: AdminTicketParties;
   messages: AdminTicketMessage[];
   closedAt: string | null;
   closedReason: AdminTicketClosedReason | null;

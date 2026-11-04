@@ -558,8 +558,26 @@ export interface TicketMessage {
   senderId: string;
   senderRole: "payer" | "merchant" | "admin";
   senderName: string;
+  /** 头像地址；平台介入的消息为 null，展示站点 logo */
+  senderAvatarUrl: string | null;
   body: string;
   createdAt: string;
+}
+
+/** 工单双方资料（仅工单双方与平台可见） */
+export interface TicketParty {
+  id: string;
+  role: "payer" | "merchant";
+  displayName: string;
+  studentNo: string | null;
+  qq: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+}
+
+export interface TicketParties {
+  payer: TicketParty;
+  merchant: TicketParty;
 }
 
 /** 工单列表项 */
@@ -586,6 +604,8 @@ export interface TicketSummary {
 /** 工单详情 */
 export interface TicketDetail extends TicketSummary {
   role: "payer" | "merchant";
+  /** 订单双方资料（姓名、学号、QQ、邮箱），仅工单双方与平台可见 */
+  parties: TicketParties;
   messages: TicketMessage[];
   closedAt: string | null;
   closedReason: "user" | "admin" | "timeout" | null;

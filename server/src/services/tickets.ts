@@ -48,8 +48,26 @@ export interface TicketMessageDto {
   senderId: string;
   senderRole: "payer" | "merchant" | "admin";
   senderName: string;
+  /** 头像地址；平台介入的消息为 null，前端展示站点 logo */
+  senderAvatarUrl: string | null;
   body: string;
   createdAt: string;
+}
+
+/** 工单里展示的订单双方资料（仅双方与管理员可见） */
+export interface TicketPartyDto {
+  id: string;
+  role: "payer" | "merchant";
+  displayName: string;
+  studentNo: string | null;
+  qq: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+}
+
+export interface TicketPartiesDto {
+  payer: TicketPartyDto;
+  merchant: TicketPartyDto;
 }
 
 export interface TicketSummaryDto {
@@ -73,6 +91,8 @@ export interface TicketSummaryDto {
 
 export interface TicketDto extends TicketSummaryDto {
   role: "payer" | "merchant";
+  /** 订单双方资料（姓名、学号、QQ、邮箱），仅工单双方与管理员可见 */
+  parties: TicketPartiesDto;
   messages: TicketMessageDto[];
   closedAt: string | null;
   closedReason: "user" | "admin" | "timeout" | null;
@@ -103,6 +123,8 @@ export interface AdminTicketSummaryDto {
 }
 
 export interface AdminTicketDto extends AdminTicketSummaryDto {
+  /** 订单双方资料（姓名、学号、QQ、邮箱），供运营核对与联系 */
+  parties: TicketPartiesDto;
   messages: TicketMessageDto[];
   closedAt: string | null;
   closedReason: "user" | "admin" | "timeout" | null;
@@ -136,15 +158,39 @@ function toMessageDto(message: TicketMessageRow, order: OrderRow): TicketMessage
     senderRole: role,
     senderName:
       role === "admin"
-        ? "管理员"
+        ? "平台客服"
         : sender
           ? displayNameOf(sender)
           : role === "payer"
             ? order.payer_name_snapshot
             : order.merchant_name_snapshot,
+    // 平台介入的消息不带头像，前端展示站点 logo
+    senderAvatarUrl: role === "admin" ? null : (sender?.avatar_url ?? null),
     body: message.body,
     createdAt: message.created_at,
   };
+}
+
+function partyOf(order: OrderRow, role: "payer" | "merchant"): TicketPartyDto {
+  const id = role === "payer" ? order.payer_id : order.merchant_id;
+  const user = findUserById(id);
+  return {
+    id,
+    role,
+    displayName: user
+      ? displayNameOf(user)
+      : role === "payer"
+        ? order.payer_name_snapshot
+        : order.merchant_name_snapshot,
+    studentNo: user?.student_no ?? null,
+    qq: user?.qq ?? null,
+    email: user?.email ?? null,
+    avatarUrl: user?.avatar_url ?? null,
+  };
+}
+
+function partiesOf(order: OrderRow): TicketPartiesDto {
+  return { payer: partyOf(order, "payer"), merchant: partyOf(order, "merchant") };
 }
 
 function findTicketById(ticketId: string): TicketRow | undefined {
@@ -344,6 +390,7 @@ export function getTicket(ticketId: string, user: UserRow): TicketDto {
   return {
     ...toSummary(ticket, order, user),
     role: roleOf(order, user.id),
+    parties: partiesOf(order),
     messages: messages.map((message) => toMessageDto(message, order)),
     closedAt: ticket.closed_at,
     closedReason: ticket.closed_reason,
@@ -553,11 +600,104 @@ export function getTicketForAdmin(ticketId: string): AdminTicketDto {
   );
   return {
     ...toAdminSummary(row),
+    parties: partiesOf(order),
     messages: messages.map((message) => toMessageDto(message, order)),
     closedAt: row.closed_at,
     closedReason: row.closed_reason,
     resolutionNote: row.resolution_note,
   };
+}
+
+function notifyParties(order: OrderRow, ticketId: string, payload: Record<string, unknown>): void {
+  for (const userId of [order.payer_id, order.merchant_id]) {
+    pushToUser(userId, "ticket_update", { ticketId, orderId: order.id, orderNo: order.order_no, ...payload });
+  }
+}
+
+function loadTicketForAdmin(ticketId: string): { ticket: TicketRow; order: OrderRow } {
+  const ticket = findTicketById(ticketId);
+  if (!ticket) throw errors.notFound("工单不存在");
+  const order = findOrderById(ticket.order_id);
+  if (!order) throw errors.notFound("工单关联的订单不存在");
+  return { ticket, order };
+}
+
+/** 平台介入：运营可以在工单里以「平台客服」身份发言（会通知订单双方） */
+export function sendAdminTicketMessage(
+  ticketId: string,
+  adminUser: UserRow,
+  body: string,
+  ip: string,
+): AdminTicketDto {
+  const { ticket, order } = loadTicketForAdmin(ticketId);
+  if (ticket.status !== "open") throw errors.validation("工单已关闭，不能再发消息");
+  const text = body.trim();
+  if (!text) throw errors.validation("消息内容不能为空");
+  if (text.length > MAX_MESSAGE_LENGTH) {
+    throw errors.validation(`单条消息不能超过 ${MAX_MESSAGE_LENGTH} 个字`);
+  }
+  const now = nowIso();
+  transaction(() => {
+    execute(
+      "INSERT INTO ticket_messages (id, ticket_id, sender_id, body, created_at) VALUES (?, ?, ?, ?, ?)",
+      newId(),
+      ticket.id,
+      adminUser.id,
+      text,
+      now,
+    );
+    execute(
+      "UPDATE tickets SET message_count = message_count + 1, last_message_at = ?, updated_at = ? WHERE id = ?",
+      now,
+      now,
+      ticket.id,
+    );
+  });
+  writeAudit({
+    action: "ticket.message",
+    actorId: adminUser.id,
+    actorRole: "admin",
+    targetType: "ticket",
+    targetId: ticket.id,
+    detail: `订单 ${order.order_no} 平台客服介入回复`,
+    ip,
+  });
+  notifyParties(order, ticket.id, { preview: text.slice(0, 60), createdAt: now, role: "admin" });
+  return getTicketForAdmin(ticket.id);
+}
+
+/** 平台介入：运营可以直接结束工单（可附处理说明） */
+export function closeTicketByAdmin(
+  ticketId: string,
+  adminUser: UserRow,
+  note: string | null,
+  ip: string,
+): AdminTicketDto {
+  const { ticket, order } = loadTicketForAdmin(ticketId);
+  if (ticket.status === "open") {
+    const now = nowIso();
+    execute(
+      `UPDATE tickets SET status = 'closed', closed_by = ?, closed_at = ?, closed_reason = 'admin',
+              resolution_note = ?, updated_at = ?
+        WHERE id = ? AND status = 'open'`,
+      adminUser.id,
+      now,
+      note?.trim() ? note.trim() : null,
+      now,
+      ticket.id,
+    );
+    writeAudit({
+      action: "ticket.closed",
+      actorId: adminUser.id,
+      actorRole: "admin",
+      targetType: "ticket",
+      targetId: ticket.id,
+      detail: `订单 ${order.order_no} 工单由平台客服结束${note?.trim() ? `：${note.trim()}` : ""}`,
+      ip,
+    });
+    notifyParties(order, ticket.id, { status: "closed", createdAt: now, role: "admin" });
+  }
+  return getTicketForAdmin(ticket.id);
 }
 
 /** 后台任务：把 7 天没有新消息的工单自动关闭，返回关闭条数 */

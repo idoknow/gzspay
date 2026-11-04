@@ -437,7 +437,7 @@ interface Announcement {
 
 ## 12. 交易工单
 
-交易双方（付款人 / 商家）在**已支付或已完成**的订单里发起工单后用文字沟通争议。同一订单同时只允许 1 个进行中的工单，累计最多 3 个；超过 7 天没有新消息会自动关闭，双方任一方也可手动结束。参与方以外一律 404，内容只存纯文本。管理后台只读，不做回复与关闭。
+交易双方（付款人 / 商家）在**已支付或已完成**的订单里发起工单后用文字沟通争议。同一订单同时只允许 1 个进行中的工单，累计最多 3 个；超过 7 天没有新消息会自动关闭，双方任一方也可手动结束。参与方以外一律 404，内容只存纯文本。运营（`super` / `ops`）可以在后台以「平台客服」身份介入发言或结束工单，`auditor` 只读。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -448,8 +448,10 @@ interface Announcement {
 | `POST` | `/api/tickets/:id/messages` | 发送消息：`{ body }`（≤1000 字）→ `201 TicketDetail`；工单已关闭 400；每分钟 30 条 |
 | `POST` | `/api/tickets/:id/read` | 标记已读 → `{ unreadCount, totalUnreadCount }` |
 | `POST` | `/api/tickets/:id/close` | 手动结束工单（双方均可）→ `TicketDetail` |
-| `GET` | `/api/admin/tickets?status&keyword&page&pageSize` | 后台只读列表 → `{ items: AdminTicketSummary[], total, page, pageSize }`（`keyword` 匹配订单号、标题与双方姓名） |
-| `GET` | `/api/admin/tickets/:id` | 后台只读详情（含全部消息） |
+| `GET` | `/api/admin/tickets?status&keyword&page&pageSize` | 后台列表 → `{ items: AdminTicketSummary[], total, page, pageSize }`（`keyword` 匹配订单号、标题与双方姓名） |
+| `GET` | `/api/admin/tickets/:id` | 后台详情（含全部消息与双方资料）→ `AdminTicketDetail` |
+| `POST` | `/api/admin/tickets/:id/messages` | **平台介入发言**（仅 `super` / `ops`）：`{ body }`（1–1000 字）→ `201 AdminTicketDetail`；消息以「平台客服」身份展示、头像为 `null`（前端用站点 logo）；工单已关闭 400，`auditor` 403 |
+| `POST` | `/api/admin/tickets/:id/close` | **平台结束工单**（仅 `super` / `ops`）：`{ note?: string \| null }`（≤300 字，双方可见）→ `AdminTicketDetail`，`closedReason` 为 `admin` |
 
 ```ts
 interface TicketSummary {
@@ -470,9 +472,29 @@ interface TicketSummary {
   lastMessage: { body: string; senderRole: "payer" | "merchant" | "admin"; createdAt: string } | null;
 }
 
+/** 工单双方资料：只给参与者与平台，列表接口不返回 */
+interface TicketParty {
+  id: string;
+  role: "payer" | "merchant";
+  displayName: string;
+  studentNo: string | null;
+  qq: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+}
+
 interface TicketDetail extends TicketSummary {
   role: "payer" | "merchant";
-  messages: { id: string; senderId: string; senderRole: "payer" | "merchant" | "admin"; senderName: string; body: string; createdAt: string }[];
+  parties: { payer: TicketParty; merchant: TicketParty };
+  messages: {
+    id: string;
+    senderId: string;
+    senderRole: "payer" | "merchant" | "admin";
+    senderName: string;            // 平台介入的消息固定为「平台客服」
+    senderAvatarUrl: string | null; // 平台介入的消息为 null
+    body: string;
+    createdAt: string;
+  }[];
   closedAt: string | null;
   closedReason: "user" | "admin" | "timeout" | null;
   resolutionNote: string | null;

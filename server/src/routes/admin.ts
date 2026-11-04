@@ -55,7 +55,12 @@ import {
   deleteAnnouncement,
   updateAnnouncement,
 } from "../services/announcements.js";
-import { getTicketForAdmin, listTicketsForAdmin } from "../services/tickets.js";
+import {
+  closeTicketByAdmin,
+  getTicketForAdmin,
+  listTicketsForAdmin,
+  sendAdminTicketMessage,
+} from "../services/tickets.js";
 
 export const adminRouter: Router = Router();
 
@@ -406,7 +411,7 @@ adminRouter.post(
   }),
 );
 
-/* -------------------------------------------------------------- 工单（只读） */
+/* ---------------------------------------------------- 工单（运营可介入） */
 
 adminRouter.get(
   "/tickets",
@@ -430,6 +435,35 @@ adminRouter.get(
   requireAdmin(),
   asyncHandler((req, res) => {
     res.json(getTicketForAdmin(String(req.params.id)));
+  }),
+);
+
+/** 平台介入发言：超级管理员与运营可发，审计员只读 */
+adminRouter.post(
+  "/tickets/:id/messages",
+  requireAdmin(["super", "ops"]),
+  asyncHandler((req, res) => {
+    const body = parse(
+      z.object({
+        body: z.string().trim().min(1, "消息内容不能为空").max(1000, "单条消息不能超过 1000 个字"),
+      }),
+      req.body,
+    );
+    res.status(201).json(
+      sendAdminTicketMessage(String(req.params.id), req.admin!.user, body.body, requestIp(req)),
+    );
+  }),
+);
+
+/** 平台介入结束工单：可附处理说明 */
+adminRouter.post(
+  "/tickets/:id/close",
+  requireAdmin(["super", "ops"]),
+  asyncHandler((req, res) => {
+    const body = parse(z.object({ note: z.string().max(300).nullable().optional() }), req.body);
+    res.json(
+      closeTicketByAdmin(String(req.params.id), req.admin!.user, body.note ?? null, requestIp(req)),
+    );
   }),
 );
 
