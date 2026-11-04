@@ -108,9 +108,11 @@ export interface AnnouncementInput {
 /** 公告发布后给开启了「平台公告」邮件通知的用户发提醒（后台发送，不影响公告创建） */
 function mailAnnouncement(title: string, content: string): void {
   const recipients = queryAll<{ email: string }>(
+    // 没有设置记录的用户按默认开启处理（LEFT JOIN + COALESCE）
     `SELECT u.email AS email
-       FROM notification_settings n JOIN users u ON u.id = n.user_id
-      WHERE n.announcement = 1 AND u.email IS NOT NULL AND u.email != ''
+       FROM users u
+       LEFT JOIN notification_settings n ON n.user_id = u.id
+      WHERE COALESCE(n.announcement, 1) = 1 AND u.email IS NOT NULL AND u.email != ''
       ORDER BY u.created_at ASC
       LIMIT ?`,
     MAX_ANNOUNCEMENT_MAILS,
