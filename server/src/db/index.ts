@@ -253,6 +253,13 @@ export function cleanupExpired(): void {
     now,
   );
   execute("DELETE FROM idempotency_keys WHERE created_at < ?", isoAfter(-86400));
+  execute(
+    `UPDATE tickets SET status = 'closed', closed_at = ?, closed_reason = 'timeout', updated_at = ?
+      WHERE status = 'open' AND last_message_at < ?`,
+    now,
+    now,
+    isoAfter(-7 * 86400),
+  );
   execute("DELETE FROM request_metrics WHERE created_at < ?", isoAfter(-7 * 86400));
 }
 

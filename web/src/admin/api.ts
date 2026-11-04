@@ -43,6 +43,9 @@ import type {
   AdminRole,
   AdminSession,
   AdminStats,
+  AdminTicket,
+  AdminTicketDetail,
+  AdminTicketMessage,
   AdminUser,
   AdminUserDetail,
   AdminUserLogin,
@@ -83,6 +86,7 @@ import type {
   SystemAlert,
   SystemAlerting,
   SystemStatus,
+  TicketFilters,
   TodoItem,
   TrafficBreakdownItem,
   TrafficSeriesPoint,
@@ -92,6 +96,70 @@ import type {
   OnlineUsersPayload,
   UserDetailPayload,
 } from "./types";
+
+/* ------------------------------------------------------------------ 工单 */
+
+function mapTicketMessage(raw: unknown): AdminTicketMessage {
+  const source = record(raw);
+  return {
+    id: textOr(source.id, ""),
+    ticketId: textOr(source.ticketId, ""),
+    senderId: textOr(source.senderId, ""),
+    senderRole: (textOr(source.senderRole, "payer") as AdminTicketMessage["senderRole"]),
+    senderName: textOr(source.senderName, "未知用户"),
+    body: textOr(source.body, ""),
+    createdAt: textOr(source.createdAt, ""),
+  };
+}
+
+function mapTicket(raw: unknown): AdminTicket {
+  const source = record(raw);
+  return {
+    id: textOr(source.id, ""),
+    orderId: textOr(source.orderId, ""),
+    orderNo: textOr(source.orderNo, ""),
+    orderTitle: textOr(source.orderTitle, "未命名交易"),
+    amountCents: numberOr(source.amountCents, 0),
+    category: textOr(source.category, ""),
+    categoryLabel: textOr(source.categoryLabel, "其他问题"),
+    status: textOr(source.status, "open") === "closed" ? "closed" : "open",
+    openerName: textOr(source.openerName, "未知用户"),
+    payerName: textOr(source.payerName, "付款人"),
+    merchantName: textOr(source.merchantName, "商家"),
+    createdAt: textOr(source.createdAt, ""),
+    lastMessageAt: textOr(source.lastMessageAt, ""),
+    messageCount: numberOr(source.messageCount, 0),
+  };
+}
+
+/** GET /admin/tickets?status&keyword&page&pageSize（只读） */
+export async function getAdminTickets(
+  filters: TicketFilters,
+  page: number,
+  pageSize: number,
+): Promise<Page<AdminTicket>> {
+  const payload = await getJson<unknown>("/admin/tickets", {
+    status: filters.status !== "all" ? filters.status : undefined,
+    keyword: filters.keyword.trim() || undefined,
+    page,
+    pageSize,
+  });
+  return mapPage(payload, mapTicket);
+}
+
+/** GET /admin/tickets/:id（只读，含完整对话） */
+export async function getAdminTicket(id: string): Promise<AdminTicketDetail> {
+  const payload = await getJson<unknown>(`/admin/tickets/${encodeURIComponent(id)}`);
+  const rawPayload = record(payload);
+  const source = isRecord(rawPayload.ticket) ? rawPayload.ticket : rawPayload;
+  return {
+    ...mapTicket(source),
+    messages: firstArray(source, ["messages"]).map(mapTicketMessage),
+    closedAt: isoOrNull(source.closedAt),
+    closedReason: (text(source.closedReason) as AdminTicketDetail["closedReason"]) ?? null,
+    resolutionNote: text(source.resolutionNote),
+  };
+}
 
 /* ------------------------------------------------------------ 基础请求层 */
 

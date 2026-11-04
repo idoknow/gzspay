@@ -65,6 +65,10 @@ const AnnouncementsPage = lazyAdminPage(
   () => import("./pages/AnnouncementsPage"),
   "AnnouncementsPage",
 );
+const AdminTicketsPage = lazyAdminPage(
+  () => import("./pages/TicketsPage"),
+  "AdminTicketsPage",
+);
 const LogsPage = lazyAdminPage(() => import("./pages/LogsPage"), "LogsPage");
 const ConfigPage = lazyAdminPage(() => import("./pages/ConfigPage"), "ConfigPage");
 
@@ -240,6 +244,7 @@ function AuthenticatedApp({
           <Route path="merchants" element={<PageSuspense><MerchantsPage /></PageSuspense>} />
           <Route path="orders" element={<PageSuspense><OrdersPage /></PageSuspense>} />
           <Route path="announcements" element={<PageSuspense><AnnouncementsPage /></PageSuspense>} />
+          <Route path="tickets" element={<PageSuspense><AdminTicketsPage /></PageSuspense>} />
           <Route path="stats" element={<PageSuspense><StatsPage /></PageSuspense>} />
           <Route path="traffic" element={<PageSuspense><TrafficPage /></PageSuspense>} />
           <Route path="system" element={<PageSuspense><SystemPage /></PageSuspense>} />

@@ -531,3 +531,63 @@ export interface AboutResponse {
   /** 两份文档的生效日期（YYYY-MM-DD） */
   legalEffectiveAt: string;
 }
+
+/* ------------------------------------------------------------------ */
+/* 交易工单                                                            */
+/* ------------------------------------------------------------------ */
+
+/** 工单分类：建单时选择 */
+export type TicketCategory = "amount" | "not_received" | "not_as_described" | "refund" | "other";
+
+/** 工单分类中文名 */
+export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
+  amount: "金额不符",
+  not_received: "没有收到",
+  not_as_described: "商品与描述不符",
+  refund: "退款问题",
+  other: "其他问题",
+};
+
+/** 工单状态：进行中 / 已关闭 */
+export type TicketStatus = "open" | "closed";
+
+/** 工单消息 */
+export interface TicketMessage {
+  id: string;
+  ticketId: string;
+  senderId: string;
+  senderRole: "payer" | "merchant" | "admin";
+  senderName: string;
+  body: string;
+  createdAt: string;
+}
+
+/** 工单列表项 */
+export interface TicketSummary {
+  id: string;
+  orderId: string;
+  orderNo: string;
+  orderTitle: string;
+  amountCents: number;
+  category: TicketCategory;
+  categoryLabel: string;
+  status: TicketStatus;
+  /** 当前用户是不是发起人 */
+  openedByMe: boolean;
+  /** 订单里的另一方（姓名由前端脱敏展示） */
+  counterparty: PublicUser;
+  createdAt: string;
+  lastMessageAt: string;
+  messageCount: number;
+  unreadCount: number;
+  lastMessage: { body: string; senderRole: "payer" | "merchant" | "admin"; createdAt: string } | null;
+}
+
+/** 工单详情 */
+export interface TicketDetail extends TicketSummary {
+  role: "payer" | "merchant";
+  messages: TicketMessage[];
+  closedAt: string | null;
+  closedReason: "user" | "admin" | "timeout" | null;
+  resolutionNote: string | null;
+}

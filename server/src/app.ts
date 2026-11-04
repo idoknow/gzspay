@@ -27,6 +27,7 @@ import { meRouter } from "./routes/me.js";
 import { merchantRouter } from "./routes/merchant.js";
 import { miscRouter } from "./routes/misc.js";
 import { onboardingRouter } from "./routes/onboarding.js";
+import { ticketsRouter } from "./routes/tickets.js";
 import { ordersRouter } from "./routes/orders.js";
 import { scanRouter } from "./routes/scan.js";
 import { setupRouter } from "./routes/setup.js";
@@ -159,6 +160,7 @@ export function createApp(): Express {
   api.use("/scan", scanRouter);
   api.use("/dynamic-code", dynamicRouter);
   api.use("/collections", collectionsRouter);
+  api.use("/tickets", ticketsRouter);
   api.use("/stats", statsRouter);
   api.use("/admin", adminRouter);
   api.use(miscRouter);

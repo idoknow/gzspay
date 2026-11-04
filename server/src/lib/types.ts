@@ -93,6 +93,32 @@ export interface AppealRow {
   created_at: string;
 }
 
+export interface TicketRow {
+  id: string;
+  order_id: string;
+  category: TicketCategory;
+  status: "open" | "closed";
+  opened_by: string;
+  closed_by: string | null;
+  closed_at: string | null;
+  closed_reason: "user" | "admin" | "timeout" | null;
+  resolution_note: string | null;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  message_count: number;
+}
+
+export type TicketCategory = "amount" | "not_received" | "not_as_described" | "refund" | "other";
+
+export interface TicketMessageRow {
+  id: string;
+  ticket_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+}
+
 export interface MerchantRow {
   user_id: string;
   name: string;

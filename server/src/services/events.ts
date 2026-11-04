@@ -16,7 +16,7 @@ const MAX_CLIENTS_PER_USER = 5;
 /** 单进程 SSE 连接总数上限，超过后拒绝新连接，保护内存与 fd */
 const MAX_CLIENTS_TOTAL = 2000;
 
-export type SseEventName = "payment_request" | "order_update" | "ready" | "ping";
+export type SseEventName = "payment_request" | "order_update" | "ticket_update" | "ready" | "ping";
 
 function countUserClients(userId: string): number {
   let count = 0;

@@ -43,6 +43,9 @@ import type {
   SetupStatus,
   StatsSummary,
   StatsTimeseries,
+  TicketCategory,
+  TicketDetail,
+  TicketSummary,
 } from "./types";
 
 /** 渠道枚举（固定顺序：支付宝、微信、QQ） */
@@ -643,6 +646,8 @@ export function payPaymentCollectionById(
 export interface EventStreamHandlers {
   onPaymentRequest?: (request: PaymentRequest) => void;
   onOrderUpdate?: (payload: { orderId: string; status?: OrderStatus }) => void;
+  /** 工单有新消息/被关闭时触发，页面据此刷新列表与未读 */
+  onTicketUpdate?: (payload: { ticketId: string | null; orderId: string | null }) => void;
   onOpen?: () => void;
   onError?: () => void;
 }
@@ -692,10 +697,17 @@ export function subscribeEvents(handlers: EventStreamHandlers): () => void {
         : undefined;
     handlers.onOrderUpdate?.({ orderId, status });
   });
+  source.addEventListener("ticket_update", (event) => {
+    const data = parseEventData(event);
+    if (!isRecord(data)) return;
+    const ticketId =
+      typeof data.ticketId === "string" ? data.ticketId : typeof data.id === "string" ? data.id : null;
+    const orderId = typeof data.orderId === "string" ? data.orderId : null;
+    handlers.onTicketUpdate?.({ ticketId, orderId });
+  });
   source.addEventListener("error", () => {
     if (!closed) handlers.onError?.();
   });
-
   return () => {
     closed = true;
     source.close();
@@ -748,4 +760,49 @@ export function getAnnouncements(): Promise<AnnouncementsResponse> {
 /** 标记单条公告已读（幂等，重复调用不报错） */
 export function markAnnouncementRead(id: string): Promise<AnnouncementReadResponse> {
   return api.post<AnnouncementReadResponse>(`/announcements/${encodeURIComponent(id)}/read`);
+}
+
+/* ------------------------------------------------------------------ */
+/* 12. 交易工单                                                        */
+/* ------------------------------------------------------------------ */
+
+/** 我的工单列表（进行中优先） */
+export function getTickets(status?: "open" | "closed"): Promise<{ items: TicketSummary[] }> {
+  return api.get<{ items: TicketSummary[] }>("/tickets", { status, limit: 50 });
+}
+
+/** 未读工单消息数（入口红点用） */
+export function getTicketUnreadCount(): Promise<{ count: number }> {
+  return api.get<{ count: number }>("/tickets/unread-count");
+}
+
+/** 发起工单；同一订单已有进行中的工单时 `existing` 为 true 并直接返回那一条 */
+export function createTicket(payload: {
+  orderId: string;
+  category: TicketCategory;
+  description: string;
+}): Promise<{ ticket: TicketDetail; existing: boolean }> {
+  return api.post<{ ticket: TicketDetail; existing: boolean }>("/tickets", payload);
+}
+
+/** 工单详情（会顺带把当前用户读到最新） */
+export function getTicket(id: string): Promise<TicketDetail> {
+  return api.get<TicketDetail>(`/tickets/${encodeURIComponent(id)}`);
+}
+
+/** 在工单里发消息 */
+export function sendTicketMessage(id: string, body: string): Promise<TicketDetail> {
+  return api.post<TicketDetail>(`/tickets/${encodeURIComponent(id)}/messages`, { body });
+}
+
+/** 标记工单已读 */
+export function markTicketRead(id: string): Promise<{ unreadCount: number; totalUnreadCount: number }> {
+  return api.post<{ unreadCount: number; totalUnreadCount: number }>(
+    `/tickets/${encodeURIComponent(id)}/read`,
+  );
+}
+
+/** 关闭工单（双方都可以关） */
+export function closeTicket(id: string): Promise<TicketDetail> {
+  return api.post<TicketDetail>(`/tickets/${encodeURIComponent(id)}/close`);
 }

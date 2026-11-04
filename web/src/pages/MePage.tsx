@@ -9,8 +9,9 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { EyeIcon } from "../components/EyeIcon";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
+import { getTicketUnreadCount } from "../lib/api";
 import { formatFriendlyTime } from "../lib/format";
-import { useWatchLayout } from "../lib/hooks";
+import { useAsync, useInterval, useVisible, useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
 
 type Tone = "neutral" | "brand" | "accent";
@@ -21,6 +22,8 @@ interface MenuItem {
   path: string;
   icon: ReactNode;
   tone?: Tone;
+  /** 右下角红点数字（0 时不显示） */
+  badge?: number;
 }
 
 const TONE_CLASS: Record<Tone, string> = {
@@ -114,6 +117,20 @@ function InfoIcon(): ReactNode {
   );
 }
 
+function TicketIcon(): ReactNode {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v1.2a2.8 2.8 0 0 0 0 6.6v1.2a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-1.2a2.8 2.8 0 0 0 0-6.6V7.5Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path d="M13 5v14" stroke="currentColor" strokeWidth="1.6" strokeDasharray="2.4 2.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function LogoutIcon(): ReactNode {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -180,6 +197,11 @@ function MenuRow({ item, divider }: { item: MenuItem; divider: boolean }): React
         <span className="block text-sm font-medium text-text">{item.label}</span>
         {item.description ? <span className="mt-0.5 block truncate text-xs text-muted">{item.description}</span> : null}
       </span>
+      {item.badge && item.badge > 0 ? (
+        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-danger px-1.5 text-[10px] font-semibold text-white">
+          {item.badge > 99 ? "99+" : item.badge}
+        </span>
+      ) : null}
       <span className="text-muted/50 transition-transform group-active:translate-x-0.5">
         <ChevronRightIcon />
       </span>
@@ -195,6 +217,14 @@ export function MePage(): ReactNode {
   const [showCardNo, setShowCardNo] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const visible = useVisible();
+  const ticketUnread = useAsync(() => getTicketUnreadCount(), []);
+  const ticketUnreadCount = ticketUnread.data?.count ?? 0;
+
+  // 页面可见时每 15 秒刷新一次工单未读红点
+  useInterval(() => {
+    if (visible) ticketUnread.reload();
+  }, 15000);
 
   const accountMenu: MenuItem[] = [
     { label: "个人信息", description: "姓名、学号、邮箱、校园卡", path: "/me/profile", icon: <UserIcon /> },
@@ -202,6 +232,14 @@ export function MePage(): ReactNode {
   ];
 
   const appMenu: MenuItem[] = [
+    {
+      label: "交易工单",
+      description:
+        ticketUnreadCount > 0 ? `有 ${ticketUnreadCount} 条未读消息` : "有争议时和对方沟通",
+      path: "/tickets",
+      icon: <TicketIcon />,
+      badge: ticketUnreadCount,
+    },
     { label: "设置", description: "外观与邮件通知", path: "/me/settings", icon: <SettingsIcon /> },
     { label: "关于", description: "版本、更新日志与协议", path: "/me/about", icon: <InfoIcon /> },
   ];

@@ -55,6 +55,7 @@ import {
   deleteAnnouncement,
   updateAnnouncement,
 } from "../services/announcements.js";
+import { getTicketForAdmin, listTicketsForAdmin } from "../services/tickets.js";
 
 export const adminRouter: Router = Router();
 
@@ -402,6 +403,33 @@ adminRouter.post(
     res.json(
       handleAppeal(req.admin!.user.id, String(req.params.id), body.status, body.note ?? null, requestIp(req)),
     );
+  }),
+);
+
+/* -------------------------------------------------------------- 工单（只读） */
+
+adminRouter.get(
+  "/tickets",
+  requireAdmin(),
+  asyncHandler((req, res) => {
+    const query = req.query as Record<string, unknown>;
+    const status = query.status === "open" || query.status === "closed" ? query.status : undefined;
+    res.json(
+      listTicketsForAdmin({
+        status,
+        keyword: typeof query.keyword === "string" ? query.keyword : undefined,
+        page: toInt(query.page, 1),
+        pageSize: toInt(query.pageSize, 20),
+      }),
+    );
+  }),
+);
+
+adminRouter.get(
+  "/tickets/:id",
+  requireAdmin(),
+  asyncHandler((req, res) => {
+    res.json(getTicketForAdmin(String(req.params.id)));
   }),
 );
 

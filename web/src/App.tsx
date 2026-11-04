@@ -50,6 +50,8 @@ const ProductsPage = lazyPage(() => import("./pages/ProductsPage"), "ProductsPag
 const ProfilePage = lazyPage(() => import("./pages/ProfilePage"), "ProfilePage");
 const SettingsPage = lazyPage(() => import("./pages/SettingsPage"), "SettingsPage");
 const StatsPage = lazyPage(() => import("./pages/StatsPage"), "StatsPage");
+const TicketDetailPage = lazyPage(() => import("./pages/TicketDetailPage"), "TicketDetailPage");
+const TicketsPage = lazyPage(() => import("./pages/TicketsPage"), "TicketsPage");
 const TradesPage = lazyPage(() => import("./pages/TradesPage"), "TradesPage");
 
 /** 懒加载页面的统一加载态 */
@@ -171,6 +173,8 @@ const router = createBrowserRouter([
       { path: "/trades", element: <TradesPage /> },
       { path: "/announcements", element: <AnnouncementsPage /> },
       { path: "/announcements/:id", element: <AnnouncementDetailPage /> },
+      { path: "/tickets", element: <TicketsPage /> },
+      { path: "/tickets/:id", element: <TicketDetailPage /> },
       { path: "/orders/print", element: <OrderPrintPage /> },
       { path: "/orders/:id", element: <OrderDetailPage /> },
       { path: "/pay", element: <PayPage /> },

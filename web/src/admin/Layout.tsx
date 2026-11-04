@@ -32,6 +32,7 @@ type IconName =
   | "traffic"
   | "admins"
   | "announcements"
+  | "tickets"
   | "system"
   | "logs"
   | "config";
@@ -50,6 +51,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: "announcements",
     group: "业务管理",
   },
+  { path: "tickets", label: "交易工单", icon: "tickets", group: "业务管理" },
   { path: "system", label: "系统状态", icon: "system", group: "系统运维" },
   { path: "logs", label: "日志查看", icon: "logs", group: "系统运维" },
   {
@@ -387,6 +389,13 @@ function NavIcon({ name }: { name: IconName }) {
           <path d="M4 10v4l12 5V5L4 10Z" />
           <path d="M16 8.5a4 4 0 0 1 0 7" />
           <path d="M7 14v5" />
+        </svg>
+      );
+    case "tickets":
+      return (
+        <svg {...common}>
+          <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v1.2a2.8 2.8 0 0 0 0 6.6v1.2a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-1.2a2.8 2.8 0 0 0 0-6.6V7.5Z" />
+          <path d="M13 5v14" strokeDasharray="2.4 2.6" />
         </svg>
       );
     case "system":

@@ -214,6 +214,41 @@ CREATE TABLE IF NOT EXISTS appeals (
 );
 CREATE INDEX IF NOT EXISTS idx_appeals_status ON appeals(status, created_at);
 
+-- 工单：交易争议时双方在工单内沟通（替代用户侧申诉入口，历史申诉保留只读）
+CREATE TABLE IF NOT EXISTS tickets (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  category TEXT NOT NULL,                      -- amount|not_received|not_as_described|refund|other
+  status TEXT NOT NULL DEFAULT 'open',         -- open|closed
+  opened_by TEXT NOT NULL REFERENCES users(id),
+  closed_by TEXT,
+  closed_at TEXT,
+  closed_reason TEXT,                          -- user|admin|timeout
+  resolution_note TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  last_message_at TEXT NOT NULL,
+  message_count INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_tickets_order ON tickets(order_id, status);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status, last_message_at);
+
+CREATE TABLE IF NOT EXISTS ticket_messages (
+  id TEXT PRIMARY KEY,
+  ticket_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  sender_id TEXT NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket ON ticket_messages(ticket_id, created_at);
+
+CREATE TABLE IF NOT EXISTS ticket_reads (
+  ticket_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  last_read_at TEXT NOT NULL,
+  PRIMARY KEY (ticket_id, user_id)
+);
+
 -- 下单幂等
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   user_id TEXT NOT NULL,

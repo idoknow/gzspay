@@ -16,10 +16,12 @@ import { useToast } from "../components/Toast";
 import {
   cancelOrder,
   confirmOrder,
+  createTicket,
   exportOrdersBlob,
   getOrder,
   getOrderQrBlob,
   getPaymentProofBlob,
+  getTickets,
   markOrderNotReceived,
   payOrder,
   subscribeEvents,
@@ -30,7 +32,8 @@ import { downloadBlob, safeFilename } from "../lib/download";
 import { cn, formatCents, formatDateTime, formatFriendlyTime, maskPersonName, payChannelLabel } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { useAsync } from "../lib/hooks";
-import type { OrderDetail, PayChannel } from "../lib/types";
+import { TICKET_CATEGORY_LABELS } from "../lib/types";
+import type { OrderDetail, PayChannel, TicketCategory } from "../lib/types";
 
 const CANCEL_REASONS = ["金额有误", "已线下结清", "对方未付款", "其他"] as const;
 
@@ -210,6 +213,11 @@ export function OrderDetailPage(): ReactNode {
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [qrDialogChannel, setQrDialogChannel] = useState<PayChannel | null>(null);
+  /** 工单：已支付 / 已完成订单可以和对方沟通争议 */
+  const [ticketOpen, setTicketOpen] = useState(false);
+  const [ticketCategory, setTicketCategory] = useState<TicketCategory>("amount");
+  const [ticketDescription, setTicketDescription] = useState("");
+  const [ticketBusy, setTicketBusy] = useState(false);
 
   const isMerchantView = order?.role === "merchant";
   const channels = order?.availableChannels ?? [];
@@ -237,6 +245,17 @@ export function OrderDetailPage(): ReactNode {
 
   const proofFactory = order?.hasPaymentProof ? () => getPaymentProofBlob(order.id) : null;
   const proof = useBlobUrl(proofFactory, [order?.id ?? "", order?.hasPaymentProof ?? false]);
+
+  // 只有发生过付款的订单才允许发起工单；这里顺带取出该订单进行中的那一条
+  const ticketEligible = order?.status === "paid" || order?.status === "completed";
+  const orderTickets = useAsync(
+    () => (ticketEligible ? getTickets("open") : Promise.resolve({ items: [] })),
+    [id, ticketEligible],
+  );
+  const currentTicket = useMemo(
+    () => (orderTickets.data?.items ?? []).find((item) => item.orderId === order?.id) ?? null,
+    [orderTickets.data, order?.id],
+  );
 
   // 切换订单时重置「已核对截图」状态
   useEffect(() => {
@@ -398,6 +417,27 @@ export function OrderDetailPage(): ReactNode {
       toast.error(errorMessage(cause));
     } finally {
       setNotReceivedBusy(false);
+    }
+  };
+
+  const submitTicket = async (): Promise<void> => {
+    if (!order) return;
+    const description = ticketDescription.trim();
+    if (description.length < 5) {
+      toast.error("请简单描述一下争议情况（至少 5 个字）");
+      return;
+    }
+    setTicketBusy(true);
+    try {
+      const result = await createTicket({ orderId: order.id, category: ticketCategory, description });
+      setTicketOpen(false);
+      setTicketDescription("");
+      orderTickets.reload();
+      navigate(`/tickets/${result.ticket.id}`);
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setTicketBusy(false);
     }
   };
 
@@ -624,6 +664,29 @@ export function OrderDetailPage(): ReactNode {
                 出示收款码
               </button>
             </div>
+          </section>
+        ) : null}
+
+        {order.status === "paid" || order.status === "completed" ? (
+          <section className="card p-4">
+            <h2 className="text-sm font-semibold text-text">订单沟通（工单）</h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted">
+              如果和对方在金额、收货或退款上有争议，可以发起工单在站内沟通。工单只有订单双方能看到，超过 7 天没有新消息会自动关闭。
+            </p>
+            {currentTicket ? (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm mt-3 w-full"
+                onClick={() => navigate(`/tickets/${currentTicket.id}`)}
+              >
+                查看工单
+                {currentTicket.unreadCount > 0 ? `（${currentTicket.unreadCount} 条未读）` : ""}
+              </button>
+            ) : (
+              <button type="button" className="btn btn-outline btn-sm mt-3 w-full" onClick={() => setTicketOpen(true)}>
+                发起工单
+              </button>
+            )}
           </section>
         ) : null}
 
@@ -952,6 +1015,65 @@ export function OrderDetailPage(): ReactNode {
         ) : (
           <p className="text-sm text-danger">尚未启用收款方式，请先在商家中心上传并启用收款码。</p>
         )}
+      </Dialog>
+
+      {/* 发起工单 */}
+      <Dialog
+        open={ticketOpen}
+        onClose={() => {
+          if (!ticketBusy) setTicketOpen(false);
+        }}
+        title="发起工单"
+        description="说明遇到的问题，对方会在工单里回复你。工单只有订单双方可见。"
+        footer={
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn btn-outline flex-1"
+              disabled={ticketBusy}
+              onClick={() => setTicketOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary flex-1"
+              disabled={ticketBusy}
+              onClick={() => void submitTicket()}
+            >
+              {ticketBusy ? "提交中…" : "发起工单"}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <p className="mb-2 text-xs font-medium text-muted">问题类型</p>
+            <div className="flex flex-wrap gap-2">
+              {(Object.entries(TICKET_CATEGORY_LABELS) as [TicketCategory, string][]).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={cn("chip", ticketCategory === value && "chip-active")}
+                  onClick={() => setTicketCategory(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-medium text-muted">问题描述</p>
+            <textarea
+              className="input min-h-[96px] resize-none py-2.5 text-[13.5px]"
+              maxLength={500}
+              placeholder="例如：实际支付了 12 元，但订单显示 10 元，麻烦核对一下"
+              value={ticketDescription}
+              onChange={(event) => setTicketDescription(event.target.value)}
+            />
+            <p className="mt-1 text-right text-[10px] text-muted/80">{ticketDescription.length} / 500</p>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

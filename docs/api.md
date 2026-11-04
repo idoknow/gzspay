@@ -434,3 +434,49 @@ interface Announcement {
 | --- | --- | --- |
 | `GET` | `/api/health` | `{ status: "ok"|"degraded", version, time, uptimeSeconds, database: "up"|"down" }` |
 | `GET` | `/api/about` | `{ version, changelog: [{ version, date, items[], groups: [{ title, items[] }] }], site: { name, schoolName, icp }, privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文） |
+
+## 12. 交易工单
+
+交易双方（付款人 / 商家）在**已支付或已完成**的订单里发起工单后用文字沟通争议。同一订单同时只允许 1 个进行中的工单，累计最多 3 个；超过 7 天没有新消息会自动关闭，双方任一方也可手动结束。参与方以外一律 404，内容只存纯文本。管理后台只读，不做回复与关闭。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/tickets?status=open|closed&limit=50` | 当前用户参与的工单列表 → `{ items: TicketSummary[] }`，默认按最后消息时间倒序 |
+| `GET` | `/api/tickets/unread-count` | `{ count }`：当前用户全部工单未读消息总数 |
+| `POST` | `/api/tickets` | 发起工单：`{ orderId, category, description }`（`category` 为 `amount/not_received/not_as_described/refund/other`，`description` 5–500 字）→ `201 { ticket: TicketDetail, existing }`；订单状态不是已支付/已完成 400，已存在进行中工单时返回原工单（`existing: true`）；每人每小时 10 次 |
+| `GET` | `/api/tickets/:id` | 工单详情（含全部消息），非参与方 404 |
+| `POST` | `/api/tickets/:id/messages` | 发送消息：`{ body }`（≤1000 字）→ `201 TicketDetail`；工单已关闭 400；每分钟 30 条 |
+| `POST` | `/api/tickets/:id/read` | 标记已读 → `{ unreadCount, totalUnreadCount }` |
+| `POST` | `/api/tickets/:id/close` | 手动结束工单（双方均可）→ `TicketDetail` |
+| `GET` | `/api/admin/tickets?status&keyword&page&pageSize` | 后台只读列表 → `{ items: AdminTicketSummary[], total, page, pageSize }`（`keyword` 匹配订单号、标题与双方姓名） |
+| `GET` | `/api/admin/tickets/:id` | 后台只读详情（含全部消息） |
+
+```ts
+interface TicketSummary {
+  id: string;
+  orderId: string;
+  orderNo: string;
+  orderTitle: string;
+  amountCents: number;
+  category: "amount" | "not_received" | "not_as_described" | "refund" | "other";
+  categoryLabel: string;
+  status: "open" | "closed";
+  openedByMe: boolean;
+  counterparty: PublicUser;        // 订单里的另一方，姓名由前端脱敏展示
+  createdAt: string;
+  lastMessageAt: string;
+  messageCount: number;
+  unreadCount: number;
+  lastMessage: { body: string; senderRole: "payer" | "merchant" | "admin"; createdAt: string } | null;
+}
+
+interface TicketDetail extends TicketSummary {
+  role: "payer" | "merchant";
+  messages: { id: string; senderId: string; senderRole: "payer" | "merchant" | "admin"; senderName: string; body: string; createdAt: string }[];
+  closedAt: string | null;
+  closedReason: "user" | "admin" | "timeout" | null;
+  resolutionNote: string | null;
+}
+```
+
+新消息会通过 SSE 的 `ticket_update` 事件通知对方，前端同时按 5–8 秒轮询兜底。

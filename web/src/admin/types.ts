@@ -799,3 +799,49 @@ export type AdminQuery = Record<
   string,
   string | number | boolean | null | undefined
 >;
+
+/* ------------------------------------------------------------------ 工单 */
+
+export type AdminTicketStatus = "open" | "closed";
+export type AdminTicketClosedReason = "user" | "admin" | "timeout";
+
+export interface AdminTicketMessage {
+  id: string;
+  ticketId: string;
+  senderId: string;
+  senderRole: "payer" | "merchant" | "admin";
+  senderName: string;
+  body: string;
+  createdAt: string;
+}
+
+/** GET /admin/tickets 列表项（后台只读） */
+export interface AdminTicket {
+  id: string;
+  orderId: string;
+  orderNo: string;
+  orderTitle: string;
+  amountCents: number;
+  category: string;
+  categoryLabel: string;
+  status: AdminTicketStatus;
+  openerName: string;
+  payerName: string;
+  merchantName: string;
+  createdAt: string;
+  lastMessageAt: string;
+  messageCount: number;
+}
+
+/** GET /admin/tickets/:id（含完整对话，只读） */
+export interface AdminTicketDetail extends AdminTicket {
+  messages: AdminTicketMessage[];
+  closedAt: string | null;
+  closedReason: AdminTicketClosedReason | null;
+  resolutionNote: string | null;
+}
+
+export interface TicketFilters {
+  status: AdminTicketStatus | "all";
+  keyword: string;
+}
