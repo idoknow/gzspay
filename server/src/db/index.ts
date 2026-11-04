@@ -91,6 +91,22 @@ function applyLegacyMigrations(): void {
   }
   // 索引依赖 published_at 列，必须在补齐列之后再建（旧库直接执行 schema 会报 no such column）
   db.exec("CREATE INDEX IF NOT EXISTS idx_announcements_published ON announcements(published_at);");
+
+  const ticketMessageColumns = db
+    .prepare("PRAGMA table_info(ticket_messages)")
+    .all() as { name: string }[];
+  if (!ticketMessageColumns.some((column) => column.name === "sender_kind")) {
+    db.exec("ALTER TABLE ticket_messages ADD COLUMN sender_kind TEXT NOT NULL DEFAULT 'user';");
+    // 历史消息没有来源标记：发送者不是订单双方的，就是平台客服在后台发的
+    db.exec(
+      `UPDATE ticket_messages SET sender_kind = 'admin'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM tickets t JOIN orders o ON o.id = t.order_id
+          WHERE t.id = ticket_messages.ticket_id
+            AND ticket_messages.sender_id IN (o.payer_id, o.merchant_id)
+        );`,
+    );
+  }
 }
 
 function normalizeParams(params: unknown[]): SQLInputValue[] {

@@ -529,7 +529,7 @@ interface TicketDetail extends TicketSummary {
   messages: {
     id: string;
     senderId: string;
-    senderRole: "payer" | "merchant" | "admin";
+    senderRole: "payer" | "merchant" | "admin"; // 按发送入口判定：用户端发的算本人，后台「回复」发的算平台
     senderName: string;            // 平台介入的消息固定为「平台客服」
     senderAvatarUrl: string | null; // 平台介入的消息为 null
     body: string;

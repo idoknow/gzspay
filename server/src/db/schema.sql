@@ -237,6 +237,8 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
   id TEXT PRIMARY KEY,
   ticket_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
   sender_id TEXT NOT NULL REFERENCES users(id),
+  -- user=订单双方自己发的消息，admin=平台客服在后台介入发的消息
+  sender_kind TEXT NOT NULL DEFAULT 'user',
   body TEXT NOT NULL,
   created_at TEXT NOT NULL
 );

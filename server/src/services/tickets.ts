@@ -142,15 +142,16 @@ function counterpartyOf(order: OrderRow, userId: string): UserRow {
   return user;
 }
 
-function senderRole(senderId: string, order: OrderRow): "payer" | "merchant" | "admin" {
-  if (senderId === order.payer_id) return "payer";
-  if (senderId === order.merchant_id) return "merchant";
-  return "admin";
+function senderRole(message: TicketMessageRow, order: OrderRow): "payer" | "merchant" | "admin" {
+  // 身份取决于「消息是从哪里发的」：后台介入发的一律是平台客服，
+  // 订单双方从交易页/工单页自己发的，即使是管理员账号也算本人，不能显示成平台消息。
+  if (message.sender_kind === "admin") return "admin";
+  return message.sender_id === order.payer_id ? "payer" : "merchant";
 }
 
 function toMessageDto(message: TicketMessageRow, order: OrderRow): TicketMessageDto {
   const sender = findUserById(message.sender_id);
-  const role = senderRole(message.sender_id, order);
+  const role = senderRole(message, order);
   return {
     id: message.id,
     ticketId: message.ticket_id,
@@ -237,7 +238,7 @@ function lastMessageOf(ticket: TicketRow, order: OrderRow): TicketSummaryDto["la
   if (!message) return null;
   return {
     body: message.body,
-    senderRole: senderRole(message.sender_id, order),
+    senderRole: senderRole(message, order),
     createdAt: message.created_at,
   };
 }
@@ -317,7 +318,7 @@ export function createTicket(user: UserRow, input: CreateTicketInput, ip: string
       now,
     );
     execute(
-      "INSERT INTO ticket_messages (id, ticket_id, sender_id, body, created_at) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO ticket_messages (id, ticket_id, sender_id, sender_kind, body, created_at) VALUES (?, ?, ?, 'user', ?, ?)",
       newId(),
       ticketId,
       user.id,
@@ -409,7 +410,7 @@ export function sendTicketMessage(ticketId: string, user: UserRow, body: string,
   const now = nowIso();
   transaction(() => {
     execute(
-      "INSERT INTO ticket_messages (id, ticket_id, sender_id, body, created_at) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO ticket_messages (id, ticket_id, sender_id, sender_kind, body, created_at) VALUES (?, ?, ?, 'user', ?, ?)",
       newId(),
       ticket.id,
       user.id,
@@ -639,7 +640,7 @@ export function sendAdminTicketMessage(
   const now = nowIso();
   transaction(() => {
     execute(
-      "INSERT INTO ticket_messages (id, ticket_id, sender_id, body, created_at) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO ticket_messages (id, ticket_id, sender_id, sender_kind, body, created_at) VALUES (?, ?, ?, 'admin', ?, ?)",
       newId(),
       ticket.id,
       adminUser.id,

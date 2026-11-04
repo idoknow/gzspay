@@ -575,9 +575,6 @@ export function TradesPage(): ReactNode {
                 </ul>
               </>
             )}
-            <p className="text-[11px] leading-relaxed text-muted">
-              账单原文件默认保留 1 天，付款截图默认保留 15 天，可在管理后台「系统配置 → 站点信息」里调整。
-            </p>
           </div>
         ) : null}
       </Dialog>

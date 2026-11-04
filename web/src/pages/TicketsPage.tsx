@@ -62,7 +62,11 @@ function TicketCard({ item, onOpen }: { item: TicketSummary; onOpen: () => void 
           {preview ? (
             <span className="mt-1 line-clamp-1 block text-[12.5px] leading-relaxed text-muted watch:text-[11.5px]">
               <span className="mr-1 text-muted/80">
-                {item.lastMessage?.senderRole === "merchant" ? "商家" : "同学"}：
+                {item.lastMessage?.senderRole === "merchant"
+                  ? "商家"
+                  : item.lastMessage?.senderRole === "admin"
+                    ? "平台客服"
+                    : "同学"}：
               </span>
               {preview}
             </span>

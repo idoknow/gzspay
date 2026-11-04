@@ -146,6 +146,8 @@ export interface TicketMessageRow {
   id: string;
   ticket_id: string;
   sender_id: string;
+  /** user=订单双方自己发的消息，admin=平台客服在后台介入发的消息 */
+  sender_kind: "user" | "admin";
   body: string;
   created_at: string;
 }

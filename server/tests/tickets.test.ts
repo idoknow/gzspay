@@ -298,4 +298,63 @@ describe("交易工单", () => {
       .send({ body: "已经结束了还能说话吗" });
     expect(replyAfterClose.status).toBe(400);
   });
+
+  it("管理员作为订单一方从交易页发言算本人，只有后台介入才算平台客服", async () => {
+    // 让付款人同时拥有 ops 权限，模拟「管理员自己就是订单当事人」
+    const dual = await login("dual-admin", "双重身份管理员");
+    await completeOnboarding(dual.api, "TKDA0002", "20239998");
+    execute(
+      "INSERT INTO admins (user_id, role, created_by, created_at) VALUES (?, 'ops', NULL, ?)",
+      dual.id,
+      new Date().toISOString(),
+    );
+
+    const created = await merchantApi
+      .post("/api/merchant/collections")
+      .send({ amountCents: 1280, reservedNote: "管理员双重身份测试" })
+      .expect(201);
+    const paid = await dual.api
+      .post(`/api/collections/id/${created.body.collection.id}/pay`)
+      .send({ paymentPassword: "123456" })
+      .expect(201);
+    const orderId = paid.body.order.id as string;
+    const proof = await generateQrPngBuffer("https://example.com/gzspay-ticket-dual-proof");
+    await dual.api.post(`/api/orders/${orderId}/payment-proof`).attach("file", proof, "proof.png").expect(200);
+    await dual.api.post(`/api/orders/${orderId}/pay`).send({ channel: "alipay" }).expect(200);
+
+    const ticket = await dual.api
+      .post("/api/tickets")
+      .send({ orderId, category: "other", description: "想确认一下订单备注和金额" })
+      .expect(201);
+    const ticketId = ticket.body.ticket.id as string;
+
+    // 从交易页（用户端）发言：即使是管理员账号，也显示成订单本人
+    const selfReply = await dual.api
+      .post(`/api/tickets/${ticketId}/messages`)
+      .send({ body: "我是付款人，这条消息是我本人发的" })
+      .expect(201);
+    const selfMessage = selfReply.body.messages.at(-1);
+    expect(selfMessage.senderRole).toBe("payer");
+    expect(selfMessage.senderName).not.toBe("平台客服");
+
+    // 从后台介入发言：同样的账号，要显示成平台客服
+    const platformReply = await dual.api
+      .post(`/api/admin/tickets/${ticketId}/messages`)
+      .send({ body: "平台客服说明：请商家按约定核对这笔金额" })
+      .expect(201);
+    const platformMessage = platformReply.body.messages.at(-1);
+    expect(platformMessage.senderRole).toBe("admin");
+    expect(platformMessage.senderName).toBe("平台客服");
+    expect(platformMessage.senderAvatarUrl).toBeNull();
+    expect(platformMessage.senderId).toBe(dual.id);
+
+    // 对方视角与工单列表预览也按来源区分
+    const merchantView = await merchantApi.get(`/api/tickets/${ticketId}`).expect(200);
+    const roles = merchantView.body.messages.map((message: { senderRole: string }) => message.senderRole);
+    expect(roles).toContain("payer");
+    expect(roles.at(-1)).toBe("admin");
+    const list = await merchantApi.get("/api/tickets?status=open").expect(200);
+    const summary = list.body.items.find((item: { id: string }) => item.id === ticketId);
+    expect(summary?.lastMessage.senderRole).toBe("admin");
+  });
 });
