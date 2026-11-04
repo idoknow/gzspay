@@ -41,6 +41,8 @@ const EVENT_LABELS: Record<string, string> = {
   created: "创建订单",
   paid: "付款人标记已支付",
   payment: "付款人标记已支付",
+  payment_proof_uploaded: "付款人上传付款截图",
+  proof_uploaded: "付款人上传付款截图",
   confirmed: "商家确认收款",
   confirm: "商家确认收款",
   completed: "交易完成",
@@ -49,7 +51,11 @@ const EVENT_LABELS: Record<string, string> = {
   not_received: "商家标记未收到款",
   notReceived: "商家标记未收到款",
   appeal: "付款人发起申诉",
+  appealed: "付款人发起申诉",
+  auto_confirmed: "账单自动对账确认收款",
   requirement: "备注要求",
+  refunded: "订单已退款",
+  timeout_closed: "订单超时关闭",
 };
 
 function statusText(order: OrderDetail): { title: string; description: string } {
@@ -71,30 +77,41 @@ function statusText(order: OrderDetail): { title: string; description: string } 
   }
 }
 
+/** 时间线只展示中文：历史「账单自动对账」事件尾部带的十六进制账单编号在这里去掉 */
+function eventDetail(event: { type: string; detail: string | null }): string | null {
+  if (!event.detail) return null;
+  if (event.type !== "auto_confirmed") return event.detail;
+  const cleaned = event.detail.replace(/[，,]\s*账单\s*[0-9a-zA-Z-]{4,}\s*$/u, "").trim();
+  return cleaned || "账单自动对账确认收款";
+}
+
 function Timeline({ order }: { order: OrderDetail }): ReactNode {
   if (order.events.length === 0) return null;
   return (
     <section className="card p-4">
       <h2 className="text-sm font-semibold text-text">订单时间线</h2>
       <ol className="mt-3 space-y-3">
-        {order.events.map((event, index) => (
-          <li key={event.id} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <span
-                className={cn(
-                  "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
-                  index === order.events.length - 1 ? "bg-brand" : "bg-surface-3",
-                )}
-              />
-              {index < order.events.length - 1 ? <span className="mt-1 w-px flex-1 bg-line" /> : null}
-            </div>
-            <div className="min-w-0 flex-1 pb-1">
-              <p className="text-sm text-text">{EVENT_LABELS[event.type] ?? event.type}</p>
-              {event.detail ? <p className="mt-0.5 break-words text-xs text-muted">{event.detail}</p> : null}
-              <p className="mt-0.5 text-[11px] text-muted">{formatDateTime(event.createdAt)}</p>
-            </div>
-          </li>
-        ))}
+        {order.events.map((event, index) => {
+          const detail = eventDetail(event);
+          return (
+            <li key={event.id} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <span
+                  className={cn(
+                    "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
+                    index === order.events.length - 1 ? "bg-brand" : "bg-surface-3",
+                  )}
+                />
+                {index < order.events.length - 1 ? <span className="mt-1 w-px flex-1 bg-line" /> : null}
+              </div>
+              <div className="min-w-0 flex-1 pb-1">
+                <p className="text-sm text-text">{EVENT_LABELS[event.type] ?? "订单状态更新"}</p>
+                {detail ? <p className="mt-0.5 break-words text-xs text-muted">{detail}</p> : null}
+                <p className="mt-0.5 text-[11px] text-muted">{formatDateTime(event.createdAt)}</p>
+              </div>
+            </li>
+          );
+        })}
       </ol>
     </section>
   );

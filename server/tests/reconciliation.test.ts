@@ -158,6 +158,12 @@ describe("商家收款自动对账", () => {
     expect(detail.body.status).toBe("completed");
     expect(detail.body.payChannel).toBe("alipay");
 
+    // 时间线事件只写中文，不把账单编号之类的十六进制内容带进去
+    const autoEvent = (detail.body.events as { type: string; detail: string | null }[]).find(
+      (event) => event.type === "auto_confirmed",
+    );
+    expect(autoEvent?.detail).toBe("账单自动对账确认收款（支付宝）");
+
     const bills = await merchantApi.get("/api/merchant/bills").expect(200);
     expect(bills.body.items.length).toBeGreaterThanOrEqual(1);
     expect(bills.body.items[0].id).toBe(uploaded.body.id);

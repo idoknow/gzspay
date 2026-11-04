@@ -1214,7 +1214,7 @@ export function completeOrderByReconciliation(
     "auto_confirmed",
     "system",
     null,
-    `账单自动对账确认收款（${input.providerLabel}），账单 ${input.importId.slice(0, 8)}`,
+    `账单自动对账确认收款（${input.providerLabel}）`,
   );
   const updated = findOrderById(orderId) as OrderRow;
   notifyOrderUpdate(updated);
