@@ -76,7 +76,15 @@ interface Me {
   isAdmin: boolean;
   paymentPasswordSet: boolean;
   frozen: boolean;
-  notificationSettings: { newOrder: boolean; paid: boolean; settled: boolean };
+  notificationSettings: {
+    newOrder: boolean;
+    paid: boolean;
+    settled: boolean;
+    /** 工单消息邮件通知 */
+    ticket: boolean;
+    /** 平台公告邮件通知 */
+    announcement: boolean;
+  };
   createdAt: string;
 }
 ```
@@ -140,7 +148,7 @@ interface Me {
 | `POST` | `/api/me/email/start` | `{ email, paymentPassword }` 发送新邮箱验证码 |
 | `POST` | `/api/me/email/verify` | `{ email, code, paymentPassword }` 完成换绑 |
 | `POST` | `/api/me/card` | `{ cardContent, paymentPassword }` 换绑校园卡（新卡未被占用，旧卡解绑） |
-| `PATCH` | `/api/me/settings` | `{ newOrder?, paid?, settled? }` 邮件开关 |
+| `PATCH` | `/api/me/settings` | `{ newOrder?, paid?, settled?, ticket?, announcement? }` 邮件开关 |
 | `GET` | `/api/me/card-qr` | `{ content, cardNoMasked }` 我的校园卡二维码内容 |
 | `GET` | `/api/me/devices` | `{ items: LoginDevice[], onlineWindowMinutes }` 登录设备列表；`LoginDevice = { id, current, deviceName, deviceType: "mobile"\|"tablet"\|"desktop"\|"other", os, browser, ip, createdAt, lastSeenAt, expiresAt, online }`，`current` 为当前请求所属会话，`online` 指会话未过期且最近 `onlineWindowMinutes`（5）分钟内有请求 |
 | `POST` | `/api/me/devices/:id/logout` | 退出指定设备，`{ ok: true, current }`；退出的是当前设备时会同时清掉会话 Cookie |
@@ -184,7 +192,7 @@ interface Me {
 | `POST` | `/api/orders/:id/confirm` | 商家确认收款：仅「已支付」可确认 → 已完成（付款人必须先点「我已支付」并上传付款截图，否则 `409 ORDER_STATUS_INVALID` / `400`）→ 返回 `Order` |
 | `POST` | `/api/orders/:id/not-received` | 商家点「未收到」：已支付 → 待付款，通知付款人 → 返回 `Order` |
 | `POST` | `/api/orders/:id/cancel` | 商家取消：`{ reason: "金额有误"|"已线下结清"|"对方未付款"|"其他", note? }`，**仅待付款**可取消 → 已取消（已付款请先「标记未收到」再取消，否则 409）→ 返回 `Order` |
-| `GET` | `/api/orders/export?format=csv|xlsx|json&scope=pay|receive&status=…&q=…&ids=…&from=…&to=…&tzOffset=…` | 导出当前账号可见的账单：`format` 默认 `csv`，`xlsx` 为手写 OOXML，`json` 返回 `{ exportedAt, count, orders }`（前端打印页据此生成 PDF）；`ids` 逗号分隔 ≤500（详情页单笔导出），`from`/`to` 为 ISO 时间范围（含 `from`、不含 `to`，前端按本地「今日/本周/本月/本年」换算，`from` 必须早于 `to`），`tzOffset` 为浏览器时区偏移分钟、用于换算导出时间；响应带 `Content-Disposition: attachment`、`Cache-Control: private, no-store`，每分钟限 20 次 |
+| `GET` | `/api/orders/export?format=csv|xlsx|json&scope=pay|receive&status=…&q=…&ids=…&from=…&to=…&tzOffset=…` | 导出当前账号可见的账单：`format` 默认 `csv`，`xlsx` 为手写 OOXML，`json` 返回 `{ exportedAt, count, orders }`（前端打印页据此生成 PDF）；`ids` 逗号分隔 ≤500（详情页单笔导出），`from`/`to` 为 ISO 时间范围（含 `from`、不含 `to`，前端按本地「今日/本周/本月/本年」换算，默认今日，`from` 必须早于 `to`），`tzOffset` 为浏览器时区偏移分钟、用于换算导出时间；响应带 `Content-Disposition: attachment`、`Cache-Control: private, no-store`，每分钟限 20 次 |
 | `POST` | `/api/orders/:id/appeal` | 付款人申诉：`{ reason }`，写申诉记录 → 返回 `Order` |
 
 说明：状态流转类接口（pay/confirm/not-received/cancel/appeal）直接返回扁平 `Order` 对象（不包 `order` 字段）；两个创建接口返回 `{ order: Order }`。
@@ -509,6 +517,8 @@ interface TicketSummary {
   lastMessageAt: string;
   messageCount: number;
   unreadCount: number;
+  // 列表预览只取订单双方自己的最后一条消息（平台客服介入的内容不进入预览；
+  // 因此 senderRole 实际只会是 payer / merchant）
   lastMessage: { body: string; senderRole: "payer" | "merchant" | "admin"; createdAt: string } | null;
 }
 

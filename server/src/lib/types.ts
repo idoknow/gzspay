@@ -248,6 +248,10 @@ export interface NotificationSettingsRow {
   new_order: number;
   paid: number;
   settled: number;
+  /** 工单消息邮件通知，1 表示开启 */
+  ticket: number;
+  /** 平台公告邮件通知，1 表示开启 */
+  announcement: number;
 }
 
 export interface PublicUser {
@@ -277,7 +281,15 @@ export interface Me {
   isAdmin: boolean;
   paymentPasswordSet: boolean;
   frozen: boolean;
-  notificationSettings: { newOrder: boolean; paid: boolean; settled: boolean };
+  notificationSettings: {
+    newOrder: boolean;
+    paid: boolean;
+    settled: boolean;
+    /** 工单消息邮件通知 */
+    ticket: boolean;
+    /** 平台公告邮件通知 */
+    announcement: boolean;
+  };
   createdAt: string;
 }
 

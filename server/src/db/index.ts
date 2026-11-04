@@ -107,6 +107,16 @@ function applyLegacyMigrations(): void {
         );`,
     );
   }
+
+  const notificationColumns = db
+    .prepare("PRAGMA table_info(notification_settings)")
+    .all() as { name: string }[];
+  if (!notificationColumns.some((column) => column.name === "ticket")) {
+    db.exec("ALTER TABLE notification_settings ADD COLUMN ticket INTEGER NOT NULL DEFAULT 1;");
+  }
+  if (!notificationColumns.some((column) => column.name === "announcement")) {
+    db.exec("ALTER TABLE notification_settings ADD COLUMN announcement INTEGER NOT NULL DEFAULT 1;");
+  }
 }
 
 function normalizeParams(params: unknown[]): SQLInputValue[] {

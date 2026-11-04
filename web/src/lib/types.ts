@@ -26,6 +26,10 @@ export interface NotificationSettings {
   newOrder: boolean;
   paid: boolean;
   settled: boolean;
+  /** 工单消息邮件通知 */
+  ticket: boolean;
+  /** 平台公告邮件通知 */
+  announcement: boolean;
 }
 
 /** 登录设备类型 */

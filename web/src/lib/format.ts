@@ -227,17 +227,16 @@ export function addDays(date: Date, days: number): Date {
 }
 
 /** 账单导出的时间范围：全部 / 今日 / 本周（周一起） / 本月 / 本年 */
-export type ExportDateRange = "all" | "today" | "week" | "month" | "year";
+export type ExportDateRange = "today" | "week" | "month" | "year";
 
 export const EXPORT_RANGE_OPTIONS: { value: ExportDateRange; label: string }[] = [
-  { value: "all", label: "全部" },
   { value: "today", label: "今日" },
   { value: "week", label: "本周" },
   { value: "month", label: "本月" },
   { value: "year", label: "本年" },
 ];
 
-/** 把时间范围换算成本地起点（ISO 字符串，含 from、不含 to；全部返回空对象） */
+/** 把时间范围换算成本地起点（ISO 字符串，含 from、不含 to） */
 export function exportRangeBounds(range: ExportDateRange, now = new Date()): { from?: string; to?: string } {
   switch (range) {
     case "today":
@@ -249,13 +248,13 @@ export function exportRangeBounds(range: ExportDateRange, now = new Date()): { f
     case "year":
       return { from: startOfYear(now).toISOString() };
     default:
-      return {};
+      return { from: startOfDay(now).toISOString() };
   }
 }
 
 /** 文件名里使用的时间范围后缀，如「今日」「本月」 */
 export function exportRangeLabel(range: ExportDateRange): string {
-  return EXPORT_RANGE_OPTIONS.find((option) => option.value === range)?.label ?? "全部";
+  return EXPORT_RANGE_OPTIONS.find((option) => option.value === range)?.label ?? "今日";
 }
 
 /** 生成随机幂等键（下单防重复提交） */

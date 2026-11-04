@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { app } from "../src/app.js";
 import { config } from "../src/config.js";
-import { execute, migrate, resetDatabaseForTests } from "../src/db/index.js";
+import { execute, migrate, queryAll, resetDatabaseForTests } from "../src/db/index.js";
 import { buildCardQrContent, hashToken, randomToken } from "../src/lib/crypto.js";
 import { generateQrPngBuffer } from "../src/lib/qr.js";
 import { applyRuntimeConfig } from "../src/lib/runtime-config.js";
@@ -355,6 +355,70 @@ describe("交易工单", () => {
     expect(roles.at(-1)).toBe("admin");
     const list = await merchantApi.get("/api/tickets?status=open").expect(200);
     const summary = list.body.items.find((item: { id: string }) => item.id === ticketId);
-    expect(summary?.lastMessage.senderRole).toBe("admin");
+    // 列表预览不展示平台客服的消息，只看双方自己的最后一条
+    expect(summary?.lastMessage.body).toContain("我是付款人");
+    expect(summary?.lastMessage.senderRole).toBe("payer");
+  });
+
+  it("工单消息与平台公告按通知设置发送邮件", async () => {
+    const orderId = await createPaidOrder();
+    const created = await payerApi
+      .post("/api/tickets")
+      .send({ orderId, category: "amount", description: "这笔金额想请商家确认一下，方便的话回复我" })
+      .expect(201);
+    const ticketId = created.body.ticket.id as string;
+
+    // 建单后商家收到工单邮件
+    const firstMail = await waitForMail("ticket", "20239101@qq.com");
+    expect(firstMail).toBeTruthy();
+    expect(firstMail?.subject).toContain("工单");
+    expect(firstMail?.subject).toContain(created.body.ticket.orderNo);
+
+    // 关掉工单通知后不再发信
+    const off = await merchantApi.patch("/api/me/settings").send({ ticket: false }).expect(200);
+    expect(off.body.notificationSettings.ticket).toBe(false);
+    await payerApi
+      .post(`/api/tickets/${ticketId}/messages`)
+      .send({ body: "补充一下，付款截图已经上传过了" })
+      .expect(201);
+    const suppressed = await waitForMail("ticket", "20239101@qq.com", firstMail?.id);
+    expect(suppressed).toBeNull();
+    await merchantApi.patch("/api/me/settings").send({ ticket: true }).expect(200);
+
+    // 公告发布时，开启了公告通知的用户会收到邮件
+    const superAdmin = await loginAdmin("notice-super", "super");
+    const published = await superAdmin
+      .post("/api/admin/announcements")
+      .send({ title: "对账服务维护通知", content: "本周日凌晨对账服务会短暂维护，请提前上传账单。", level: "info", pinned: false })
+      .expect(200);
+    expect(published.body.id).toBeTruthy();
+    const announcementMail = await waitForMail("announcement", "20239102@qq.com");
+    expect(announcementMail?.subject).toContain("平台公告");
+
+    // 公告开关也能关闭
+    const announcementOff = await payerApi
+      .patch("/api/me/settings")
+      .send({ announcement: false })
+      .expect(200);
+    expect(announcementOff.body.notificationSettings.announcement).toBe(false);
   });
 });
+
+/** 等邮件写进 mail_outbox（发信在后台异步进行），返回最新一条 */
+async function waitForMail(
+  kind: string,
+  toEmail: string,
+  afterId?: string,
+): Promise<{ id: string; subject: string } | null> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const rows = queryAll<{ id: string; subject: string }>(
+      "SELECT id, subject FROM mail_outbox WHERE kind = ? AND to_email = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+      kind,
+      toEmail,
+    );
+    const row = rows[0] ?? null;
+    if (row && row.id !== afterId) return row;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return null;
+}

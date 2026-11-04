@@ -113,7 +113,7 @@ export function TradesPage(): ReactNode {
   const [filterOpen, setFilterOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportBusy, setExportBusy] = useState<"csv" | "xlsx" | "json" | null>(null);
-  const [exportRange, setExportRange] = useState<ExportDateRange>("all");
+  const [exportRange, setExportRange] = useState<ExportDateRange>("today");
   const [search, setSearch] = useState("");
   const keyword = useDebouncedValue(search.trim(), 300);
   const [billUploading, setBillUploading] = useState(false);
@@ -154,7 +154,7 @@ export function TradesPage(): ReactNode {
         ...range,
       });
       const stamp = new Date().toISOString().slice(0, 10);
-      const rangeText = exportRange === "all" ? "" : `-${exportRangeLabel(exportRange)}`;
+      const rangeText = `-${exportRangeLabel(exportRange)}`;
       downloadBlob(blob, safeFilename(`gzspay-账单-${stamp}${rangeText}.${format}`));
       toast.success("账单已导出");
       setExportOpen(false);

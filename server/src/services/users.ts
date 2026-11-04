@@ -80,7 +80,8 @@ export function ensureNotificationSettings(userId: string): NotificationSettings
   );
   if (existing) return existing;
   execute(
-    "INSERT INTO notification_settings (user_id, new_order, paid, settled) VALUES (?, 1, 1, 1)",
+    `INSERT INTO notification_settings (user_id, new_order, paid, settled, ticket, announcement)
+     VALUES (?, 1, 1, 1, 1, 1)`,
     userId,
   );
   return {
@@ -88,7 +89,32 @@ export function ensureNotificationSettings(userId: string): NotificationSettings
     new_order: 1,
     paid: 1,
     settled: 1,
+    ticket: 1,
+    announcement: 1,
   };
+}
+
+export type NotificationSettingKey =
+  | "new_order"
+  | "paid"
+  | "settled"
+  | "ticket"
+  | "announcement";
+
+/**
+ * 按用户的通知开关发邮件：没有邮箱、或对应开关关闭时直接跳过。
+ * 邮件在后台发送，失败只写系统错误日志，不影响主流程。
+ */
+export function mailUserWithSetting(
+  userId: string,
+  message: Parameters<typeof sendMailInBackground>[0],
+  setting: NotificationSettingKey,
+): void {
+  const user = findUserById(userId);
+  if (!user?.email) return;
+  const settings = ensureNotificationSettings(userId);
+  if (settings[setting] !== 1) return;
+  sendMailInBackground({ ...message, to: user.email });
 }
 
 export function toMe(user: UserRow): Me {
@@ -115,6 +141,8 @@ export function toMe(user: UserRow): Me {
       newOrder: notification.new_order === 1,
       paid: notification.paid === 1,
       settled: notification.settled === 1,
+      ticket: notification.ticket === 1,
+      announcement: notification.announcement === 1,
     },
     createdAt: user.created_at,
   };

@@ -128,6 +128,8 @@ const NOTIFY_ROWS: { key: keyof NotificationSettings; title: string; description
   { key: "newOrder", title: "新订单", description: "有人创建订单时发送邮件通知" },
   { key: "paid", title: "付款通知", description: "付款人完成付款时发送邮件通知" },
   { key: "settled", title: "结算通知", description: "订单确认收款、取消等状态变更时发送邮件通知" },
+  { key: "ticket", title: "工单通知", description: "交易工单有新消息、或平台客服介入时发送邮件通知" },
+  { key: "announcement", title: "平台公告", description: "平台发布新公告时发送邮件通知" },
 ];
 
 export function SettingsPage(): ReactNode {
@@ -137,7 +139,13 @@ export function SettingsPage(): ReactNode {
   const themeMode = useThemeMode();
   const [saving, setSaving] = useState<keyof NotificationSettings | null>(null);
   const [settings, setSettings] = useState<NotificationSettings>(
-    me?.notificationSettings ?? { newOrder: true, paid: true, settled: true },
+    me?.notificationSettings ?? {
+      newOrder: true,
+      paid: true,
+      settled: true,
+      ticket: true,
+      announcement: true,
+    },
   );
 
   if (!me) return null;

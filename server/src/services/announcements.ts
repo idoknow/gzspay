@@ -11,7 +11,11 @@ import { db, nowIso, queryAll, queryOne } from "../db/index.js";
 import { writeAudit } from "../lib/audit.js";
 import { newId } from "../lib/crypto.js";
 import { errors } from "../lib/errors.js";
+import { sendMailInBackground, templates } from "../lib/mail.js";
 import type { AnnouncementLevel, AnnouncementRow } from "../lib/types.js";
+
+/** 公告邮件最多发多少人：一次发布超过这个数量只通知前 N 位（避免刷爆发件通道） */
+const MAX_ANNOUNCEMENT_MAILS = 500;
 
 export const ANNOUNCEMENT_LEVELS: AnnouncementLevel[] = ["info", "important", "warning"];
 
@@ -101,6 +105,21 @@ export interface AnnouncementInput {
   publishedAt: string | null;
 }
 
+/** 公告发布后给开启了「平台公告」邮件通知的用户发提醒（后台发送，不影响公告创建） */
+function mailAnnouncement(title: string, content: string): void {
+  const recipients = queryAll<{ email: string }>(
+    `SELECT u.email AS email
+       FROM notification_settings n JOIN users u ON u.id = n.user_id
+      WHERE n.announcement = 1 AND u.email IS NOT NULL AND u.email != ''
+      ORDER BY u.created_at ASC
+      LIMIT ?`,
+    MAX_ANNOUNCEMENT_MAILS,
+  );
+  for (const recipient of recipients) {
+    sendMailInBackground(templates.announcement({ to: recipient.email, title, body: content }));
+  }
+}
+
 export function createAnnouncement(
   actorId: string,
   input: AnnouncementInput,
@@ -135,6 +154,7 @@ export function createAnnouncement(
     detail: input.title,
     ip,
   });
+  mailAnnouncement(input.title, input.content);
   return { ok: true, id };
 }
 

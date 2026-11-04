@@ -10,9 +10,10 @@ import type {
   TicketRow,
   UserRow,
 } from "../lib/types.js";
+import { templates } from "../lib/mail.js";
 import { pushToUser } from "./events.js";
 import { findOrderById, requireOrderForUser } from "./orders.js";
-import { displayNameOf, findUserById, publicUserOf } from "./users.js";
+import { displayNameOf, findUserById, mailUserWithSetting, publicUserOf } from "./users.js";
 
 /** 工单分类：建单时选择，决定后续提示文案与后台筛选 */
 export const TICKET_CATEGORIES: TicketCategory[] = [
@@ -231,8 +232,9 @@ function unreadCountOf(ticket: TicketRow, userId: string): number {
 }
 
 function lastMessageOf(ticket: TicketRow, order: OrderRow): TicketSummaryDto["lastMessage"] {
+  // 列表预览只展示订单双方自己的消息：平台客服介入的内容不进入预览
   const message = queryOne<TicketMessageRow>(
-    "SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+    "SELECT * FROM ticket_messages WHERE ticket_id = ? AND sender_kind = 'user' ORDER BY created_at DESC, id DESC LIMIT 1",
     ticket.id,
   );
   if (!message) return null;
@@ -345,6 +347,7 @@ export function createTicket(user: UserRow, input: CreateTicketInput, ip: string
     preview: description.slice(0, 60),
     createdAt: now,
   });
+  mailTicketNotice(counterparty.id, ticketId, order, displayNameOf(user), description, true);
 
   return { ticket: getTicket(ticketId, user), existing: false };
 }
@@ -442,6 +445,7 @@ export function sendTicketMessage(ticketId: string, user: UserRow, body: string,
     preview: text.slice(0, 60),
     createdAt: now,
   });
+  mailTicketNotice(counterparty.id, ticket.id, order, displayNameOf(user), text, false);
   return getTicket(ticket.id, user);
 }
 
@@ -615,6 +619,30 @@ function notifyParties(order: OrderRow, ticketId: string, payload: Record<string
   }
 }
 
+/** 工单邮件提醒：按收件人的「工单通知」开关发信（发送在后台进行，失败不影响主流程） */
+function mailTicketNotice(
+  recipientId: string,
+  ticketId: string,
+  order: OrderRow,
+  fromName: string,
+  preview: string,
+  opened: boolean,
+): void {
+  mailUserWithSetting(
+    recipientId,
+    templates.ticketUpdated({
+      to: "",
+      ticketId,
+      orderNo: order.order_no,
+      orderTitle: order.title,
+      fromName,
+      preview,
+      opened,
+    }),
+    "ticket",
+  );
+}
+
 function loadTicketForAdmin(ticketId: string): { ticket: TicketRow; order: OrderRow } {
   const ticket = findTicketById(ticketId);
   if (!ticket) throw errors.notFound("工单不存在");
@@ -664,6 +692,10 @@ export function sendAdminTicketMessage(
     ip,
   });
   notifyParties(order, ticket.id, { preview: text.slice(0, 60), createdAt: now, role: "admin" });
+  // 平台介入的消息同时给订单双方发邮件提醒
+  for (const userId of new Set([order.payer_id, order.merchant_id])) {
+    mailTicketNotice(userId, ticket.id, order, "平台客服", text, false);
+  }
   return getTicketForAdmin(ticket.id);
 }
 

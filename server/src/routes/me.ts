@@ -153,6 +153,8 @@ const settingsSchema = z.object({
   newOrder: z.boolean().optional(),
   paid: z.boolean().optional(),
   settled: z.boolean().optional(),
+  ticket: z.boolean().optional(),
+  announcement: z.boolean().optional(),
 });
 
 meRouter.patch(
@@ -160,16 +162,23 @@ meRouter.patch(
   asyncHandler((req, res) => {
     const user = req.auth!.user;
     const body = parse(settingsSchema, req.body);
-    const current = queryOne<{ new_order: number; paid: number; settled: number }>(
-      "SELECT * FROM notification_settings WHERE user_id = ?",
-      user.id,
-    );
+    const current = queryOne<{
+      new_order: number;
+      paid: number;
+      settled: number;
+      ticket: number;
+      announcement: number;
+    }>("SELECT * FROM notification_settings WHERE user_id = ?", user.id);
     if (!current) throw errors.notFound("通知设置不存在");
     execute(
-      "UPDATE notification_settings SET new_order = ?, paid = ?, settled = ? WHERE user_id = ?",
+      `UPDATE notification_settings
+          SET new_order = ?, paid = ?, settled = ?, ticket = ?, announcement = ?
+        WHERE user_id = ?`,
       body.newOrder === undefined ? current.new_order : body.newOrder ? 1 : 0,
       body.paid === undefined ? current.paid : body.paid ? 1 : 0,
       body.settled === undefined ? current.settled : body.settled ? 1 : 0,
+      body.ticket === undefined ? current.ticket : body.ticket ? 1 : 0,
+      body.announcement === undefined ? current.announcement : body.announcement ? 1 : 0,
       user.id,
     );
     res.json(toMe(req.auth!.user));

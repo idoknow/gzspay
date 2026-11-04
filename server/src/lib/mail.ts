@@ -489,6 +489,61 @@ const templates = {
       },
     });
   },
+  ticketUpdated(params: {
+    to: string;
+    ticketId: string;
+    orderNo: string;
+    orderTitle: string;
+    fromName: string;
+    preview: string;
+    opened: boolean;
+  }): MailMessage {
+    const preview = params.preview.length > 120 ? `${params.preview.slice(0, 120)}…` : params.preview;
+    return buildMessage({
+      to: params.to,
+      subject: params.opened
+        ? `【gzspay】工单已发起 ${params.orderNo}`
+        : `【gzspay】工单有新消息 ${params.orderNo}`,
+      kind: "ticket",
+      content: {
+        badge: "交易工单",
+        tone: "brand",
+        title: params.opened ? "对方发起了交易工单" : "工单有新消息",
+        preheader: `订单 ${params.orderNo} · ${params.fromName}`,
+        intro: `${params.fromName} 在订单「${params.orderTitle}」的工单里留言：`,
+        paragraphs: [preview],
+        rows: [
+          { label: "订单号", value: params.orderNo },
+          { label: "付款内容", value: params.orderTitle },
+        ],
+        action: { label: "打开 gzspay 查看工单", url: `${config.publicBaseUrl}/tickets/${params.ticketId}` },
+        note: "工单只对订单双方与平台客服可见；可在「设置 → 邮件通知」里关闭工单通知。",
+      },
+    });
+  },
+  announcement(params: {
+    to: string;
+    title: string;
+    body: string;
+  }): MailMessage {
+    const summary =
+      params.body.length > 200 ? `${params.body.slice(0, 200)}…` : params.body;
+    return buildMessage({
+      to: params.to,
+      subject: `【gzspay】平台公告：${params.title}`,
+      kind: "announcement",
+      content: {
+        badge: "平台公告",
+        tone: "brand",
+        title: params.title,
+        preheader: params.title,
+        intro: "平台发布了新的公告：",
+        paragraphs: [summary],
+        action: { label: "打开 gzspay 查看公告", url: `${config.publicBaseUrl}/announcements` },
+        note: "可在「设置 → 邮件通知」里关闭平台公告邮件提醒。",
+      },
+    });
+  },
   passwordChanged(to: string): MailMessage {
     return buildMessage({
       to,
