@@ -171,7 +171,7 @@ export function readMailConfig(): MailConfigView {
   const stored = storedMap();
   const { fromName, fromAddress } = splitFrom(config.smtp.from);
   const host = stored.get(MAIL_KEYS.host) ?? config.smtp.host ?? "";
-  return {
+  const view: MailConfigView = {
     // Resend 由环境变量配置，优先级高于后台 SMTP 配置
     provider: isResendConfigured() ? "resend" : host ? "smtp" : "none",
     host,
@@ -181,6 +181,20 @@ export function readMailConfig(): MailConfigView {
     fromName: stored.get(MAIL_KEYS.fromName) ?? fromName,
     fromAddress: stored.get(MAIL_KEYS.fromAddress) ?? fromAddress,
     passwordConfigured: Boolean(stored.get(MAIL_KEYS.password) ?? config.smtp.pass),
+  };
+  if (!isResendConfigured()) return view;
+  // Resend 生效时后台展示的应是实际发件通道与发件人，而不是残留的 SMTP 配置
+  const schoolName = readSystemConfig().schoolName;
+  return {
+    ...view,
+    provider: "resend",
+    host: "smtp.resend.com",
+    port: 465,
+    secure: true,
+    username: "resend",
+    fromName: config.resend.fromName.trim() || (schoolName ? `${schoolName}校园服务` : "校园服务"),
+    fromAddress: config.resend.fromAddress,
+    passwordConfigured: true,
   };
 }
 
