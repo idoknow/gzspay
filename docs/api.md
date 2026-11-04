@@ -66,8 +66,8 @@ interface Me {
   fullName: string | null;
   studentNo: string | null;      // 本人可见完整学号
   emailMasked: string | null;
-  email: string | null;
-  cardNo: string | null;         // 本人可见完整卡号（默认前端脱敏展示，点击后显示）
+  email: string | null;          // 本人可见完整邮箱（前端直接展示，不再脱敏）
+  cardNo: string | null;         // 本人可见完整卡号（前端直接展示，不再脱敏）
   cardNoMasked: string | null;
   avatarUrl: string | null;
   onboarded: boolean;
@@ -419,7 +419,9 @@ interface Announcement {
 | `GET` | `/api/admin/auth/session` | 已登录且是管理员：`{ authenticated: true, initialized: true, admin: AdminIdentity }`；系统未初始化 `401 SYSTEM_NOT_INITIALIZED`；未登录 `401 UNAUTHENTICATED`；登录了但不是管理员 `401 NOT_ADMIN`（三者中「未初始化」优先判断） |
 | `POST` | `/api/admin/auth/logout` | 退出登录（撤销主站会话）→ `{ ok: true }` |
 
-`AdminIdentity`：`{ id, displayName, emailMasked, role: "super"|"ops"|"auditor", createdAt }`。
+`AdminIdentity`：`{ id, displayName, email, emailMasked, role: "super"|"ops"|"auditor", createdAt }`。
+
+> 后台接口面向管理员，个人资料直接返回明文：`AdminUser`/`AdminUserDetail`/`OnlineUser`/`AdminUserLogin`/`AdminMerchant`/`AdminMember` 同时带明文 `studentNo`、`email`、`cardNo`（详情）与过渡期兼容的 `*Masked` 字段，前端优先展示明文。
 
 ### 10.2 业务接口
 

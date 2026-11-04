@@ -340,8 +340,8 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
 
   return (
     <StepShell title={STEP_TITLES.card} description="校园卡只用于识别身份，不会用于扣款。">
-      {me?.cardNoMasked ? (
-        <p className="rounded-2xl bg-success-soft px-4 py-3 text-sm text-success">当前已绑定校园卡：{me.cardNoMasked}</p>
+      {me?.cardNo ? (
+        <p className="rounded-2xl bg-success-soft px-4 py-3 text-sm text-success">当前已绑定校园卡：{me.cardNo}</p>
       ) : null}
 
       <div className="card p-5">

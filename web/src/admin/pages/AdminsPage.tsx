@@ -158,7 +158,7 @@ export function AdminsPage() {
                         <td>
                           <RoleBadge role={member.role} />
                         </td>
-                        <td className="admin-text-sm">{member.emailMasked || "—"}</td>
+                        <td className="admin-text-sm">{member.email || member.emailMasked || "—"}</td>
                         <td className="admin-text-sm admin-muted">
                           {formatDateTime(member.createdAt)}
                         </td>
@@ -328,7 +328,7 @@ function AddAdminModal({ existingUserIds, onClose, onAdded }: AddAdminModalProps
                       ) : null}
                     </div>
                     <div className="admin-text-xs admin-muted">
-                      {user.studentNoMasked || "—"} · {user.emailMasked || "—"}
+                      {user.studentNo || user.studentNoMasked || "—"} · {user.email || user.emailMasked || "—"}
                     </div>
                   </div>
                   {isAdmin ? (

@@ -165,7 +165,7 @@ export function ChangePasswordPage(): ReactNode {
               发送邮箱验证码
             </button>
             <p className="text-[11px] leading-relaxed text-muted">
-              验证码会发到 {me?.emailMasked || "你的登录邮箱"}，10 分钟内有效。
+              验证码会发到 {me?.email || "你的登录邮箱"}，10 分钟内有效。
             </p>
             <div className="flex items-center gap-2 text-[11px] text-muted">
               <span className="h-px flex-1 bg-line" />

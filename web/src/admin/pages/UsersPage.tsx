@@ -244,7 +244,7 @@ export function UsersPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="admin-mono admin-text-sm">{user.studentNoMasked || "—"}</td>
+                      <td className="admin-mono admin-text-sm">{user.studentNo || user.studentNoMasked || "—"}</td>
                       <td className="admin-mono admin-text-xs">{user.ip || "—"}</td>
                       <td className="admin-text-sm" title={user.userAgent ?? undefined}>
                         {describeAgent(user.userAgent)}
@@ -331,7 +331,7 @@ export function UsersPage() {
                         </div>
                       </td>
                       <td className="admin-mono admin-text-sm">
-                        {user.studentNoMasked || "—"}
+                        {user.studentNo || user.studentNoMasked || "—"}
                       </td>
                       <td
                         className="admin-text-sm admin-muted"
@@ -499,8 +499,8 @@ function UserRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {
           </div>
         </div>
       </td>
-      <td className="admin-mono admin-text-sm">{user.studentNoMasked || "—"}</td>
-      <td className="admin-text-sm">{user.emailMasked || "—"}</td>
+      <td className="admin-mono admin-text-sm">{user.studentNo || user.studentNoMasked || "—"}</td>
+      <td className="admin-text-sm">{user.email || user.emailMasked || "—"}</td>
       <td>
         {user.frozen ? <Badge tone="danger">已冻结</Badge> : <Badge tone="success">正常</Badge>}
       </td>
@@ -711,7 +711,7 @@ function UserDetailDrawer({ userId, onClose, onChanged }: UserDetailDrawerProps)
               { label: "用户 ID", value: user.id, mono: true },
               { label: "学号", value: user.studentNo || user.studentNoMasked || "—", mono: true },
               { label: "邮箱", value: user.email || user.emailMasked || "—" },
-              { label: "绑定卡", value: user.cardNoMasked || "未绑定", mono: true },
+              { label: "绑定卡", value: user.cardNo || user.cardNoMasked || "未绑定", mono: true },
               { label: "最近登录", value: formatDateTime(user.lastLoginAt) },
               { label: "最近登录（相对）", value: formatRelative(user.lastLoginAt) },
             ]}

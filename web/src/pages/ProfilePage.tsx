@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { Dialog } from "../components/Dialog";
-import { EyeIcon } from "../components/EyeIcon";
 import { PageHeader } from "../components/PageHeader";
 import { NfcCardReader } from "../components/NfcCardReader";
 import { PaymentPasswordDialog } from "../components/PaymentPasswordDialog";
@@ -194,7 +193,6 @@ export function ProfilePage(): ReactNode {
   const countdown = useCountdown(60);
 
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [showCardNo, setShowCardNo] = useState(false);
 
   if (!me) return null;
 
@@ -362,7 +360,7 @@ export function ProfilePage(): ReactNode {
     }
   };
 
-  const cardHint = me.cardNoMasked
+  const cardHint = me.cardNo
     ? "换绑后旧卡将自动解绑，需要验证支付密码。"
     : "还没有绑定校园卡，扫描校园卡上的二维码即可绑定。";
 
@@ -426,7 +424,7 @@ export function ProfilePage(): ReactNode {
           />
           <InfoRow
             label="登录邮箱"
-            value={me.emailMasked || "未绑定"}
+            value={me.email || "未绑定"}
             hint="更换邮箱需要验证支付密码，验证码 10 分钟内有效。"
             icon={<MailIcon />}
             divider
@@ -440,28 +438,16 @@ export function ProfilePage(): ReactNode {
             label="校园卡号"
             value={
               <>
-                <span>{me.cardNoMasked ? (showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked) : "未绑定"}</span>
-                {me.cardNoMasked ? (
-                  <button
-                    type="button"
-                    className="grid h-6 w-6 place-items-center rounded-full text-brand transition hover:bg-brand-soft active:scale-90"
-                    aria-label={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
-                    aria-pressed={showCardNo}
-                    title={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
-                    onClick={() => setShowCardNo((value) => !value)}
-                  >
-                    <EyeIcon off={showCardNo} size={14} />
-                  </button>
-                ) : null}
+                <span>{me.cardNo || "未绑定"}</span>
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[10px] font-medium ring-1",
-                    me.cardNoMasked
+                    me.cardNo
                       ? "bg-success-soft text-success ring-success/20"
                       : "bg-surface-2 text-muted ring-line/70",
                   )}
                 >
-                  {me.cardNoMasked ? "已绑定" : "未绑定"}
+                  {me.cardNo ? "已绑定" : "未绑定"}
                 </span>
               </>
             }
@@ -474,7 +460,7 @@ export function ProfilePage(): ReactNode {
                 className="btn btn-outline btn-sm shrink-0"
                 onClick={() => setCardOpen(true)}
               >
-                {me.cardNoMasked ? "换绑" : "绑定"}
+                {me.cardNo ? "换绑" : "绑定"}
               </button>
             }
           />
@@ -632,7 +618,7 @@ export function ProfilePage(): ReactNode {
         <div className="space-y-3">
           <div className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2">
             <span className="text-[11px] text-muted">当前邮箱</span>
-            <span className="text-[12px] font-medium text-text">{me.emailMasked || "未绑定"}</span>
+            <span className="text-[12px] font-medium text-text">{me.email || "未绑定"}</span>
           </div>
           <div>
             <label className="label" htmlFor="profile-email">
@@ -705,18 +691,18 @@ export function ProfilePage(): ReactNode {
       <Dialog
         open={cardOpen}
         onClose={() => setCardOpen(false)}
-        title={me.cardNoMasked ? "换绑校园卡" : "绑定校园卡"}
+        title={me.cardNo ? "换绑校园卡" : "绑定校园卡"}
         description={cardHint}
       >
         <div className="space-y-3">
           <div className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2.5">
-            <RowIcon tone={me.cardNoMasked ? "brand" : "neutral"}>
+            <RowIcon tone={me.cardNo ? "brand" : "neutral"}>
               <CardIcon />
             </RowIcon>
             <div className="min-w-0">
               <p className="text-[11px] text-muted">当前校园卡</p>
               <p className="truncate text-[13px] font-semibold text-text">
-                {me.cardNoMasked ? me.cardNoMasked : "尚未绑定"}
+                {me.cardNo || "尚未绑定"}
               </p>
             </div>
           </div>

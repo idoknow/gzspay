@@ -6,7 +6,6 @@ import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { EyeIcon } from "../components/EyeIcon";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
 import { getTicketUnreadCount } from "../lib/api";
@@ -214,7 +213,6 @@ export function MePage(): ReactNode {
   const toast = useToast();
   const watch = useWatchLayout();
   const { me, logout } = useAuth();
-  const [showCardNo, setShowCardNo] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const visible = useVisible();
@@ -289,19 +287,7 @@ export function MePage(): ReactNode {
                     学号 {me.studentNo || "未填写"}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)] watch:px-2 watch:py-0.5 watch:text-[10px]">
-                    卡号 {me.cardNoMasked ? (showCardNo ? (me.cardNo ?? me.cardNoMasked) : me.cardNoMasked) : "未绑定"}
-                    {me.cardNoMasked ? (
-                      <button
-                        type="button"
-                        className="-mr-0.5 grid h-5 w-5 place-items-center rounded-full text-[color:var(--hero-fg)] transition active:scale-90"
-                        aria-label={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
-                        aria-pressed={showCardNo}
-                        title={showCardNo ? "隐藏完整卡号" : "显示完整卡号"}
-                        onClick={() => setShowCardNo((value) => !value)}
-                      >
-                        <EyeIcon off={showCardNo} size={13} />
-                      </button>
-                    ) : null}
+                    卡号 {me.cardNo || "未绑定"}
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] text-[color:var(--hero-fg-faint)] watch:mt-1.5 watch:text-[10px]">

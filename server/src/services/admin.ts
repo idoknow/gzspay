@@ -315,6 +315,8 @@ export interface AdminUserDto {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  studentNo: string | null;
+  email: string | null;
   studentNoMasked: string | null;
   emailMasked: string | null;
   isMerchant: boolean;
@@ -341,6 +343,8 @@ function toAdminUser(row: AdminUserRow): AdminUserDto {
     id: row.id,
     displayName: nameOf(row),
     avatarUrl: row.avatar_url,
+    studentNo: row.student_no,
+    email: row.email,
     studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
     emailMasked: row.email ? maskEmail(row.email) : null,
     isMerchant: row.is_merchant > 0,
@@ -384,6 +388,7 @@ export function adminUserDetail(userId: string) {
       ...toAdminUser(row),
       studentNo: row.student_no,
       email: row.email,
+      cardNo: row.card_no,
       cardNoMasked: row.card_no ? maskCardNo(row.card_no) : null,
       lastLoginAt: row.last_login_at,
       frozenReason: null,
@@ -413,6 +418,7 @@ export interface AdminUserLoginDto {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  studentNo: string | null;
   studentNoMasked: string | null;
   isMerchant: boolean;
   lastLoginAt: string;
@@ -444,6 +450,7 @@ export function adminUserLogins(limit = 8) {
       id: row.id,
       displayName: nameOf(row),
       avatarUrl: row.avatar_url,
+      studentNo: row.student_no,
       studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
       isMerchant: row.is_merchant > 0,
       lastLoginAt: String(row.last_login_at ?? ""),
@@ -455,6 +462,7 @@ export interface AdminOnlineUserDto {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  studentNo: string | null;
   studentNoMasked: string | null;
   isMerchant: boolean;
   ip: string | null;
@@ -500,6 +508,7 @@ export function adminOnlineUsers() {
       id: row.user_id,
       displayName: nameOf(row),
       avatarUrl: row.avatar_url,
+      studentNo: row.student_no,
       studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
       isMerchant: row.is_merchant > 0,
       ip: row.ip,
@@ -589,6 +598,7 @@ export interface AdminMerchantDto {
   merchantName: string;
   displayName: string;
   avatarUrl: string | null;
+  studentNo: string | null;
   studentNoMasked: string | null;
   noteRequirement: string;
   channels: AdminMerchantChannelDto[];
@@ -657,6 +667,7 @@ function toAdminMerchant(
     merchantName: row.name,
     displayName: nameOf(row),
     avatarUrl: row.avatar_url,
+    studentNo: row.student_no,
     studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
     noteRequirement: row.note_requirement ?? "",
     channels,
@@ -851,6 +862,7 @@ export interface AdminMemberDto {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
+  email: string | null;
   emailMasked: string | null;
   role: AdminRole;
   createdAt: string | null;
@@ -875,6 +887,7 @@ export function adminMembers() {
     userId: row.user_id,
     displayName: nameOf(row),
     avatarUrl: row.avatar_url ?? null,
+    email: row.email ?? null,
     emailMasked: row.email ? maskEmail(row.email) : null,
     role: row.role,
     createdAt: row.created_at,
@@ -1713,6 +1726,7 @@ export function adminIdentity(user: UserRow, admin: AdminRow) {
     id: user.id,
     displayName: nameOf(user),
     avatarUrl: user.avatar_url || null,
+    email: user.email,
     emailMasked: user.email ? maskEmail(user.email) : null,
     role: admin.role,
     createdAt: admin.created_at,

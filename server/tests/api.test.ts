@@ -1014,6 +1014,27 @@ describe("管理后台", () => {
     expect(row?.lastLoginAt.length).toBeGreaterThan(0);
   });
 
+  it("后台查看他人资料返回明文，本人资料不再脱敏", async () => {
+    const target = await login("plain-target", "明文目标");
+    await completeOnboarding(target.session, { cardNo: "CPLAIN01", studentNo: "20239301" });
+
+    const me = await agentWith(target.session).get("/api/me").expect(200);
+    expect(me.body.email).toBe("20239301@qq.com");
+    expect(me.body.cardNo).toBe("CPLAIN01");
+
+    const list = await adminRequest()
+      .get("/api/admin/users")
+      .query({ query: "20239301" })
+      .expect(200);
+    const row = list.body.items.find((item: { id: string }) => item.id === target.id);
+    expect(row?.studentNo).toBe("20239301");
+    expect(row?.email).toBe("20239301@qq.com");
+
+    const detail = await adminRequest().get(`/api/admin/users/${target.id}`).expect(200);
+    expect(detail.body.user.studentNo).toBe("20239301");
+    expect(detail.body.user.cardNo).toBe("CPLAIN01");
+  });
+
   it("商家管理列表与详情可查看收款方式与商品", async () => {
     const merchant = await login("admin-merchant", "后台商家");
     const merchantUserId = merchant.id;

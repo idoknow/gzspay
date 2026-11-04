@@ -20,6 +20,7 @@ export interface AdminIdentity {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  email: string | null;
   emailMasked: string | null;
   role: AdminRole;
   createdAt: string | null;
@@ -99,6 +100,8 @@ export interface AdminUser {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  studentNo: string | null;
+  email: string | null;
   studentNoMasked: string | null;
   emailMasked: string | null;
   isMerchant: boolean;
@@ -112,6 +115,7 @@ export interface AdminUser {
 export interface AdminUserDetail extends AdminUser {
   studentNo: string | null;
   email: string | null;
+  cardNo: string | null;
   cardNoMasked: string | null;
   lastLoginAt: string | null;
   frozenReason: string | null;
@@ -130,6 +134,7 @@ export interface OnlineUser {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  studentNo: string | null;
   studentNoMasked: string | null;
   isMerchant: boolean;
   ip: string | null;
@@ -150,6 +155,7 @@ export interface AdminUserLogin {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  studentNo: string | null;
   studentNoMasked: string | null;
   isMerchant: boolean;
   lastLoginAt: string;
@@ -178,6 +184,7 @@ export interface AdminMerchant {
   merchantName: string;
   displayName: string;
   avatarUrl: string | null;
+  studentNo: string | null;
   studentNoMasked: string | null;
   noteRequirement: string;
   channels: AdminMerchantChannel[];
@@ -229,6 +236,7 @@ export interface AdminMember {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
+  email: string | null;
   emailMasked: string | null;
   role: AdminRole;
   createdAt: string | null;

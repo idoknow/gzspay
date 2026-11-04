@@ -288,7 +288,7 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
                 <span className="admin-user-name">{admin.displayName}</span>
                 <span className="admin-user-role">
                   {roleLabel(admin.role)}
-                  {admin.emailMasked ? ` · ${admin.emailMasked}` : ""}
+                  {(admin.email || admin.emailMasked) ? ` · ${admin.email || admin.emailMasked}` : ""}
                 </span>
               </div>
             </div>

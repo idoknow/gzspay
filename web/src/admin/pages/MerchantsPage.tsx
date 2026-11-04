@@ -301,7 +301,7 @@ function MerchantRow({
         </div>
       </td>
       <td className="admin-mono admin-text-sm">
-        {merchant.studentNoMasked || "—"}
+        {merchant.studentNo || merchant.studentNoMasked || "—"}
       </td>
       <td>
         <div className="admin-tag-list">
@@ -536,7 +536,7 @@ function MerchantDetailDrawer({
               { label: "负责人", value: merchant.displayName },
               {
                 label: "学号",
-                value: merchant.studentNoMasked || "—",
+                value: merchant.studentNo || merchant.studentNoMasked || "—",
                 mono: true,
               },
               {
