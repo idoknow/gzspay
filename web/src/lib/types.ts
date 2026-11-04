@@ -611,3 +611,40 @@ export interface TicketDetail extends TicketSummary {
   closedReason: "user" | "admin" | "timeout" | null;
   resolutionNote: string | null;
 }
+
+/* ---------------- 收款账单自动对账 ---------------- */
+
+export type BillProvider = "alipay" | "wechat";
+
+/** 账单里的一笔收款流水 */
+export interface BillTransaction {
+  id: string;
+  tradeNo: string | null;
+  amountCents: number;
+  payerNote: string;
+  counterparty: string | null;
+  paidAt: string | null;
+  status: "unmatched" | "matched";
+  orderId: string | null;
+  orderNo: string | null;
+}
+
+/** 一次账单导入 */
+export interface BillImport {
+  id: string;
+  provider: BillProvider;
+  providerLabel: string;
+  filename: string;
+  sizeBytes: number;
+  periodStart: string | null;
+  periodEnd: string | null;
+  transactionCount: number;
+  matchedCount: number;
+  unmatchedCount: number;
+  createdAt: string;
+}
+
+/** 账单详情：只带未匹配的流水 */
+export interface BillImportDetail extends BillImport {
+  transactions: BillTransaction[];
+}

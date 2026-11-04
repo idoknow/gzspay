@@ -139,6 +139,8 @@ interface SiteFormState {
   schoolName: string;
   publicBaseUrl: string;
   icp: string;
+  billRetentionDays: string;
+  paymentProofRetentionDays: string;
 }
 
 function initialState(config: AdminConfig) {
@@ -149,6 +151,8 @@ function initialState(config: AdminConfig) {
       schoolName: system.schoolName ?? "",
       publicBaseUrl: system.publicBaseUrl ?? "",
       icp: system.icp ?? "",
+      billRetentionDays: String(system.billRetentionDays ?? 1),
+      paymentProofRetentionDays: String(system.paymentProofRetentionDays ?? 15),
     } satisfies SiteFormState,
     campux: {
       baseUrl: campux.baseUrl ?? "",
@@ -272,7 +276,10 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
         site.schoolName.trim() !== (config.system.schoolName ?? "") ||
         site.publicBaseUrl.trim().replace(/\/+$/, "") !==
           (config.system.publicBaseUrl ?? "").replace(/\/+$/, "") ||
-        site.icp.trim() !== (config.system.icp ?? "");
+        site.icp.trim() !== (config.system.icp ?? "") ||
+        Number(site.billRetentionDays) !== (config.system.billRetentionDays ?? 1) ||
+        Number(site.paymentProofRetentionDays) !==
+          (config.system.paymentProofRetentionDays ?? 15);
       const entryPath = entry.entryPath.trim();
       const entryChanged = entryPath !== (config.securityEntry.entryPath ?? "");
       const input: AdminConfigInput = {
@@ -313,6 +320,8 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
                 schoolName: site.schoolName.trim(),
                 publicBaseUrl: site.publicBaseUrl.trim(),
                 icp: site.icp.trim(),
+                billRetentionDays: Number(site.billRetentionDays),
+                paymentProofRetentionDays: Number(site.paymentProofRetentionDays),
               },
             }
           : {}),
@@ -407,6 +416,38 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               value={site.icp}
               disabled={readOnly}
               onChange={(event) => setSite({ ...site, icp: event.target.value })}
+            />
+          </Field>
+          <Field
+            label="账单文件保留天数"
+            hint="上传的微信 / 支付宝收款账单原文件，超过这个天数会自动删除（默认 1 天，范围 1–365）。"
+          >
+            <input
+              className="admin-input"
+              type="number"
+              min={1}
+              max={365}
+              value={site.billRetentionDays}
+              disabled={readOnly}
+              onChange={(event) =>
+                setSite({ ...site, billRetentionDays: event.target.value })
+              }
+            />
+          </Field>
+          <Field
+            label="付款截图保留天数"
+            hint="订单里的付款截图，超过这个天数会自动从服务器删除（默认 15 天，范围 1–365）。"
+          >
+            <input
+              className="admin-input"
+              type="number"
+              min={1}
+              max={365}
+              value={site.paymentProofRetentionDays}
+              disabled={readOnly}
+              onChange={(event) =>
+                setSite({ ...site, paymentProofRetentionDays: event.target.value })
+              }
             />
           </Field>
         </div>
@@ -979,6 +1020,14 @@ function validate(
     return { error: "站点地址必须以 http:// 或 https:// 开头。" };
   }
   if (site.icp.trim().length > 60) return { error: "备案号不能超过 60 个字符。" };
+  const billRetention = Number(site.billRetentionDays);
+  if (!Number.isInteger(billRetention) || billRetention < 1 || billRetention > 365) {
+    return { error: "账单文件保留天数需为 1–365 的整数。" };
+  }
+  const proofRetention = Number(site.paymentProofRetentionDays);
+  if (!Number.isInteger(proofRetention) || proofRetention < 1 || proofRetention > 365) {
+    return { error: "付款截图保留天数需为 1–365 的整数。" };
+  }
 
   const baseUrl = campux.baseUrl.trim();
   const clientId = campux.clientId.trim();

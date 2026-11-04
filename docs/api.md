@@ -163,6 +163,9 @@ interface Me {
 | `PATCH` | `/api/merchant/products/:id` | 同上字段可选 |
 | `DELETE` | `/api/merchant/products/:id` | 删除商品 |
 | `PATCH` | `/api/merchant/products/sort` | `{ ids: string[] }` 按顺序重排 |
+| `POST` | `/api/merchant/bills` | 上传收款账单自动对账：`multipart/form-data`，字段 `file`（微信 `.xlsx` 或支付宝 `.csv`，≤5MB），解析后按「金额相同 + 备注匹配」自动确认对应订单 → `201 BillImportDetail`；无法识别 400，每分钟限 10 次 |
+| `GET` | `/api/merchant/bills?limit=20` | 最近上传的账单 → `{ items: BillImport[] }`（含 `providerLabel`、`transactionCount`、`matchedCount`、`unmatchedCount`） |
+| `GET` | `/api/merchant/bills/:id` | 账单详情 → `BillImportDetail`（`transactions` 只包含未匹配的流水供人工核对）；不存在或已被保留期清理返回 404 |
 
 ## 6. 订单
 
@@ -332,6 +335,41 @@ interface PaymentCollection {
 ```
 
 付款成功后收款单状态为 `used` 并写入 `orderId`；商家创建页每 3 秒轮询 `GET /api/merchant/collections/:id`，看到 `used` 即跳转订单详情。商家创建页只保留「输入金额」，创建后展示 `url` 对应的**实时二维码**（付款人直接扫码打开 `/collect/:token`），商家关闭页面或离开时前端会调用 `POST /api/merchant/collections/:id/cancel` 自动作废。付款人扫商家校园卡时也会拿到 `pendingCollection`，前端直接打开 `/collect/id/:id`，付款页展示金额、商品明细、`reservedNote` 与 `noteRequirement`（备注要求需阅读 3 秒后才能输入密码）。
+
+### 7.4 收款账单自动对账
+
+商家在交易页「我收到的」上传微信（`.xlsx`）或支付宝（`.csv`）账单，服务端解析出收款流水后按「金额相同 + 备注匹配」自动确认订单（待付款 / 已支付 → 已完成，跳过付款截图核对）；匹配不上的流水保留为未匹配列表，仅供查看，不提供手动关联。账单原文件与付款截图分别按后台配置的天数（默认 1 天 / 15 天）自动清理。
+
+```ts
+interface BillImport {
+  id: string;
+  provider: "alipay" | "wechat";
+  providerLabel: string;               // 支付宝 / 微信支付
+  filename: string;
+  sizeBytes: number;
+  periodStart: string | null;          // 账单覆盖的时间范围（ISO）
+  periodEnd: string | null;
+  transactionCount: number;            // 解析出的收款笔数
+  matchedCount: number;                // 自动匹配并完成订单的笔数
+  unmatchedCount: number;
+  createdAt: string;
+}
+
+interface BillImportDetail extends BillImport {
+  // 只包含未匹配的流水
+  transactions: {
+    id: string;
+    tradeNo: string | null;
+    amountCents: number;
+    payerNote: string;                 // 账单备注 / 商品说明
+    counterparty: string | null;
+    paidAt: string | null;
+    status: "unmatched" | "matched";
+    orderId: string | null;
+    orderNo: string | null;
+  }[];
+}
+```
 
 ## 8. 交易统计
 

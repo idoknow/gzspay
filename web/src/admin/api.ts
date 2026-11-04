@@ -1941,6 +1941,14 @@ export async function getConfig(): Promise<AdminConfig> {
         "",
       ),
       icp: textOr(firstText(systemSource, ["icp", "icpNumber", "beian"]), ""),
+      billRetentionDays: numberOr(
+        firstNumber(systemSource, ["billRetentionDays", "billRetention"]),
+        1,
+      ),
+      paymentProofRetentionDays: numberOr(
+        firstNumber(systemSource, ["paymentProofRetentionDays", "paymentProofRetention"]),
+        15,
+      ),
     },
     geo: mapGeoConfig(source),
     securityEntry: mapAdminEntryConfig(source),

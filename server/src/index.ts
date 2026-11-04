@@ -2,6 +2,7 @@ import { type Server } from "node:http";
 import { app } from "./app.js";
 import { config } from "./config.js";
 import { cleanupExpired, closeDatabase, execute, migrate, optimizeDatabase } from "./db/index.js";
+import { cleanupUploadRetention } from "./lib/retention.js";
 import { flushRequestMetrics } from "./lib/metrics.js";
 import { flushTrafficCounters, pruneTrafficCounters } from "./lib/traffic.js";
 import { backfillQqAvatars } from "./lib/avatar.js";
@@ -17,6 +18,7 @@ function startCleanupTimer(): NodeJS.Timeout {
   const timer = setInterval(() => {
     try {
       cleanupExpired();
+      cleanupUploadRetention();
       const cutoff = new Date(
         Date.now() - METRICS_RETENTION_DAYS * 24 * 60 * 60 * 1000,
       ).toISOString();

@@ -1,6 +1,6 @@
 /** 交易页：我发起的 / 我收到的 + 关键词搜索 + 状态筛选（全部 / 进行中 / 已结束，点按钮弹出菜单）+ 订单列表 + 公告红点 + 空态。 */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
@@ -11,7 +11,14 @@ import { ErrorBlock, LoadingBlock, Spinner } from "../components/Loading";
 import { Logo } from "../components/Logo";
 import { OrderCard } from "../components/OrderCard";
 import { useToast } from "../components/Toast";
-import { exportOrdersBlob, listOrders, subscribeEvents } from "../lib/api";
+import {
+  exportOrdersBlob,
+  getMerchantBill,
+  getMerchantBills,
+  listOrders,
+  subscribeEvents,
+  uploadMerchantBill,
+} from "../lib/api";
 import { downloadBlob, safeFilename } from "../lib/download";
 import { errorMessage } from "../lib/http";
 import {
@@ -19,11 +26,13 @@ import {
   cn,
   exportRangeBounds,
   exportRangeLabel,
+  formatCents,
+  formatDateTime,
   type ExportDateRange,
 } from "../lib/format";
 import { useDebouncedValue, useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
-import type { Order } from "../lib/types";
+import type { BillImport, BillImportDetail, Order } from "../lib/types";
 
 type Scope = "pay" | "receive";
 type StatusFilter = "all" | "pending" | "settled";
@@ -109,6 +118,61 @@ export function TradesPage(): ReactNode {
   const [exportRange, setExportRange] = useState<ExportDateRange>("all");
   const [search, setSearch] = useState("");
   const keyword = useDebouncedValue(search.trim(), 300);
+  const [bills, setBills] = useState<BillImport[]>([]);
+  const [billUploading, setBillUploading] = useState(false);
+  const [billDetail, setBillDetail] = useState<BillImportDetail | null>(null);
+  const [billDetailOpen, setBillDetailOpen] = useState(false);
+  const [billLoading, setBillLoading] = useState(false);
+  const billInputRef = useRef<HTMLInputElement | null>(null);
+
+  const loadBills = async (): Promise<void> => {
+    try {
+      const items = await getMerchantBills(10);
+      setBills(items);
+    } catch {
+      // 「我收到的」里账单列表加载失败不影响订单列表
+    }
+  };
+
+  useEffect(() => {
+    if (scope !== "receive") return;
+    void loadBills();
+  }, [scope, reloadKey]);
+
+  const handleBillFile = async (file: File | undefined): Promise<void> => {
+    if (!file) return;
+    setBillUploading(true);
+    try {
+      const detail = await uploadMerchantBill(file);
+      setBillDetail(detail);
+      setBillDetailOpen(true);
+      toast.success(
+        `账单已解析：${detail.transactionCount} 笔收款，自动匹配 ${detail.matchedCount} 笔`,
+      );
+      void loadBills();
+      setOrders([]);
+      setPage(1);
+      setReloadKey((value) => value + 1);
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setBillUploading(false);
+      if (billInputRef.current) billInputRef.current.value = "";
+    }
+  };
+
+  const openBillDetail = async (id: string): Promise<void> => {
+    setBillDetailOpen(true);
+    setBillLoading(true);
+    try {
+      setBillDetail(await getMerchantBill(id));
+    } catch (cause) {
+      setBillDetailOpen(false);
+      toast.error(errorMessage(cause));
+    } finally {
+      setBillLoading(false);
+    }
+  };
 
   const handleExport = async (format: "csv" | "xlsx" | "json"): Promise<void> => {
     setExportBusy(format);
@@ -334,6 +398,63 @@ export function TradesPage(): ReactNode {
           </button>
         </div>
 
+        {scope === "receive" ? (
+          <section className="mt-4 rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow-xs)] watch:mt-3 watch:p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-text watch:text-[13px]">收款自动对账</h2>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted watch:text-[10px]">
+                  上传微信（.xlsx）或支付宝（.csv）账单，金额与备注都对上的订单会自动确认收款；匹配不上的流水
+                  会列出来供你核对。
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={billUploading}
+                onClick={() => billInputRef.current?.click()}
+                className="btn btn-secondary btn-sm shrink-0"
+              >
+                {billUploading ? "正在解析…" : "上传账单"}
+              </button>
+              <input
+                ref={billInputRef}
+                type="file"
+                accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+                className="hidden"
+                onChange={(event) => {
+                  void handleBillFile(event.target.files?.[0]);
+                }}
+              />
+            </div>
+            {bills.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {bills.slice(0, 5).map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void openBillDetail(item.id);
+                      }}
+                      className="flex w-full items-center justify-between gap-3 rounded-xl border border-line bg-surface-2/60 px-3 py-2 text-left transition hover:border-line hover:bg-surface-2"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-medium text-text watch:text-[12px]">
+                          {item.providerLabel} · {item.filename}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-muted watch:text-[10px]">
+                          匹配 {item.matchedCount}/{item.transactionCount} 笔
+                          {item.unmatchedCount > 0 ? ` · 未匹配 ${item.unmatchedCount} 笔` : ""}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[11px] text-muted">{formatDateTime(item.createdAt)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        ) : null}
+
         {keyword ? (
           <p className="mt-3 text-[11px] text-muted watch:mt-2 watch:text-[10px]">
             {loading && orders.length === 0 ? "正在搜索…" : `「${keyword}」找到 ${total} 笔订单`}
@@ -471,6 +592,64 @@ export function TradesPage(): ReactNode {
             <span className="text-[11px] text-muted">打开打印页另存为 PDF</span>
           </button>
         </div>
+      </Dialog>
+
+      <Dialog
+        open={billDetailOpen}
+        onClose={() => {
+          if (!billLoading) {
+            setBillDetailOpen(false);
+            setBillDetail(null);
+          }
+        }}
+        title="账单对账结果"
+        description={
+          billDetail
+            ? `${billDetail.providerLabel} · ${billDetail.filename} · 共 ${billDetail.transactionCount} 笔收款，自动匹配 ${billDetail.matchedCount} 笔`
+            : "正在读取账单…"
+        }
+      >
+        {billLoading ? (
+          <LoadingBlock text="正在读取账单…" />
+        ) : billDetail ? (
+          <div className="space-y-3">
+            {billDetail.transactions.length === 0 ? (
+              <p className="rounded-xl border border-line bg-surface-2/60 px-3 py-4 text-center text-sm text-muted">
+                账单里的收款都匹配到了订单，没有未匹配的记录。
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-muted">
+                  以下 {billDetail.transactions.length} 笔收款没有匹配到订单，请自行核对是否已经在线下确认过。
+                </p>
+                <ul className="max-h-[52vh] space-y-2 overflow-y-auto pr-1">
+                  {billDetail.transactions.map((item) => (
+                    <li
+                      key={item.id}
+                      className="rounded-xl border border-line bg-surface-2/60 px-3 py-2.5"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-sm font-semibold text-text">
+                          ¥{formatCents(item.amountCents)}
+                        </span>
+                        <span className="text-[11px] text-muted">
+                          {item.paidAt ? formatDateTime(item.paidAt) : "时间未知"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[12px] leading-relaxed text-muted">
+                        备注：{item.payerNote || "无"}
+                        {item.counterparty ? ` · 对方：${item.counterparty}` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <p className="text-[11px] leading-relaxed text-muted">
+              账单原文件默认保留 1 天，付款截图默认保留 15 天，可在管理后台「系统配置 → 站点信息」里调整。
+            </p>
+          </div>
+        ) : null}
       </Dialog>
 
       <BottomNav />

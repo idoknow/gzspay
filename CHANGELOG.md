@@ -18,6 +18,7 @@
 - 新增「账单导出」：订单详情页可导出单笔账单，交易页可按当前「方向 / 状态 / 关键词」批量导出；支持 CSV（Excel 可直接打开，带 BOM 与防公式注入）、Excel `.xlsx`（服务端手写 OOXML，不引入第三方依赖）、JSON 与 PDF（打开打印页后由浏览器「另存为 PDF」，中文随系统字体）；新增 `GET /api/orders/export`（`format`、`scope`、`status`、`q`、`ids`、`tzOffset`，每分钟 20 次），导出时间按浏览器时区换算，接口只返回当前账号能看到的订单。
 - 新增**安卓 NFC 读卡**（Web NFC）：在绑定 / 换绑校园卡与收付款扫码处，支持 Web NFC 的安卓 Chrome 可以把卡片贴到手机背面，直接读取卡片 NDEF 文本（即卡号）并填入，读取成功会有轻微振动反馈；需要 HTTPS 且系统已开启 NFC。组件在 `web/src/components/NfcCardReader.tsx`。
 - 新增「交易工单」：已支付 / 已完成的订单里，双方任一方都可以发起工单，在工单内用文字沟通争议（同一订单同时只能有一个进行中的工单、累计最多 3 个，超过 7 天没有新消息会自动关闭，双方都可手动结束）；订单详情新增「订单沟通（工单）」卡片，我的页新增「交易工单」入口与未读红点，工单列表区分进行中 / 已结束并显示未读数，详情页支持气泡对话与 SSE 实时刷新。管理后台新增**只读**「交易工单」页（不发言、不关闭、不修改）。新增接口：`GET /api/tickets`、`GET /api/tickets/unread-count`、`POST /api/tickets`、`GET /api/tickets/:id`、`POST /api/tickets/:id/messages`、`POST /api/tickets/:id/read`、`POST /api/tickets/:id/close`、`GET /api/admin/tickets`、`GET /api/admin/tickets/:id`；新增表 `tickets` / `ticket_messages` / `ticket_reads`。工单替代原有「申诉」，历史申诉数据保留只读。
+- 新增「商家收款自动对账」：交易页「我收到的」里可上传微信（`.xlsx`）或支付宝（`.csv`）账单文件（≤5MB），服务端自动解析收款流水（微信账单表头在第 17 行左右、支付宝记账本 CSV 自动识别 GBK/UTF-8 编码），按**金额相同 + 备注匹配**（订单备注与实际支付备注都与账单备注比对，互相包含也算）找出对应的待付款 / 待确认订单，命中后自动记为已支付并确认收款（跳过付款截图核对，事件里注明「账单自动对账确认收款」）；匹配不上的流水只列在账单详情里供商家自行核对，不提供手动关联。新增接口 `POST /api/merchant/bills`、`GET /api/merchant/bills`、`GET /api/merchant/bills/:id`，新增表 `bill_imports` / `bill_transactions`；上传的账单原文件默认保留 1 天、付款截图默认保留 15 天，每小时自动清理，管理后台「系统配置 → 站点信息」可调整这两个天数（1–365）。
 
 ### 变更
 

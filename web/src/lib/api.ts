@@ -46,6 +46,8 @@ import type {
   TicketCategory,
   TicketDetail,
   TicketSummary,
+  BillImport,
+  BillImportDetail,
 } from "./types";
 
 /** 渠道枚举（固定顺序：支付宝、微信、QQ） */
@@ -805,4 +807,27 @@ export function markTicketRead(id: string): Promise<{ unreadCount: number; total
 /** 关闭工单（双方都可以关） */
 export function closeTicket(id: string): Promise<TicketDetail> {
   return api.post<TicketDetail>(`/tickets/${encodeURIComponent(id)}/close`);
+}
+
+/* ------------------------------------------------------------------ */
+/* 13. 收款账单自动对账                                                */
+/* ------------------------------------------------------------------ */
+
+/** 上传微信 xlsx / 支付宝 csv 账单（≤5MB），返回解析与匹配结果 */
+export function uploadMerchantBill(file: File): Promise<BillImportDetail> {
+  const form = new FormData();
+  form.append("file", file);
+  return api.upload<BillImportDetail>("/merchant/bills", form);
+}
+
+/** 最近上传的账单列表 */
+export async function getMerchantBills(limit = 20): Promise<BillImport[]> {
+  const raw = await api.get<unknown>("/merchant/bills", { limit });
+  const items = isRecord(raw) && Array.isArray(raw.items) ? raw.items : [];
+  return items.filter(isRecord) as unknown as BillImport[];
+}
+
+/** 账单详情（含未匹配流水） */
+export function getMerchantBill(id: string): Promise<BillImportDetail> {
+  return api.get<BillImportDetail>(`/merchant/bills/${encodeURIComponent(id)}`);
 }

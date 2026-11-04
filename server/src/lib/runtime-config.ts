@@ -48,6 +48,10 @@ const SYSTEM_KEYS = {
   publicBaseUrl: "system.publicBaseUrl",
   /** ICP 备案号（如「桂ICP备2025000000号-1」），为空表示不展示 */
   icp: "system.icp",
+  /** 账单原文件保留天数（默认 1 天） */
+  billRetentionDays: "system.billRetentionDays",
+  /** 付款截图保留天数（默认 15 天） */
+  paymentProofRetentionDays: "system.paymentProofRetentionDays",
   initialized: "system.initialized",
 } as const;
 
@@ -132,6 +136,10 @@ export interface SystemConfigView {
   schoolName: string;
   publicBaseUrl: string;
   icp: string;
+  /** 账单原文件保留天数（默认 1） */
+  billRetentionDays: number;
+  /** 付款截图保留天数（默认 15） */
+  paymentProofRetentionDays: number;
 }
 
 export interface GeoConfigView {
@@ -212,11 +220,18 @@ export function readCampuxConfig(): CampuxConfigView {
 
 export function readSystemConfig(): SystemConfigView {
   const stored = storedMap();
+  const retention = (key: string, fallback: number): number => {
+    const raw = Number(stored.get(key));
+    if (!Number.isFinite(raw) || raw <= 0) return fallback;
+    return Math.min(Math.max(Math.trunc(raw), 1), 365);
+  };
   return {
     siteName: stored.get(SYSTEM_KEYS.siteName) ?? DEFAULT_SITE_NAME,
     schoolName: stored.get(SYSTEM_KEYS.schoolName) ?? "",
     publicBaseUrl: stored.get(SYSTEM_KEYS.publicBaseUrl) ?? config.publicBaseUrl,
     icp: stored.get(SYSTEM_KEYS.icp) ?? "",
+    billRetentionDays: retention(SYSTEM_KEYS.billRetentionDays, 1),
+    paymentProofRetentionDays: retention(SYSTEM_KEYS.paymentProofRetentionDays, 15),
   };
 }
 
@@ -425,6 +440,10 @@ export interface SaveSystemInput {
   publicBaseUrl: string;
   /** 未提供表示保持已保存的备案号不变 */
   icp?: string;
+  /** 账单原文件保留天数，未提供保持不变 */
+  billRetentionDays?: number;
+  /** 付款截图保留天数，未提供保持不变 */
+  paymentProofRetentionDays?: number;
 }
 
 export interface SaveGeoInput {
@@ -472,6 +491,15 @@ function writeSystem(input: SaveSystemInput): void {
   );
   if (input.icp !== undefined) {
     setConfigValue(SYSTEM_KEYS.icp, input.icp.trim());
+  }
+  if (input.billRetentionDays !== undefined) {
+    setConfigValue(SYSTEM_KEYS.billRetentionDays, String(input.billRetentionDays));
+  }
+  if (input.paymentProofRetentionDays !== undefined) {
+    setConfigValue(
+      SYSTEM_KEYS.paymentProofRetentionDays,
+      String(input.paymentProofRetentionDays),
+    );
   }
 }
 

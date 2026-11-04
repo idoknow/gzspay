@@ -29,6 +29,11 @@ import {
   updateMerchantInfo,
   updateProduct,
 } from "../services/merchant.js";
+import {
+  getBillImport,
+  importBill,
+  listBillImports,
+} from "../services/reconciliation.js";
 import { getMerchant, verifyPaymentPassword } from "../services/users.js";
 
 export const merchantRouter: Router = Router();
@@ -277,5 +282,50 @@ merchantRouter.post(
   requireUser(),
   asyncHandler((req, res) => {
     res.json(cancelPaymentCollection(String(req.params.id), req.auth!.user, requestIp(req)));
+  }),
+);
+
+// ---------------- 收款账单自动对账 ----------------
+//
+// 上传微信（xlsx）/ 支付宝（csv）账单，按「金额相同 + 备注匹配」自动确认收到的订单；
+// 匹配不上的流水保留为未匹配列表，供商家自行核对。
+
+const billUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 5 },
+});
+
+merchantRouter.post(
+  "/bills",
+  requireUser(),
+  rateLimit({
+    scope: "merchant.bills",
+    limit: 10,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "上传账单太频繁了，请稍后再试",
+  }),
+  billUpload.single("file"),
+  asyncHandler((req, res) => {
+    const file = (req as unknown as { file?: Express.Multer.File }).file;
+    const detail = importBill(
+      req.auth!.user,
+      file ? { filename: file.originalname, buffer: file.buffer } : undefined,
+      requestIp(req),
+    );
+    res.status(201).json(detail);
+  }),
+);
+
+merchantRouter.get("/bills", requireUser(), (req, res) => {
+  const limit = Number(req.query.limit ?? 20);
+  res.json({ items: listBillImports(req.auth!.user, Number.isFinite(limit) ? limit : 20) });
+});
+
+merchantRouter.get(
+  "/bills/:id",
+  requireUser(),
+  asyncHandler((req, res) => {
+    res.json(getBillImport(String(req.params.id), req.auth!.user));
   }),
 );

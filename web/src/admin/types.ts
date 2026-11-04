@@ -600,6 +600,10 @@ export interface SiteConfig {
   publicBaseUrl: string;
   /** ICP 备案号，空字符串表示不展示 */
   icp: string;
+  /** 上传的收款账单原文件保留天数（1–365） */
+  billRetentionDays: number;
+  /** 付款截图保留天数（1–365） */
+  paymentProofRetentionDays: number;
 }
 
 /** 地区访问限制（仅允许中国大陆 IP） */
@@ -683,6 +687,10 @@ export interface AdminConfigInput {
     publicBaseUrl: string;
     /** ICP 备案号，空字符串表示不展示 */
     icp?: string;
+    /** 上传的收款账单原文件保留天数（1–365） */
+    billRetentionDays?: number;
+    /** 付款截图保留天数（1–365） */
+    paymentProofRetentionDays?: number;
   };
   geo?: {
     blockNonChina: boolean;

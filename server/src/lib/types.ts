@@ -81,6 +81,37 @@ export interface PaymentCollectionRow {
   decided_at: string | null;
 }
 
+/** 账单对账：商家上传的账单文件（微信 xlsx / 支付宝 csv） */
+export interface BillImportRow {
+  id: string;
+  merchant_id: string;
+  provider: "alipay" | "wechat";
+  filename: string;
+  stored_name: string | null;
+  size_bytes: number;
+  period_start: string | null;
+  period_end: string | null;
+  transaction_count: number;
+  matched_count: number;
+  created_at: string;
+}
+
+/** 账单里解析出来的一笔收款流水 */
+export interface BillTransactionRow {
+  id: string;
+  import_id: string;
+  merchant_id: string;
+  provider: "alipay" | "wechat";
+  trade_no: string | null;
+  amount_cents: number;
+  payer_note: string | null;
+  counterparty: string | null;
+  paid_at: string | null;
+  status: "unmatched" | "matched";
+  order_id: string | null;
+  created_at: string;
+}
+
 export interface AppealRow {
   id: string;
   order_id: string;

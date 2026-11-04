@@ -305,6 +305,40 @@ CREATE TABLE IF NOT EXISTS payment_collections (
 );
 CREATE INDEX IF NOT EXISTS idx_payment_collections_merchant ON payment_collections(merchant_id, status, created_at);
 
+-- 账单对账：商家上传的微信 / 支付宝账单文件与解析出来的收款流水
+CREATE TABLE IF NOT EXISTS bill_imports (
+  id TEXT PRIMARY KEY,
+  merchant_id TEXT NOT NULL REFERENCES users(id),
+  provider TEXT NOT NULL,                     -- alipay|wechat
+  filename TEXT NOT NULL,                     -- 用户上传时的文件名
+  stored_name TEXT,                           -- 数据目录 bill-uploads/ 下的文件名（到期删除）
+  size_bytes INTEGER NOT NULL,
+  period_start TEXT,
+  period_end TEXT,
+  transaction_count INTEGER NOT NULL DEFAULT 0,
+  matched_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bill_imports_merchant ON bill_imports(merchant_id, created_at);
+
+CREATE TABLE IF NOT EXISTS bill_transactions (
+  id TEXT PRIMARY KEY,
+  import_id TEXT NOT NULL REFERENCES bill_imports(id) ON DELETE CASCADE,
+  merchant_id TEXT NOT NULL REFERENCES users(id),
+  provider TEXT NOT NULL,                     -- alipay|wechat
+  trade_no TEXT,
+  amount_cents INTEGER NOT NULL,
+  payer_note TEXT,
+  counterparty TEXT,
+  paid_at TEXT,
+  status TEXT NOT NULL DEFAULT 'unmatched',   -- unmatched|matched
+  order_id TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bill_transactions_import ON bill_transactions(import_id, status);
+CREATE INDEX IF NOT EXISTS idx_bill_transactions_merchant ON bill_transactions(merchant_id, status, amount_cents);
+
+
 CREATE TABLE IF NOT EXISTS notification_settings (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   new_order INTEGER NOT NULL DEFAULT 1,

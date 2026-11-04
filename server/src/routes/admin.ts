@@ -647,6 +647,10 @@ const configSchema = z
         publicBaseUrl: configUrlSchema,
         /** ICP 备案号（如「桂ICP备2025000000号-1」），留空表示不展示 */
         icp: z.string().trim().max(60).optional(),
+        /** 账单原文件保留天数（默认 1 天） */
+        billRetentionDays: z.number().int().min(1).max(365).optional(),
+        /** 付款截图保留天数（默认 15 天） */
+        paymentProofRetentionDays: z.number().int().min(1).max(365).optional(),
       })
       .optional(),
     geo: z
@@ -701,7 +705,9 @@ adminRouter.put(
       (body.system.siteName ||
         body.system.schoolName !== undefined ||
         body.system.publicBaseUrl ||
-        body.system.icp !== undefined)
+        body.system.icp !== undefined ||
+        body.system.billRetentionDays !== undefined ||
+        body.system.paymentProofRetentionDays !== undefined)
         ? body.system
         : undefined;
 

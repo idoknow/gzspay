@@ -1185,6 +1185,50 @@ export function orderQrContentForUser(
   return channelQrContent(order.merchant_id, channel as Channel);
 }
 
+/** 账单对账命中：直接标记为已完成（无需付款截图），返回 null 表示订单状态已变化 */
+export function completeOrderByReconciliation(
+  orderId: string,
+  input: {
+    provider: "alipay" | "wechat";
+    providerLabel: string;
+    paidAt: string | null;
+    importId: string;
+  },
+): OrderRow | null {
+  const order = findOrderById(orderId);
+  if (!order) return null;
+  if (order.status !== "pending_payment" && order.status !== "paid") return null;
+  const now = nowIso();
+  const paidAt = order.paid_at ?? input.paidAt ?? now;
+  const result = execute(
+    "UPDATE orders SET status = 'completed', pay_channel = COALESCE(pay_channel, ?), paid_at = ?, completed_at = ?, updated_at = ? WHERE id = ? AND status IN ('pending_payment', 'paid')",
+    input.provider,
+    paidAt,
+    now,
+    now,
+    orderId,
+  );
+  if (result.changes === 0) return null;
+  addEvent(
+    orderId,
+    "auto_confirmed",
+    "system",
+    null,
+    `账单自动对账确认收款（${input.providerLabel}），账单 ${input.importId.slice(0, 8)}`,
+  );
+  const updated = findOrderById(orderId) as OrderRow;
+  notifyOrderUpdate(updated);
+  writeAudit({
+    actorId: null,
+    actorRole: "system",
+    action: "order.auto_confirmed",
+    targetType: "order",
+    targetId: orderId,
+    detail: `${input.providerLabel}；账单 ${input.importId}`,
+  });
+  return updated;
+}
+
 export function channelsOfMerchant(merchantUserId: string): Channel[] {
   return enabledChannels(merchantUserId);
 }
