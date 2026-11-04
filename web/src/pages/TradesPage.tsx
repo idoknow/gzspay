@@ -13,8 +13,6 @@ import { OrderCard } from "../components/OrderCard";
 import { useToast } from "../components/Toast";
 import {
   exportOrdersBlob,
-  getMerchantBill,
-  getMerchantBills,
   listOrders,
   subscribeEvents,
   uploadMerchantBill,
@@ -32,7 +30,7 @@ import {
 } from "../lib/format";
 import { useDebouncedValue, useWatchLayout } from "../lib/hooks";
 import { useAuth } from "../lib/session";
-import type { BillImport, BillImportDetail, Order } from "../lib/types";
+import type { BillImportDetail, Order } from "../lib/types";
 
 type Scope = "pay" | "receive";
 type StatusFilter = "all" | "pending" | "settled";
@@ -118,26 +116,10 @@ export function TradesPage(): ReactNode {
   const [exportRange, setExportRange] = useState<ExportDateRange>("all");
   const [search, setSearch] = useState("");
   const keyword = useDebouncedValue(search.trim(), 300);
-  const [bills, setBills] = useState<BillImport[]>([]);
   const [billUploading, setBillUploading] = useState(false);
   const [billDetail, setBillDetail] = useState<BillImportDetail | null>(null);
   const [billDetailOpen, setBillDetailOpen] = useState(false);
-  const [billLoading, setBillLoading] = useState(false);
   const billInputRef = useRef<HTMLInputElement | null>(null);
-
-  const loadBills = async (): Promise<void> => {
-    try {
-      const items = await getMerchantBills(10);
-      setBills(items);
-    } catch {
-      // 「我收到的」里账单列表加载失败不影响订单列表
-    }
-  };
-
-  useEffect(() => {
-    if (scope !== "receive") return;
-    void loadBills();
-  }, [scope, reloadKey]);
 
   const handleBillFile = async (file: File | undefined): Promise<void> => {
     if (!file) return;
@@ -149,7 +131,6 @@ export function TradesPage(): ReactNode {
       toast.success(
         `账单已解析：${detail.transactionCount} 笔收款，自动匹配 ${detail.matchedCount} 笔`,
       );
-      void loadBills();
       setOrders([]);
       setPage(1);
       setReloadKey((value) => value + 1);
@@ -158,19 +139,6 @@ export function TradesPage(): ReactNode {
     } finally {
       setBillUploading(false);
       if (billInputRef.current) billInputRef.current.value = "";
-    }
-  };
-
-  const openBillDetail = async (id: string): Promise<void> => {
-    setBillDetailOpen(true);
-    setBillLoading(true);
-    try {
-      setBillDetail(await getMerchantBill(id));
-    } catch (cause) {
-      setBillDetailOpen(false);
-      toast.error(errorMessage(cause));
-    } finally {
-      setBillLoading(false);
     }
   };
 
@@ -399,59 +367,25 @@ export function TradesPage(): ReactNode {
         </div>
 
         {scope === "receive" ? (
-          <section className="mt-4 rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow-xs)] watch:mt-3 watch:p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-text watch:text-[13px]">收款自动对账</h2>
-                <p className="mt-1 text-[11px] leading-relaxed text-muted watch:text-[10px]">
-                  上传微信（.xlsx）或支付宝（.csv）账单，金额与备注都对上的订单会自动确认收款；匹配不上的流水
-                  会列出来供你核对。
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={billUploading}
-                onClick={() => billInputRef.current?.click()}
-                className="btn btn-secondary btn-sm shrink-0"
-              >
-                {billUploading ? "正在解析…" : "上传账单"}
-              </button>
-              <input
-                ref={billInputRef}
-                type="file"
-                accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-                className="hidden"
-                onChange={(event) => {
-                  void handleBillFile(event.target.files?.[0]);
-                }}
-              />
-            </div>
-            {bills.length > 0 ? (
-              <ul className="mt-3 space-y-2">
-                {bills.slice(0, 5).map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void openBillDetail(item.id);
-                      }}
-                      className="flex w-full items-center justify-between gap-3 rounded-xl border border-line bg-surface-2/60 px-3 py-2 text-left transition hover:border-line hover:bg-surface-2"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-medium text-text watch:text-[12px]">
-                          {item.providerLabel} · {item.filename}
-                        </span>
-                        <span className="mt-0.5 block text-[11px] text-muted watch:text-[10px]">
-                          匹配 {item.matchedCount}/{item.transactionCount} 笔
-                          {item.unmatchedCount > 0 ? ` · 未匹配 ${item.unmatchedCount} 笔` : ""}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-[11px] text-muted">{formatDateTime(item.createdAt)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+          <section className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-2.5 shadow-[var(--shadow-xs)] watch:mt-3 watch:px-3 watch:py-2">
+            <h2 className="text-sm font-semibold text-text watch:text-[13px]">收款自动对账</h2>
+            <button
+              type="button"
+              disabled={billUploading}
+              onClick={() => billInputRef.current?.click()}
+              className="btn btn-secondary btn-sm shrink-0"
+            >
+              {billUploading ? "正在解析…" : "上传账单"}
+            </button>
+            <input
+              ref={billInputRef}
+              type="file"
+              accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+              className="hidden"
+              onChange={(event) => {
+                void handleBillFile(event.target.files?.[0]);
+              }}
+            />
           </section>
         ) : null}
 
@@ -597,21 +531,17 @@ export function TradesPage(): ReactNode {
       <Dialog
         open={billDetailOpen}
         onClose={() => {
-          if (!billLoading) {
-            setBillDetailOpen(false);
-            setBillDetail(null);
-          }
+          setBillDetailOpen(false);
+          setBillDetail(null);
         }}
         title="账单对账结果"
         description={
           billDetail
             ? `${billDetail.providerLabel} · ${billDetail.filename} · 共 ${billDetail.transactionCount} 笔收款，自动匹配 ${billDetail.matchedCount} 笔`
-            : "正在读取账单…"
+            : ""
         }
       >
-        {billLoading ? (
-          <LoadingBlock text="正在读取账单…" />
-        ) : billDetail ? (
+        {billDetail ? (
           <div className="space-y-3">
             {billDetail.transactions.length === 0 ? (
               <p className="rounded-xl border border-line bg-surface-2/60 px-3 py-4 text-center text-sm text-muted">

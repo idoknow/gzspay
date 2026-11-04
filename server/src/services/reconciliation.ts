@@ -162,6 +162,13 @@ function findMatch(
   return candidates.length === 1 ? (candidates[0] ?? null) : null;
 }
 
+/** multer 按 latin1 解码 multipart 文件名，中文文件名会变成乱码；这里按原字节还原成 UTF-8。 */
+function decodeUploadFilename(name: string): string {
+  if (!/[\u0080-\u00ff]/.test(name)) return name;
+  const decoded = Buffer.from(name, "latin1").toString("utf8");
+  return decoded.includes("\ufffd") ? name : decoded;
+}
+
 export function importBill(
   merchantUser: UserRow,
   file: { filename: string; buffer: Buffer } | undefined,
@@ -171,7 +178,8 @@ export function importBill(
   if (!file || file.buffer.length === 0) throw errors.validation("请选择要上传的账单文件");
   if (file.buffer.length > MAX_FILE_BYTES) throw errors.validation("账单文件不能超过 5MB");
 
-  const parsed = parseBillFile(file.filename, file.buffer);
+  const filename = decodeUploadFilename(file.filename);
+  const parsed = parseBillFile(filename, file.buffer);
   if (parsed.rows.length === 0) {
     throw errors.validation("账单里没有识别到收款记录，请确认导出的是收款账单");
   }
@@ -196,7 +204,7 @@ export function importBill(
       importId,
       merchant.user_id,
       parsed.provider,
-      file.filename.slice(0, 200),
+      filename.slice(0, 200),
       storedName,
       file.buffer.length,
       parsed.periodStart,

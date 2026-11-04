@@ -202,6 +202,19 @@ describe("商家收款自动对账", () => {
     expect(response.body.error.message).toContain("请上传");
   });
 
+  it("中文文件名按 UTF-8 正确保存，不会变成乱码", async () => {
+    const uploaded = await merchantApi
+      .post("/api/merchant/bills")
+      .attach(
+        "file",
+        alipayCsv([{ time: "2026-11-03 13:00:00", amount: "0.01", note: "中文文件名测试" }]),
+        "支付宝账单（中文）.csv",
+      )
+      .expect(201);
+
+    expect(uploaded.body.filename).toBe("支付宝账单（中文）.csv");
+  });
+
   it("超出保留期的账单与付款截图会被自动清理", async () => {
     const oldImportId = "bill-old-test";
     const oldAt = new Date(Date.now() - 3 * 86400 * 1000).toISOString();
