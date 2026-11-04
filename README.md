@@ -25,7 +25,7 @@ npm install
 # 2. 准备环境变量
 cp .env.example .env
 # 至少填写 SESSION_SECRET；校园墙与发件配置可以在首次打开 /admin 的初始化向导里填写
-# 本地/内网联调没配 SMTP 时，可打开 EMAIL_CODE_DEV_MODE=1 让验证码直接回显到接口响应
+# 本地/内网联调没配发件通道（Resend 或 SMTP）时，可打开 EMAIL_CODE_DEV_MODE=1 让验证码直接回显到接口响应
 
 # 3. 开发模式（同时启动后端 3000 与前端 5173）
 npm run dev

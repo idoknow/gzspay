@@ -1,5 +1,5 @@
 import nodemailer, { type Transporter } from "nodemailer";
-import { config, isSmtpConfigured } from "../config.js";
+import { config, isMailConfigured, isResendConfigured } from "../config.js";
 import { reportSystemError } from "./alerts.js";
 import { writeMailOutbox, writeSystemError } from "./audit.js";
 import { readSystemConfig } from "./runtime-config.js";
@@ -25,6 +25,40 @@ export function resetTransporter(): void {
   transporter = null;
 }
 
+/** Resend 发件地址：名称优先用 MAIL_FROM_NAME，否则用站点品牌名 */
+function resendFrom(): string {
+  const name = config.resend.fromName.trim() || siteBrandName();
+  return `${name} <${config.resend.fromAddress}>`;
+}
+
+/** 通过 Resend HTTP API 发信，失败时抛出带状态码的错误 */
+async function sendViaResend(message: MailMessage): Promise<void> {
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${config.resend.apiKey ?? ""}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      from: resendFrom(),
+      to: [message.to],
+      subject: message.subject,
+      text: message.text,
+      ...(message.html ? { html: message.html } : {}),
+    }),
+    signal: AbortSignal.timeout(config.resend.timeoutMs),
+  });
+  if (response.ok) return;
+  let detail = "";
+  try {
+    const payload = (await response.json()) as { message?: string; error?: string; name?: string };
+    detail = payload.message ?? payload.error ?? payload.name ?? "";
+  } catch {
+    detail = "";
+  }
+  throw new Error(`Resend 返回 ${response.status}${detail ? `：${detail}` : ""}`);
+}
+
 export interface MailMessage {
   to: string;
   subject: string;
@@ -35,12 +69,13 @@ export interface MailMessage {
 
 /**
  * 发送邮件：
- * - 未配置 SMTP 时落到 mail_outbox（开发/测试环境可查看内容，不真正发送）
+ * - 未配置发件通道（Resend / SMTP）时落到 mail_outbox（开发/测试环境可查看内容，不真正发送）
+ * - 配置了 RESEND_API_KEY 时优先走 Resend HTTP API，否则走 SMTP
  * - 发送失败不抛出，返回 delivered=false 并记录系统错误
  */
 export async function sendMail(message: MailMessage): Promise<{ delivered: boolean }> {
   const kind = message.kind ?? "general";
-  if (!isSmtpConfigured()) {
+  if (!isMailConfigured()) {
     writeMailOutbox({
       to: message.to,
       subject: message.subject,
@@ -51,13 +86,17 @@ export async function sendMail(message: MailMessage): Promise<{ delivered: boole
     return { delivered: false };
   }
   try {
-    await getTransporter().sendMail({
-      from: config.smtp.from,
-      to: message.to,
-      subject: message.subject,
-      text: message.text,
-      html: message.html,
-    });
+    if (isResendConfigured()) {
+      await sendViaResend(message);
+    } else {
+      await getTransporter().sendMail({
+        from: config.smtp.from,
+        to: message.to,
+        subject: message.subject,
+        text: message.text,
+        html: message.html,
+      });
+    }
     writeMailOutbox({
       to: message.to,
       subject: message.subject,

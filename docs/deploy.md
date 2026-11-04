@@ -36,14 +36,15 @@ npm test                # 可选：运行接口测试
 | `CAMPUX_INTERNAL_BASE_URL` | 可选。服务端调用校园墙 token / userinfo / revoke 时使用的地址，留空则与 `CAMPUX_BASE_URL` 相同；容器或内网部署无法直连校园墙公网入口时填内网地址（如 `http://campux-admin.campux.svc.cluster.local:8989`），浏览器跳转仍走 `CAMPUX_BASE_URL` |
 | `CAMPUX_CLIENT_ID` / `CAMPUX_CLIENT_SECRET` | 校园墙后台新建应用后获得（Secret 只放服务端） |
 | `CAMPUX_TENANT_ID` | 可选，用于校验返回的用户属于校园墙 |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | 发信配置；未配置时邮件写入 `mail_outbox` 表而不发送 |
+| `RESEND_API_KEY` / `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | 推荐。Resend HTTP API 发信：配置 API Key 后优先使用 Resend，发件域名（如 `mail.idoknow.top`）需先在 Resend 后台验证；`MAIL_FROM_NAME` 留空时用站点品牌名 |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | 备选发信方式（未配置 `RESEND_API_KEY` 时使用）；两者都未配置时邮件写入 `mail_outbox` 表而不发送 |
 | `DATABASE_PATH` | SQLite 文件路径，建议放在持久化目录 |
 | `EMAIL_CODE_DEV_MODE` | 仅本地/冒烟使用（把邮箱验证码回显到接口响应）；**生产必须为 `0` 或不设置** |
 | `TRUST_PROXY` | 反向代理层数。Nginx 反代时设为 `1`（默认值）；直接公网监听时设为 `false`，否则 `X-Forwarded-For` 可被伪造绕过限流 |
 | `ALLOW_INSECURE_BASE_URL` | 仅内网无证书部署时设为 `1`，允许 `APP_BASE_URL` / `PUBLIC_BASE_URL` 使用 http；生产默认要求 https |
 | `RATE_LIMIT_*` | 各接口每分钟限流阈值（登录 / 回调 / 下单 / 转账 / 扫卡 / 邮箱验证码 / 动态码），设为 `0` 关闭对应限流 |
 | `ALERT_WEBHOOK_URL` | 可选：严重系统错误的 Webhook 推送地址（企业微信 / 钉钉 / 飞书群机器人），接收 JSON POST |
-| `ALERT_EMAIL_ENABLED` | 是否通过邮件通知已绑定邮箱的管理员（默认 `1`，需要 SMTP 已配置） |
+| `ALERT_EMAIL_ENABLED` | 是否通过邮件通知已绑定邮箱的管理员（默认 `1`，需要发件通道（Resend / SMTP）已配置） |
 | `ALERT_THROTTLE_MINUTES` / `ALERT_MAX_PER_HOUR` | 同一类错误的告警合并窗口（默认 10 分钟）与每小时最多告警次数（默认 30） |
 | `GEO_BLOCK_NON_CHINA` | 设为 `1` 后只允许中国大陆 IP 访问，境外请求返回 `403 REGION_BLOCKED`（默认 `0` 关闭） |
 | `GEO_IP_WHITELIST` / `GEO_BYPASS_PATHS` | 白名单 IP / CIDR，以及始终放行的路径（默认含 `/api/health`） |

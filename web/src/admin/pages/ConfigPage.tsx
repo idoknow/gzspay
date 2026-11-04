@@ -248,6 +248,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
       site,
       campux,
       mail,
+      config.mail.provider,
       security,
       config.campux.clientSecretConfigured,
       geo,
@@ -508,9 +509,17 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
 
       <Card
         title="系统发件邮箱"
-        subtitle="用于发送验证码、通知邮件的 SMTP 账号"
+        subtitle={
+          config.mail.provider === "resend"
+            ? "当前通过 Resend（环境变量 RESEND_API_KEY）发送验证码与通知邮件"
+            : "用于发送验证码、通知邮件的 SMTP 账号"
+        }
         extra={
-          config.mail.passwordConfigured ? (
+          config.mail.provider === "resend" ? (
+            <Badge tone="success" dot>
+              Resend 发件
+            </Badge>
+          ) : config.mail.passwordConfigured ? (
             <Badge tone="success" dot>
               已配置 SMTP 密码
             </Badge>
@@ -521,6 +530,12 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           )
         }
       >
+        {config.mail.provider === "resend" ? (
+          <p className="admin-hint admin-field-full">
+            发件地址与发件人名称由环境变量 <code>MAIL_FROM_ADDRESS</code> /{" "}
+            <code>MAIL_FROM_NAME</code> 决定；Resend 生效时下方 SMTP 配置不会使用。
+          </p>
+        ) : null}
         <div className="admin-form-grid">
           <Field label="SMTP 服务器地址" required>
             <input
@@ -951,6 +966,7 @@ function validate(
   site: SiteFormState,
   campux: CampuxFormState,
   mail: MailFormState,
+  mailProvider: "resend" | "smtp" | "none",
   security: SecurityFormState,
   secretConfigured: boolean,
   geo: GeoFormState,
@@ -978,15 +994,18 @@ function validate(
     }
   }
 
-  if (!mail.host.trim()) return { error: "请填写 SMTP 服务器地址。" };
-  const port = Number(mail.port);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    return { error: "SMTP 端口需为 1–65535 的整数。" };
-  }
-  if (!mail.fromName.trim()) return { error: "请填写发件人名称。" };
-  if (!mail.fromAddress.trim()) return { error: "请填写发件邮箱地址。" };
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail.fromAddress.trim())) {
-    return { error: "发件邮箱地址格式不正确。" };
+  // Resend 发件时 SMTP 配置不生效，不再强制校验 SMTP 字段
+  if (mailProvider !== "resend") {
+    if (!mail.host.trim()) return { error: "请填写 SMTP 服务器地址。" };
+    const port = Number(mail.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      return { error: "SMTP 端口需为 1–65535 的整数。" };
+    }
+    if (!mail.fromName.trim()) return { error: "请填写发件人名称。" };
+    if (!mail.fromAddress.trim()) return { error: "请填写发件邮箱地址。" };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail.fromAddress.trim())) {
+      return { error: "发件邮箱地址格式不正确。" };
+    }
   }
 
   const maxAttempts = Number(security.maxAttempts);

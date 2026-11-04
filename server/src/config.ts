@@ -113,6 +113,19 @@ export const config = {
     from: str("MAIL_FROM", "gzspay <no-reply@gzspay.local>"),
   },
 
+  /**
+   * Resend 邮件服务（HTTP API）：配置 RESEND_API_KEY 后优先使用 Resend 发信，
+   * 未配置时回退 SMTP；两者都没有时邮件写入 mail_outbox 表而不真正发送。
+   */
+  resend: {
+    apiKey: optionalStr("RESEND_API_KEY"),
+    /** 发件地址，域名需要在 Resend 后台验证通过，例如 mail.idoknow.top */
+    fromAddress: str("MAIL_FROM_ADDRESS", "no-reply@mail.idoknow.top"),
+    /** 发件人显示名称，留空时用站点品牌名 */
+    fromName: str("MAIL_FROM_NAME", ""),
+    timeoutMs: int("RESEND_TIMEOUT_MS", 10_000),
+  },
+
   /** 严重系统错误主动告警：邮件通知管理员 + 可选的 Webhook（企业微信 / 钉钉 / 飞书群机器人） */
   alerts: {
     webhookUrl: optionalStr("ALERT_WEBHOOK_URL"),
@@ -188,6 +201,16 @@ export function isCampuxConfigured(): boolean {
 /** 邮箱发件是否可用；未配置时邮件落到 outbox 表 */
 export function isSmtpConfigured(): boolean {
   return Boolean(config.smtp.host);
+}
+
+/** 是否配置了 Resend（HTTP API，优先于 SMTP） */
+export function isResendConfigured(): boolean {
+  return Boolean(config.resend.apiKey);
+}
+
+/** 是否有可用的发件通道：Resend 优先，其次 SMTP */
+export function isMailConfigured(): boolean {
+  return isResendConfigured() || isSmtpConfigured();
 }
 
 /** 自动化测试或显式开启 EMAIL_CODE_DEV_MODE 时，把邮箱验证码回显到响应里（仅限本地/冒烟） */

@@ -1,4 +1,4 @@
-import { config, isSmtpConfigured } from "../config.js";
+import { config, isMailConfigured } from "../config.js";
 import { queryAll, nowIso } from "../db/index.js";
 import { writeSystemError } from "./audit.js";
 import { renderEmailHtml, sendMailInBackground, type EmailContent } from "./mail.js";
@@ -214,7 +214,7 @@ function dispatch(input: SystemAlertInput, suppressed: number): void {
   const hourAgo = Date.now() - 60 * 60 * 1000;
   dispatchedLastHour = dispatchedLastHour.filter((at) => at >= hourAgo);
   void postWebhook(payload);
-  if (!config.alerts.emailEnabled || !isSmtpConfigured()) return;
+  if (!config.alerts.emailEnabled || !isMailConfigured()) return;
   const subject = buildAlertSubject(input);
   const text = buildAlertText(input, suppressed);
   const html = renderEmailHtml(buildAlertContent(input, suppressed));
@@ -224,10 +224,10 @@ function dispatch(input: SystemAlertInput, suppressed: number): void {
   }
 }
 
-/** 告警通道是否可用（Webhook 或「管理员邮箱 + SMTP」至少有一个） */
+/** 告警通道是否可用（Webhook 或「管理员邮箱 + 发件通道（Resend / SMTP）」至少有一个） */
 export function isAlertChannelReady(): boolean {
   if (config.alerts.webhookUrl) return true;
-  return config.alerts.emailEnabled && isSmtpConfigured() && alertRecipients().length > 0;
+  return config.alerts.emailEnabled && isMailConfigured() && alertRecipients().length > 0;
 }
 
 /** 记录系统错误并按需主动告警；所有错误都会写入 system_errors */
@@ -257,7 +257,7 @@ export function alertStatus(): {
 } {
   return {
     webhookConfigured: Boolean(config.alerts.webhookUrl),
-    emailEnabled: config.alerts.emailEnabled && isSmtpConfigured(),
+    emailEnabled: config.alerts.emailEnabled && isMailConfigured(),
     recipients: alertRecipients().length,
     lastAlertAt,
     dispatchedLastHour: dispatchedLastHour.length,

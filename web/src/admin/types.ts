@@ -552,6 +552,8 @@ export interface LogFilters {
 /* ------------------------------------------------------------------ 配置 */
 
 export interface MailConfig {
+  /** 当前生效的发件通道：resend=Resend（环境变量配置），smtp=SMTP，none=未配置（只写 outbox） */
+  provider: "resend" | "smtp" | "none";
   host: string;
   port: number;
   secure: boolean;
@@ -728,6 +730,8 @@ export interface SetupCampuxInfo {
 
 /** 发件配置（GET /setup/status 的 mail，密码不回显） */
 export interface SetupMailInfo {
+  /** 当前生效的发件通道：resend=Resend（环境变量配置），smtp=SMTP，none=未配置 */
+  provider: "resend" | "smtp" | "none";
   host: string;
   port: number;
   secure: boolean;

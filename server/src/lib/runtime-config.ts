@@ -1,4 +1,4 @@
-import { config } from "../config.js";
+import { config, isResendConfigured } from "../config.js";
 import { queryAll, queryOne, setConfigValue } from "../db/index.js";
 import { writeAudit } from "./audit.js";
 import { geoDataMeta } from "./geo.js";
@@ -98,6 +98,8 @@ function toIntOr(value: string | undefined, fallback: number): number {
 }
 
 export interface MailConfigView {
+  /** 当前生效的发件通道：resend=Resend HTTP API（环境变量），smtp=SMTP，none=未配置（只落 outbox） */
+  provider: "resend" | "smtp" | "none";
   host: string;
   port: number;
   secure: boolean;
@@ -168,8 +170,11 @@ function splitFrom(from: string): { fromName: string; fromAddress: string } {
 export function readMailConfig(): MailConfigView {
   const stored = storedMap();
   const { fromName, fromAddress } = splitFrom(config.smtp.from);
+  const host = stored.get(MAIL_KEYS.host) ?? config.smtp.host ?? "";
   return {
-    host: stored.get(MAIL_KEYS.host) ?? config.smtp.host ?? "",
+    // Resend 由环境变量配置，优先级高于后台 SMTP 配置
+    provider: isResendConfigured() ? "resend" : host ? "smtp" : "none",
+    host,
     port: toIntOr(stored.get(MAIL_KEYS.port), config.smtp.port),
     secure: (stored.get(MAIL_KEYS.secure) ?? String(config.smtp.secure)) === "true",
     username: stored.get(MAIL_KEYS.username) ?? config.smtp.user ?? "",
@@ -540,9 +545,9 @@ export function isCampuxReady(): boolean {
   return Boolean(campux.clientId && campux.clientSecretConfigured);
 }
 
-/** 邮件服务是否可用（运行期配置优先） */
+/** 邮件服务是否可用（Resend 环境变量优先，其次运行期 SMTP 配置） */
 export function isMailReady(): boolean {
-  return Boolean(readMailConfig().host);
+  return isResendConfigured() || Boolean(readMailConfig().host);
 }
 
 export const CONFIG_KEYS = {

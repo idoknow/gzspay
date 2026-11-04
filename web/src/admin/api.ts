@@ -312,6 +312,7 @@ function mapSetupStatus(payload: unknown): SetupStatus {
       scope: textOr(firstText(campux, ["scope"]), "profile"),
     },
     mail: {
+      provider: mapMailProvider(mail),
       host: textOr(firstText(mail, ["host"]), ""),
       port: numberOr(firstNumber(mail, ["port"]), 465),
       secure: firstBoolean(mail, ["secure", "ssl"]) ?? true,
@@ -331,6 +332,14 @@ function mapSetupAdmin(raw: unknown): SetupAdmin {
     displayName: textOr(firstText(source, ["displayName", "name"]), "管理员"),
     role: mapRole(firstText(source, ["role"])),
   };
+}
+
+/** 发件通道：resend（环境变量）/ smtp / none */
+function mapMailProvider(source: Record<string, unknown>): "resend" | "smtp" | "none" {
+  const provider = firstText(source, ["provider", "mailProvider", "transport"]);
+  if (provider === "resend") return "resend";
+  if (provider === "smtp") return "smtp";
+  return "none";
 }
 
 /** GET /setup/status —— 系统初始化状态（无需登录） */
@@ -1778,6 +1787,7 @@ export async function getConfig(): Promise<AdminConfig> {
       scope: textOr(firstText(campuxSource, ["scope", "scopes"]), "profile"),
     },
     mail: {
+      provider: mapMailProvider(mailSource),
       host: textOr(
         firstText(mailSource, ["host", "smtpHost", "server"]),
         "",

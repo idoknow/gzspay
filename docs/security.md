@@ -80,7 +80,7 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 - 触发范围：接口 5xx、进程 `uncaughtException` / `unhandledRejection`、启动迁移失败、定时清理失败、邮件发送失败。
 - 所有错误先写入 `system_errors`（后台「日志 → 系统错误」可查、可导出），再判断是否需要主动推送。
 - 推送通道：
-  - 邮件：发给 `admins` 表里状态正常且已绑定邮箱的管理员（需要配置 SMTP）；
+  - 邮件：发给 `admins` 表里状态正常且已绑定邮箱的管理员（需要配置发件通道：Resend 或 SMTP）；
   - Webhook：`ALERT_WEBHOOK_URL`，JSON POST，可对接企业微信 / 钉钉 / 飞书群机器人。
 - 防刷屏：同一类错误按「来源 + 归一化文案」合并，`ALERT_THROTTLE_MINUTES`（默认 10 分钟）内只告警一次，期间重复次数累计到下一次；每小时最多 `ALERT_MAX_PER_HOUR`（默认 30）次。
 - 告警邮件自身发送失败只写系统错误、不再触发告警，避免递归；Webhook 失败同样只记录。
@@ -126,7 +126,7 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 5. 校园墙 OAuth 后台登记的 redirectUri 与 `CAMPUX_REDIRECT_URI` 完全一致。
 6. 验证 `curl -I https://<域名>/api/health` 能看到 HSTS、CSP 与 `Cache-Control: no-store`。
 7. 跑一遍 `npm run verify` 与 `node scripts/e2e-smoke.mjs`（冒烟脚本要求全新数据库）。
-8. 配置告警通道并自测：设置 `ALERT_WEBHOOK_URL`，或配置 SMTP 并给管理员绑定邮箱；在后台「系统状态」确认告警显示为「已启用」。
+8. 配置告警通道并自测：设置 `ALERT_WEBHOOK_URL`，或配置发件通道（Resend / SMTP）并给管理员绑定邮箱；在后台「系统状态」确认告警显示为「已启用」。
 9. 需要只对中国大陆开放时：在后台开启地区访问限制（或设置 `GEO_BLOCK_NON_CHINA=1`），确认 `/api/health` 仍 200、境外 IP 返回 `403 REGION_BLOCKED`，并把运维出口加入白名单。
 10. 建议在后台设置管理后台安全入口，确认 `/<入口名>/admin` 可进入、直接访问 `/admin` 返回 404 且能在「后台入口访问尝试」看到记录。
 11. 确认扫描器路径（如 `curl -i https://<域名>/.env`）返回 404，后台「访问统计」能看到请求量、状态码、设备与地区数据；统计接口仅管理员可访问。
