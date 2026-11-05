@@ -144,6 +144,31 @@ function applyLegacyMigrations(): void {
   if (!notificationColumns.some((column) => column.name === "announcement")) {
     db.exec("ALTER TABLE notification_settings ADD COLUMN announcement INTEGER NOT NULL DEFAULT 1;");
   }
+
+  const ticketColumns = db
+    .prepare("PRAGMA table_info(tickets)")
+    .all() as { name: string }[];
+  if (!ticketColumns.some((column) => column.name === "parties_reveal_status")) {
+    // 旧工单没有披露流程：默认按「已批准」处理，保持既有工单里已展示的资料不突然消失
+    db.exec(
+      "ALTER TABLE tickets ADD COLUMN parties_reveal_status TEXT NOT NULL DEFAULT 'approved';",
+    );
+  }
+  if (!ticketColumns.some((column) => column.name === "parties_reveal_requested_by")) {
+    db.exec("ALTER TABLE tickets ADD COLUMN parties_reveal_requested_by TEXT REFERENCES users(id);");
+  }
+  if (!ticketColumns.some((column) => column.name === "parties_reveal_requested_at")) {
+    db.exec("ALTER TABLE tickets ADD COLUMN parties_reveal_requested_at TEXT;");
+  }
+  if (!ticketColumns.some((column) => column.name === "parties_reveal_note")) {
+    db.exec("ALTER TABLE tickets ADD COLUMN parties_reveal_note TEXT;");
+  }
+  if (!ticketColumns.some((column) => column.name === "parties_revealed_at")) {
+    db.exec("ALTER TABLE tickets ADD COLUMN parties_revealed_at TEXT;");
+  }
+  if (!ticketColumns.some((column) => column.name === "parties_revealed_by")) {
+    db.exec("ALTER TABLE tickets ADD COLUMN parties_revealed_by TEXT REFERENCES users(id);");
+  }
 }
 
 function normalizeParams(params: unknown[]): SQLInputValue[] {

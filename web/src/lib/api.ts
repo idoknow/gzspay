@@ -809,6 +809,11 @@ export function closeTicket(id: string): Promise<TicketDetail> {
   return api.post<TicketDetail>(`/tickets/${encodeURIComponent(id)}/close`);
 }
 
+/** 申请披露双方资料（平台审核通过后双方才能看到对方完整资料） */
+export function requestPartiesReveal(id: string): Promise<TicketDetail> {
+  return api.post<TicketDetail>(`/tickets/${encodeURIComponent(id)}/reveal`);
+}
+
 /* ------------------------------------------------------------------ */
 /* 13. 收款账单自动对账                                                */
 /* ------------------------------------------------------------------ */

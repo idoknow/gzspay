@@ -260,7 +260,7 @@ describe("交易工单", () => {
     expect([401, 403]).toContain(response.status);
   });
 
-  it("工单详情展示双方资料，平台客服可以介入发言并结束工单", async () => {
+  it("工单双方资料默认隐藏，需要申请并由平台批准后才披露", async () => {
     const orderId = await createPaidOrder();
     const created = await payerApi
       .post("/api/tickets")
@@ -268,12 +268,86 @@ describe("交易工单", () => {
       .expect(201);
     const ticketId = created.body.ticket.id as string;
 
-    const detail = await payerApi.get(`/api/tickets/${ticketId}`).expect(200);
-    expect(detail.body.parties.payer.displayName).toBeTruthy();
-    expect(detail.body.parties.payer.studentNo).toBe("20239102");
-    expect(detail.body.parties.merchant.studentNo).toBe("20239101");
-    expect(detail.body.parties.payer.qq).toBeTruthy();
-    expect(detail.body.parties.payer.email).toContain("@qq.com");
+    // 默认不披露：工单两边都拿不到对方的学号、QQ、邮箱
+    const hidden = await payerApi.get(`/api/tickets/${ticketId}`).expect(200);
+    expect(hidden.body.parties).toBeNull();
+    expect(hidden.body.partiesReveal.status).toBe("hidden");
+    expect(JSON.stringify(hidden.body)).not.toContain("20239102");
+    expect(JSON.stringify(hidden.body)).not.toContain("20239101");
+
+    // 非参与方不能申请，也看不到工单
+    const outsiderTry = await outsiderApi.post(`/api/tickets/${ticketId}/reveal`);
+    expect(outsiderTry.status).toBe(404);
+
+    // 付款人提交申请：进入待审核，重复申请被拒
+    const requested = await payerApi.post(`/api/tickets/${ticketId}/reveal`).expect(200);
+    expect(requested.body.partiesReveal.status).toBe("pending");
+    expect(requested.body.partiesReveal.requestedByMe).toBe(true);
+    expect(requested.body.partiesReveal.requestedAt).toBeTruthy();
+    expect(requested.body.parties).toBeNull();
+    const repeated = await payerApi.post(`/api/tickets/${ticketId}/reveal`);
+    expect(repeated.status).toBe(400);
+
+    // 对方视角也能看到「有待审核申请」，但同样拿不到资料
+    const merchantViewPending = await merchantApi.get(`/api/tickets/${ticketId}`).expect(200);
+    expect(merchantViewPending.body.partiesReveal.status).toBe("pending");
+    expect(merchantViewPending.body.partiesReveal.requestedByMe).toBe(false);
+    expect(merchantViewPending.body.parties).toBeNull();
+
+    // 后台列表能看出有待审核的披露申请；审计员不能审批
+    const auditor = await loginAdmin("reveal-auditor", "auditor");
+    const list = await auditor.get("/api/admin/tickets").expect(200);
+    const row = (list.body.items as Array<{ id: string; partiesRevealStatus: string }>).find(
+      (item) => item.id === ticketId,
+    );
+    expect(row?.partiesRevealStatus).toBe("pending");
+    const auditorTry = await auditor
+      .post(`/api/admin/tickets/${ticketId}/reveal`)
+      .send({ decision: "approve" });
+    expect(auditorTry.status).toBe(403);
+
+    // 运营批准：双方都拿到资料，对话里留下一条系统提示
+    const ops = await loginAdmin("reveal-ops", "ops");
+    const approved = await ops
+      .post(`/api/admin/tickets/${ticketId}/reveal`)
+      .send({ decision: "approve", note: "双方已确认身份" })
+      .expect(200);
+    expect(approved.body.partiesReveal.status).toBe("approved");
+    expect(approved.body.partiesReveal.revealedAt).toBeTruthy();
+    const systemMessage = approved.body.messages.at(-1);
+    expect(systemMessage.senderRole).toBe("system");
+    expect(systemMessage.senderName).toBe("系统提示");
+    expect(systemMessage.body).toContain("平台已批准");
+    expect(systemMessage.body).toContain("双方已确认身份");
+
+    const payerView = await payerApi.get(`/api/tickets/${ticketId}`).expect(200);
+    expect(payerView.body.parties.payer.studentNo).toBe("20239102");
+    expect(payerView.body.parties.merchant.studentNo).toBe("20239101");
+    expect(payerView.body.parties.merchant.qq).toBeTruthy();
+    expect(payerView.body.messages.at(-1).senderRole).toBe("system");
+    // 列表预览不展示系统提示
+    const summary = (await payerApi.get("/api/tickets").expect(200)).body.items.find(
+      (item: { id: string }) => item.id === ticketId,
+    );
+    expect(summary?.lastMessage?.senderRole).not.toBe("system");
+
+    const merchantView = await merchantApi.get(`/api/tickets/${ticketId}`).expect(200);
+    expect(merchantView.body.parties.payer.studentNo).toBe("20239102");
+
+    // 已经批准过，不能重复审核
+    const repeatReview = await ops
+      .post(`/api/admin/tickets/${ticketId}/reveal`)
+      .send({ decision: "approve" });
+    expect(repeatReview.status).toBe(400);
+  });
+
+  it("平台客服可以介入发言并结束工单", async () => {
+    const orderId = await createPaidOrder();
+    const created = await payerApi
+      .post("/api/tickets")
+      .send({ orderId, category: "not_as_described", description: "收到的商品和描述不太一样，希望平台帮忙看一下" })
+      .expect(201);
+    const ticketId = created.body.ticket.id as string;
 
     const auditor = await loginAdmin("auditor", "auditor");
     const auditorTry = await auditor
@@ -290,6 +364,7 @@ describe("交易工单", () => {
     expect(adminMessage.senderRole).toBe("admin");
     expect(adminMessage.senderName).toBe("平台客服");
     expect(adminMessage.senderAvatarUrl).toBeNull();
+    // 后台始终能看到双方完整资料
     expect(replied.body.parties.payer.studentNo).toBe("20239102");
 
     const payerView = await payerApi.get(`/api/tickets/${ticketId}`).expect(200);

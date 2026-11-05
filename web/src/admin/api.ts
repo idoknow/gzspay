@@ -46,6 +46,8 @@ import type {
   AdminTicket,
   AdminTicketDetail,
   AdminTicketMessage,
+  AdminPartiesReveal,
+  AdminPartiesRevealStatus,
   AdminTicketParties,
   AdminTicketParty,
   AdminUser,
@@ -136,6 +138,23 @@ function mapParties(raw: unknown): AdminTicketParties {
   };
 }
 
+function mapRevealStatus(value: unknown): AdminPartiesRevealStatus {
+  const raw = text(value);
+  return raw === "pending" || raw === "approved" || raw === "rejected" ? raw : "hidden";
+}
+
+/** 双方资料披露申请信息（后台详情页展示与审核用） */
+function mapPartiesReveal(raw: unknown): AdminPartiesReveal {
+  const source = record(raw);
+  return {
+    status: mapRevealStatus(source.status),
+    requestedByMe: firstBoolean(source, ["requestedByMe"]) ?? false,
+    requestedAt: isoOrNull(source.requestedAt),
+    note: text(source.note),
+    revealedAt: isoOrNull(source.revealedAt),
+  };
+}
+
 function mapTicket(raw: unknown): AdminTicket {
   const source = record(raw);
   return {
@@ -153,6 +172,7 @@ function mapTicket(raw: unknown): AdminTicket {
     createdAt: textOr(source.createdAt, ""),
     lastMessageAt: textOr(source.lastMessageAt, ""),
     messageCount: numberOr(source.messageCount, 0),
+    partiesRevealStatus: mapRevealStatus(source.partiesRevealStatus),
   };
 }
 
@@ -178,6 +198,7 @@ function mapTicketDetail(payload: unknown): AdminTicketDetail {
   return {
     ...mapTicket(source),
     parties: mapParties(source.parties),
+    partiesReveal: mapPartiesReveal(source.partiesReveal),
     messages: firstArray(source, ["messages"]).map(mapTicketMessage),
     closedAt: isoOrNull(source.closedAt),
     closedReason: (text(source.closedReason) as AdminTicketDetail["closedReason"]) ?? null,
@@ -202,6 +223,19 @@ export async function sendAdminTicketMessage(id: string, body: string): Promise<
 /** POST /admin/tickets/:id/close：运营结束工单，可附处理说明 */
 export async function closeAdminTicket(id: string, note?: string | null): Promise<AdminTicketDetail> {
   const payload = await writeJson<unknown>("POST", `/admin/tickets/${encodeURIComponent(id)}/close`, {
+    note: note?.trim() || null,
+  });
+  return mapTicketDetail(payload);
+}
+
+/** POST /admin/tickets/:id/reveal：审批双方的资料披露申请（批准后才向双方展示完整资料） */
+export async function reviewTicketReveal(
+  id: string,
+  decision: "approve" | "reject",
+  note?: string | null,
+): Promise<AdminTicketDetail> {
+  const payload = await writeJson<unknown>("POST", `/admin/tickets/${encodeURIComponent(id)}/reveal`, {
+    decision,
     note: note?.trim() || null,
   });
   return mapTicketDetail(payload);

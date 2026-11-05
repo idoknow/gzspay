@@ -13,6 +13,7 @@ import {
   getTicket,
   listTickets,
   markTicketRead,
+  requestPartiesReveal,
   sendTicketMessage,
   unreadCountTotal,
 } from "../services/tickets.js";
@@ -45,6 +46,14 @@ const messageRateLimit = rateLimit({
   windowSeconds: 60,
   keyBy: userKey,
   message: "发消息太快了，请稍后再试",
+});
+
+const revealRateLimit = rateLimit({
+  scope: "tickets.reveal",
+  limit: 5,
+  windowSeconds: 3600,
+  keyBy: userKey,
+  message: "申请太频繁了，请先和对方协商后再试",
 });
 
 /** 我的工单列表（进行中优先，按最后消息时间倒序） */
@@ -114,5 +123,14 @@ ticketsRouter.post(
   "/:id/close",
   asyncHandler((req, res) => {
     res.json(closeTicket(String(req.params.id), req.auth!.user, requestIp(req)));
+  }),
+);
+
+/** 申请披露双方资料：平台审核通过后双方才能看到对方完整资料 */
+ticketsRouter.post(
+  "/:id/reveal",
+  revealRateLimit,
+  asyncHandler((req, res) => {
+    res.json(requestPartiesReveal(String(req.params.id), req.auth!.user, requestIp(req)));
   }),
 );

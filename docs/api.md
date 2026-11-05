@@ -498,6 +498,8 @@ interface Announcement {
 
 交易双方（付款人 / 商家）在**待付款、已支付或已完成**的订单里发起工单后用文字沟通争议（已取消的订单不行，未付款也可以先沟通）。同一订单同时只允许 1 个进行中的工单，累计最多 3 个；超过 7 天没有新消息会自动关闭，双方任一方也可手动结束。参与方以外一律 404，内容只存纯文本。运营（`super` / `ops`）可以在后台以「平台客服」身份介入发言或结束工单，`auditor` 只读。
 
+**双方资料默认不披露**：工单详情里的 `parties` 默认为 `null`，双方只能看到对方的头像与脱敏学号。需要核对对方身份时，订单一方可以「向平台申请披露」，运营在后台批准后双方才能看到完整资料（姓名、学号、QQ、邮箱），并在对话里留下一条 `senderRole: "system"` 的系统提示；驳回时同一位置提示原因。后台（`/api/admin/tickets`）始终可以看到双方完整资料，并能在列表里看到 `partiesRevealStatus`。
+
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/tickets?status=open|closed&limit=50` | 当前用户参与的工单列表 → `{ items: TicketSummary[] }`，默认按最后消息时间倒序 |
@@ -507,10 +509,12 @@ interface Announcement {
 | `POST` | `/api/tickets/:id/messages` | 发送消息：`{ body }`（≤1000 字）→ `201 TicketDetail`；工单已关闭 400；每分钟 30 条 |
 | `POST` | `/api/tickets/:id/read` | 标记已读 → `{ unreadCount, totalUnreadCount }` |
 | `POST` | `/api/tickets/:id/close` | 手动结束工单（双方均可）→ `TicketDetail` |
-| `GET` | `/api/admin/tickets?status&keyword&page&pageSize` | 后台列表 → `{ items: AdminTicketSummary[], total, page, pageSize }`（`keyword` 匹配订单号、标题与双方姓名） |
-| `GET` | `/api/admin/tickets/:id` | 后台详情（含全部消息与双方资料）→ `AdminTicketDetail` |
+| `POST` | `/api/tickets/:id/reveal` | **申请披露双方资料**（订单双方均可）：无 body → `200 TicketDetail`，`partiesReveal.status` 变为 `pending`；工单已关闭、已批准或已有待审申请时 400；每小时 5 次 |
+| `GET` | `/api/admin/tickets?status&keyword&page&pageSize` | 后台列表 → `{ items: AdminTicketSummary[], total, page, pageSize }`（`keyword` 匹配订单号、标题与双方姓名；每项带 `partiesRevealStatus`，前端对待审核的申请显示「待审披露」标记） |
+| `GET` | `/api/admin/tickets/:id` | 后台详情（含全部消息、双方完整资料与 `partiesReveal`）→ `AdminTicketDetail` |
 | `POST` | `/api/admin/tickets/:id/messages` | **平台介入发言**（仅 `super` / `ops`）：`{ body }`（1–1000 字）→ `201 AdminTicketDetail`；消息以「平台客服」身份展示、头像为 `null`（前端用站点 logo）；工单已关闭 400，`auditor` 403 |
 | `POST` | `/api/admin/tickets/:id/close` | **平台结束工单**（仅 `super` / `ops`）：`{ note?: string \| null }`（≤300 字，双方可见）→ `AdminTicketDetail`，`closedReason` 为 `admin` |
+| `POST` | `/api/admin/tickets/:id/reveal` | **审批双方资料披露申请**（仅 `super` / `ops`）：`{ decision: "approve" \| "reject", note?: string \| null }`（`note` ≤200 字，双方可见）→ `AdminTicketDetail`；批准后双方才能看到对方完整资料，并在对话里新增一条 `senderRole: "system"` 的系统提示（同时发邮件通知双方）；没有待审申请时 400，`auditor` 403 |
 
 ```ts
 interface TicketSummary {
@@ -528,12 +532,12 @@ interface TicketSummary {
   lastMessageAt: string;
   messageCount: number;
   unreadCount: number;
-  // 列表预览只取订单双方自己的最后一条消息（平台客服介入的内容不进入预览；
+  // 列表预览只取订单双方自己的最后一条消息（平台客服介入与系统提示都不进入预览；
   // 因此 senderRole 实际只会是 payer / merchant）
-  lastMessage: { body: string; senderRole: "payer" | "merchant" | "admin"; createdAt: string } | null;
+  lastMessage: { body: string; senderRole: "payer" | "merchant" | "admin" | "system"; createdAt: string } | null;
 }
 
-/** 工单双方资料：只给参与者与平台，列表接口不返回 */
+/** 工单双方资料：只在披露通过后给参与者，后台始终可读；列表接口不返回 */
 interface TicketParty {
   id: string;
   role: "payer" | "merchant";
@@ -544,15 +548,28 @@ interface TicketParty {
   avatarUrl: string | null;
 }
 
+/** 资料披露申请状态：hidden 默认隐藏 / pending 待平台审核 / approved 已披露 / rejected 已驳回 */
+interface PartiesReveal {
+  status: "hidden" | "pending" | "approved" | "rejected";
+  requestedByMe: boolean;        // 这次申请是不是自己发起的
+  requestedAt: string | null;
+  note: string | null;           // 平台审核说明（驳回原因或批准备注）
+  revealedAt: string | null;
+}
+
 interface TicketDetail extends TicketSummary {
   role: "payer" | "merchant";
-  parties: { payer: TicketParty; merchant: TicketParty };
+  // 未披露时为 null（前端展示「向平台申请披露」卡片）；批准后才返回双方完整资料
+  parties: { payer: TicketParty; merchant: TicketParty } | null;
+  partiesReveal: PartiesReveal;
   messages: {
     id: string;
     senderId: string;
-    senderRole: "payer" | "merchant" | "admin"; // 按发送入口判定：用户端发的算本人，后台「回复」发的算平台
-    senderName: string;            // 平台介入的消息固定为「平台客服」
-    senderAvatarUrl: string | null; // 平台介入的消息为 null
+    // 按发送入口判定：用户端发的算本人，后台「回复」发的算平台客服；
+    // system 是平台审批披露申请后自动写入的系统提示（居中展示，不可回复）
+    senderRole: "payer" | "merchant" | "admin" | "system";
+    senderName: string;            // 平台介入固定「平台客服」，系统提示固定「系统提示」
+    senderAvatarUrl: string | null; // 平台介入与系统提示为 null（前端用站点 logo）
     body: string;
     createdAt: string;
   }[];

@@ -3,13 +3,20 @@
  * 运营（super / ops）可以「平台客服」身份介入沟通、结束工单；审计员只读。
  */
 import { useState } from "react";
-import { closeAdminTicket, getAdminTicket, getAdminTickets, sendAdminTicketMessage } from "../api";
+import {
+  closeAdminTicket,
+  getAdminTicket,
+  getAdminTickets,
+  reviewTicketReveal,
+  sendAdminTicketMessage,
+} from "../api";
 import { Badge, Button, Card, Drawer, EmptyState, ErrorState, Pagination, PageHeader, TableSkeleton, Tabs } from "../components/ui";
 import { useFeedback } from "../components/dialogs";
 import { useAdmin } from "../context";
 import { formatCents, formatDateTime, formatRelative } from "../format";
 import { useAsync, useDebounced } from "../hooks";
 import type {
+  AdminPartiesRevealStatus,
   AdminTicket,
   AdminTicketClosedReason,
   AdminTicketDetail,
@@ -35,6 +42,14 @@ const CLOSED_REASON_TEXT: Record<AdminTicketClosedReason, string> = {
 function statusBadge(status: AdminTicketStatus) {
   return status === "open" ? <Badge tone="primary">进行中</Badge> : <Badge tone="neutral">已结束</Badge>;
 }
+
+/** 资料披露状态的中文说明（后台详情页展示） */
+const REVEAL_STATUS_TEXT: Record<AdminPartiesRevealStatus, string> = {
+  hidden: "默认隐藏：双方看不到对方完整资料",
+  pending: "待审核：有订单一方申请披露双方资料",
+  approved: "已披露：双方可以看到对方完整资料",
+  rejected: "已驳回：上次申请未通过，可以重新申请",
+};
 
 /** 平台客服头像：站点 logo */
 function PlatformLogo({ size = 30 }: { size?: number }) {
@@ -193,7 +208,14 @@ export function AdminTicketsPage() {
                       </td>
                       <td className="admin-num">{ticket.messageCount}</td>
                       <td title={formatDateTime(ticket.lastMessageAt)}>{formatRelative(ticket.lastMessageAt)}</td>
-                      <td>{statusBadge(ticket.status)}</td>
+                      <td>
+                        <div className="admin-flex admin-flex-wrap" style={{ gap: 6, alignItems: "center" }}>
+                          {statusBadge(ticket.status)}
+                          {ticket.partiesRevealStatus === "pending" ? (
+                            <Badge tone="warning">待审披露</Badge>
+                          ) : null}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -248,6 +270,30 @@ function TicketDetailDrawer({
     onChanged();
   };
 
+  /** 审批双方的资料披露申请：批准后订单双方才能看到对方完整资料 */
+  const handleReview = async (decision: "approve" | "reject"): Promise<void> => {
+    let note: string | null = null;
+    if (decision === "reject") {
+      note = await feedback.prompt({
+        title: "驳回资料披露申请",
+        description: "可以填写驳回原因，订单双方都能看到；不填也可以。",
+        label: "驳回原因（可选）",
+        placeholder: "例如：请先在工单里说明争议金额与凭证",
+        multiline: true,
+        confirmText: "驳回申请",
+        danger: true,
+      });
+      if (note === null) return;
+    }
+    try {
+      await reviewTicketReveal(ticketId, decision, note);
+      handleChanged();
+      feedback.success(decision === "approve" ? "已批准披露双方资料" : "已驳回资料披露申请");
+    } catch (error) {
+      feedback.error(error instanceof Error ? error.message : "审核失败");
+    }
+  };
+
   return (
     <Drawer
       title="工单详情"
@@ -297,6 +343,8 @@ function TicketDetailDrawer({
         <TicketDetailBody
           ticket={ticket}
           canReply={canReply}
+          canWrite={canWrite}
+          onReview={handleReview}
           onChanged={handleChanged}
           onFeedback={(message, tone) => (tone === "error" ? feedback.error(message) : feedback.success(message))}
         />
@@ -323,23 +371,41 @@ function PartyBlock({ party, tone }: { party: AdminTicketParty; tone: "payer" | 
 }
 
 function MessageAvatar({ message }: { message: AdminTicketMessage }) {
-  if (message.senderRole === "admin") return <PlatformLogo />;
+  // 平台客服与系统提示都用站点 logo（系统提示是披露审核结果等）
+  if (message.senderRole === "admin" || message.senderRole === "system") return <PlatformLogo />;
   return <PersonAvatar name={message.senderName} avatarUrl={message.senderAvatarUrl} />;
 }
 
 function TicketDetailBody({
   ticket,
   canReply,
+  canWrite,
+  onReview,
   onChanged,
   onFeedback,
 }: {
   ticket: AdminTicketDetail;
   canReply: boolean;
+  canWrite: boolean;
+  onReview: (decision: "approve" | "reject") => Promise<void>;
   onChanged: () => void;
   onFeedback: (message: string, tone: "success" | "error") => void;
 }) {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const reveal = ticket.partiesReveal;
+  const canReview = canWrite && reveal.status === "pending";
+
+  const review = async (decision: "approve" | "reject"): Promise<void> => {
+    if (reviewing) return;
+    setReviewing(true);
+    try {
+      await onReview(decision);
+    } finally {
+      setReviewing(false);
+    }
+  };
 
   const send = async () => {
     const body = reply.trim();
@@ -381,11 +447,47 @@ function TicketDetailBody({
       </div>
 
       <div className="admin-stack" style={{ gap: 8 }}>
-        <span className="admin-muted" style={{ fontSize: 12 }}>
-          双方资料
-        </span>
+        <div className="admin-flex admin-flex-wrap" style={{ gap: 8, alignItems: "center" }}>
+          <span className="admin-muted" style={{ fontSize: 12 }}>
+            双方资料
+          </span>
+          <Badge
+            tone={
+              reveal.status === "pending" ? "warning" : reveal.status === "approved" ? "success" : "neutral"
+            }
+          >
+            {REVEAL_STATUS_TEXT[reveal.status]}
+          </Badge>
+        </div>
         <PartyBlock party={ticket.parties.payer} tone="payer" />
         <PartyBlock party={ticket.parties.merchant} tone="merchant" />
+        {reveal.status === "pending" ? (
+          <div className="admin-flex admin-flex-wrap" style={{ gap: 8, alignItems: "center" }}>
+            <span className="admin-muted" style={{ fontSize: 12 }}>
+              申请时间 {reveal.requestedAt ? formatDateTime(reveal.requestedAt) : "未知"}
+            </span>
+            <span className="admin-spacer" />
+            {canReview ? (
+              <>
+                <Button variant="ghost" disabled={reviewing} onClick={() => void review("reject")}>
+                  驳回申请
+                </Button>
+                <Button variant="primary" disabled={reviewing} onClick={() => void review("approve")}>
+                  {reviewing ? "处理中…" : "批准披露"}
+                </Button>
+              </>
+            ) : (
+              <span className="admin-muted" style={{ fontSize: 12 }}>
+                只读账号不能审批资料披露。
+              </span>
+            )}
+          </div>
+        ) : null}
+        {reveal.note ? (
+          <div className="admin-muted" style={{ fontSize: 12 }}>
+            审核说明：{reveal.note}
+          </div>
+        ) : null}
       </div>
 
       {ticket.status === "closed" ? (
@@ -408,7 +510,9 @@ function TicketDetailBody({
                     ? "商家"
                     : message.senderRole === "payer"
                       ? "付款人"
-                      : "平台客服"}{" "}
+                      : message.senderRole === "system"
+                        ? "系统提示"
+                        : "平台客服"}{" "}
                   · {formatDateTime(message.createdAt)}
                 </span>
               </div>

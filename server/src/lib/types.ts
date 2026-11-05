@@ -138,6 +138,13 @@ export interface TicketRow {
   updated_at: string;
   last_message_at: string;
   message_count: number;
+  /** 双方资料披露状态：hidden（默认隐藏）| pending（待平台审核）| approved（已披露）| rejected（已驳回） */
+  parties_reveal_status: "hidden" | "pending" | "approved" | "rejected";
+  parties_reveal_requested_by: string | null;
+  parties_reveal_requested_at: string | null;
+  parties_reveal_note: string | null;
+  parties_revealed_at: string | null;
+  parties_revealed_by: string | null;
 }
 
 export type TicketCategory = "amount" | "not_received" | "not_as_described" | "refund" | "other";
@@ -146,8 +153,8 @@ export interface TicketMessageRow {
   id: string;
   ticket_id: string;
   sender_id: string;
-  /** user=订单双方自己发的消息，admin=平台客服在后台介入发的消息 */
-  sender_kind: "user" | "admin";
+  /** user=订单双方自己发的消息，admin=平台客服在后台介入发的消息，system=平台系统提示（如披露审核结果） */
+  sender_kind: "user" | "admin" | "system";
   body: string;
   created_at: string;
 }

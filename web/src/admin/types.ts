@@ -827,9 +827,10 @@ export interface AdminTicketMessage {
   id: string;
   ticketId: string;
   senderId: string;
-  senderRole: "payer" | "merchant" | "admin";
+  /** system=平台系统提示（披露审核结果等），居中展示 */
+  senderRole: "payer" | "merchant" | "admin" | "system";
   senderName: string;
-  /** 头像地址；平台客服消息为 null，展示站点 logo */
+  /** 头像地址；平台客服与系统提示消息为 null，展示站点 logo */
   senderAvatarUrl: string | null;
   body: string;
   createdAt: string;
@@ -867,11 +868,25 @@ export interface AdminTicket {
   createdAt: string;
   lastMessageAt: string;
   messageCount: number;
+  /** 双方资料披露状态：hidden（默认隐藏）| pending（待平台审核）| approved（已披露）| rejected（已驳回） */
+  partiesRevealStatus: AdminPartiesRevealStatus;
+}
+
+export type AdminPartiesRevealStatus = "hidden" | "pending" | "approved" | "rejected";
+
+/** 双方资料披露申请信息 */
+export interface AdminPartiesReveal {
+  status: AdminPartiesRevealStatus;
+  requestedByMe: boolean;
+  requestedAt: string | null;
+  note: string | null;
+  revealedAt: string | null;
 }
 
 /** GET /admin/tickets/:id（含完整对话与双方资料） */
 export interface AdminTicketDetail extends AdminTicket {
   parties: AdminTicketParties;
+  partiesReveal: AdminPartiesReveal;
   messages: AdminTicketMessage[];
   closedAt: string | null;
   closedReason: AdminTicketClosedReason | null;

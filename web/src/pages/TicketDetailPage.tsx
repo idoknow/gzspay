@@ -9,11 +9,17 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
-import { closeTicket, getTicket, markTicketRead, sendTicketMessage } from "../lib/api";
+import {
+  closeTicket,
+  getTicket,
+  markTicketRead,
+  requestPartiesReveal,
+  sendTicketMessage,
+} from "../lib/api";
 import { cn, formatCents, formatDateTime, maskPersonName } from "../lib/format";
 import { useAsync, useInterval, useVisible } from "../lib/hooks";
 import { errorMessage } from "../lib/http";
-import type { TicketMessage, TicketParty } from "../lib/types";
+import type { PartiesReveal, TicketMessage, TicketParty } from "../lib/types";
 
 const CLOSED_REASON_TEXT: Record<string, string> = {
   user: "双方已经结束沟通，工单已关闭",
@@ -36,6 +42,16 @@ function PlatformLogo({ size = 28 }: { size?: number }): ReactNode {
 
 function MessageBubble({ message, mine }: { message: TicketMessage; mine: boolean }): ReactNode {
   const isAdmin = message.senderRole === "admin";
+  // 平台系统提示（如资料披露审核结果）居中显示，不算任何一方的气泡
+  if (message.senderRole === "system") {
+    return (
+      <div className="flex w-full justify-center">
+        <p className="max-w-[86%] whitespace-pre-wrap break-words rounded-full bg-surface-2/80 px-3.5 py-1.5 text-center text-[11.5px] leading-relaxed text-muted">
+          {message.body}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className={cn("flex w-full gap-2", mine ? "justify-end" : "justify-start")}>
       {!mine ? (
@@ -138,6 +154,55 @@ function PartiesSummary({
   );
 }
 
+/** 双方资料还没披露：说明规则 + 申请（待审核 / 被驳回时展示对应状态） */
+function PartiesLocked({
+  reveal,
+  closed,
+  busy,
+  onRequest,
+}: {
+  reveal: PartiesReveal;
+  closed: boolean;
+  busy: boolean;
+  onRequest: () => void;
+}): ReactNode {
+  const pending = reveal.status === "pending";
+  const rejected = reveal.status === "rejected";
+  return (
+    <div className="mx-4 mt-3 rounded-xl border border-line/70 bg-surface px-3.5 py-3">
+      <p className="flex items-center gap-1.5 text-[13px] font-medium text-text">
+        <span aria-hidden="true">🔒</span>
+        双方资料未披露
+      </p>
+      <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
+        为了保护隐私，双方的学号、QQ 与邮箱默认互相隐藏。需要核对对方身份时，可以向平台申请披露，平台审核通过后双方才会看到。
+      </p>
+      {pending ? (
+        <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-1.5 text-[11.5px] leading-relaxed text-muted">
+          资料披露申请已提交{reveal.requestedByMe ? "（由你发起）" : ""}
+          {reveal.requestedAt ? ` · ${formatDateTime(reveal.requestedAt)}` : ""}，等待平台审核。
+        </p>
+      ) : null}
+      {rejected ? (
+        <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-1.5 text-[11.5px] leading-relaxed text-muted">
+          平台未批准上次申请{reveal.note ? `：${reveal.note}` : ""}，可以和对方说明情况后重新申请。
+        </p>
+      ) : null}
+      <button
+        type="button"
+        className="btn btn-outline mt-2.5 h-9 w-full text-[12.5px]"
+        disabled={pending || closed || busy}
+        onClick={onRequest}
+      >
+        {busy ? "提交中…" : pending ? "等待平台审核" : rejected ? "重新申请披露" : "向平台申请披露双方资料"}
+      </button>
+      {closed ? (
+        <p className="mt-1.5 text-[11px] text-muted">工单已结束，不能再申请披露资料。</p>
+      ) : null}
+    </div>
+  );
+}
+
 export function TicketDetailPage(): ReactNode {
   const { id = "" } = useParams<{ id: string }>();
   const toast = useToast();
@@ -150,6 +215,7 @@ export function TicketDetailPage(): ReactNode {
   const [closing, setClosing] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [partiesOpen, setPartiesOpen] = useState(false);
+  const [revealing, setRevealing] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const lastMarkedRef = useRef<string>("");
 
@@ -197,6 +263,20 @@ export function TicketDetailPage(): ReactNode {
       toast.error(errorMessage(cause));
     } finally {
       setClosing(false);
+    }
+  };
+
+  const requestReveal = async (): Promise<void> => {
+    if (!data || revealing) return;
+    setRevealing(true);
+    try {
+      const next = await requestPartiesReveal(data.id);
+      ticket.setData(next);
+      toast.success("已提交资料披露申请，请等待平台审核");
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setRevealing(false);
     }
   };
 
@@ -272,7 +352,16 @@ export function TicketDetailPage(): ReactNode {
         </svg>
       </button>
 
-      <PartiesSummary parties={data.parties} role={data.role} onOpen={() => setPartiesOpen(true)} />
+      {data.parties ? (
+        <PartiesSummary parties={data.parties} role={data.role} onOpen={() => setPartiesOpen(true)} />
+      ) : (
+        <PartiesLocked
+          reveal={data.partiesReveal}
+          closed={closed}
+          busy={revealing}
+          onRequest={() => void requestReveal()}
+        />
+      )}
 
       {closed ? (
         <p className="mx-4 mt-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted">
@@ -352,11 +441,15 @@ export function TicketDetailPage(): ReactNode {
           </button>
         }
       >
-        <div className="space-y-4">
-          <PartyRow party={data.parties.payer} self={data.role === "payer"} />
-          <div className="h-px bg-line/60" />
-          <PartyRow party={data.parties.merchant} self={data.role === "merchant"} />
-        </div>
+        {data.parties ? (
+          <div className="space-y-4">
+            <PartyRow party={data.parties.payer} self={data.role === "payer"} />
+            <div className="h-px bg-line/60" />
+            <PartyRow party={data.parties.merchant} self={data.role === "merchant"} />
+          </div>
+        ) : (
+          <p className="text-[12px] leading-relaxed text-muted">双方资料还没有披露，需要先向平台申请。</p>
+        )}
       </Dialog>
 
       <ConfirmDialog

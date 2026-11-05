@@ -49,9 +49,10 @@ export interface TicketMessageDto {
   id: string;
   ticketId: string;
   senderId: string;
-  senderRole: "payer" | "merchant" | "admin";
+  /** system=平台系统提示（资料披露审核结果等），居中展示 */
+  senderRole: "payer" | "merchant" | "admin" | "system";
   senderName: string;
-  /** 头像地址；平台介入的消息为 null，前端展示站点 logo */
+  /** 头像地址；平台介入与系统提示的消息为 null，前端展示站点 logo */
   senderAvatarUrl: string | null;
   body: string;
   createdAt: string;
@@ -73,6 +74,17 @@ export interface TicketPartiesDto {
   merchant: TicketPartyDto;
 }
 
+/** 双方资料披露状态（需要订单任意一方申请、平台审核通过后才披露） */
+export interface PartiesRevealDto {
+  status: "hidden" | "pending" | "approved" | "rejected";
+  /** 这条申请是不是当前查看者自己发的 */
+  requestedByMe: boolean;
+  requestedAt: string | null;
+  /** 平台审核说明（驳回原因或批准说明） */
+  note: string | null;
+  revealedAt: string | null;
+}
+
 export interface TicketSummaryDto {
   id: string;
   orderId: string;
@@ -89,13 +101,18 @@ export interface TicketSummaryDto {
   lastMessageAt: string;
   messageCount: number;
   unreadCount: number;
-  lastMessage: { body: string; senderRole: "payer" | "merchant" | "admin"; createdAt: string } | null;
+  lastMessage: {
+    body: string;
+    senderRole: "payer" | "merchant" | "admin" | "system";
+    createdAt: string;
+  } | null;
 }
 
 export interface TicketDto extends TicketSummaryDto {
   role: "payer" | "merchant";
-  /** 订单双方资料（姓名、学号、QQ、邮箱），仅工单双方与管理员可见 */
-  parties: TicketPartiesDto;
+  /** 订单双方资料；需要申请并由平台审核通过后才返回，否则为 null */
+  parties: TicketPartiesDto | null;
+  partiesReveal: PartiesRevealDto;
   messages: TicketMessageDto[];
   closedAt: string | null;
   closedReason: "user" | "admin" | "timeout" | null;
@@ -123,11 +140,14 @@ export interface AdminTicketSummaryDto {
   createdAt: string;
   lastMessageAt: string;
   messageCount: number;
+  /** 双方资料披露状态，后台列表用来看有没有待审核的申请 */
+  partiesRevealStatus: "hidden" | "pending" | "approved" | "rejected";
 }
 
 export interface AdminTicketDto extends AdminTicketSummaryDto {
-  /** 订单双方资料（姓名、学号、QQ、邮箱），供运营核对与联系 */
+  /** 订单双方资料（姓名、学号、QQ、邮箱），供运营核对披露申请与联系双方 */
   parties: TicketPartiesDto;
+  partiesReveal: PartiesRevealDto;
   messages: TicketMessageDto[];
   closedAt: string | null;
   closedReason: "user" | "admin" | "timeout" | null;
@@ -145,9 +165,14 @@ function counterpartyOf(order: OrderRow, userId: string): UserRow {
   return user;
 }
 
-function senderRole(message: TicketMessageRow, order: OrderRow): "payer" | "merchant" | "admin" {
+function senderRole(
+  message: TicketMessageRow,
+  order: OrderRow,
+): "payer" | "merchant" | "admin" | "system" {
   // 身份取决于「消息是从哪里发的」：后台介入发的一律是平台客服，
-  // 订单双方从交易页/工单页自己发的，即使是管理员账号也算本人，不能显示成平台消息。
+  // 订单双方从交易页/工单页自己发的，即使是管理员账号也算本人，不能显示成平台消息；
+  // system 是平台系统提示（资料披露审核结果等），居中展示。
+  if (message.sender_kind === "system") return "system";
   if (message.sender_kind === "admin") return "admin";
   return message.sender_id === order.payer_id ? "payer" : "merchant";
 }
@@ -163,13 +188,16 @@ function toMessageDto(message: TicketMessageRow, order: OrderRow): TicketMessage
     senderName:
       role === "admin"
         ? "平台客服"
-        : sender
-          ? displayNameOf(sender)
-          : role === "payer"
-            ? order.payer_name_snapshot
-            : order.merchant_name_snapshot,
-    // 平台介入的消息不带头像，前端展示站点 logo
-    senderAvatarUrl: role === "admin" ? null : sender ? avatarPathOf(sender) : null,
+        : role === "system"
+          ? "系统提示"
+          : sender
+            ? displayNameOf(sender)
+            : role === "payer"
+              ? order.payer_name_snapshot
+              : order.merchant_name_snapshot,
+    // 平台介入与系统提示的消息不带头像，前端展示站点 logo / 居中文字
+    senderAvatarUrl:
+      role === "admin" || role === "system" ? null : sender ? avatarPathOf(sender) : null,
     body: message.body,
     createdAt: message.created_at,
   };
@@ -195,6 +223,23 @@ function partyOf(order: OrderRow, role: "payer" | "merchant"): TicketPartyDto {
 
 function partiesOf(order: OrderRow): TicketPartiesDto {
   return { payer: partyOf(order, "payer"), merchant: partyOf(order, "merchant") };
+}
+
+const REVEAL_NOTE_MAX = 200;
+
+function revealOf(ticket: TicketRow, viewerId: string): PartiesRevealDto {
+  return {
+    status: ticket.parties_reveal_status,
+    requestedByMe: ticket.parties_reveal_requested_by === viewerId,
+    requestedAt: ticket.parties_reveal_requested_at,
+    note: ticket.parties_reveal_note,
+    revealedAt: ticket.parties_revealed_at,
+  };
+}
+
+/** 双方资料默认不披露：只有平台批准了披露申请，才把对方完整资料返回给订单双方 */
+function partiesForViewer(ticket: TicketRow, order: OrderRow): TicketPartiesDto | null {
+  return ticket.parties_reveal_status === "approved" ? partiesOf(order) : null;
 }
 
 function findTicketById(ticketId: string): TicketRow | undefined {
@@ -311,8 +356,9 @@ export function createTicket(user: UserRow, input: CreateTicketInput, ip: string
   const ticketId = newId();
   transaction(() => {
     execute(
-      `INSERT INTO tickets (id, order_id, category, status, opened_by, created_at, updated_at, last_message_at, message_count)
-       VALUES (?, ?, ?, 'open', ?, ?, ?, ?, 1)`,
+      `INSERT INTO tickets (id, order_id, category, status, opened_by, created_at, updated_at,
+                            last_message_at, message_count, parties_reveal_status)
+       VALUES (?, ?, ?, 'open', ?, ?, ?, ?, 1, 'hidden')`,
       ticketId,
       order.id,
       input.category,
@@ -396,7 +442,8 @@ export function getTicket(ticketId: string, user: UserRow): TicketDto {
   return {
     ...toSummary(ticket, order, user),
     role: roleOf(order, user.id),
-    parties: partiesOf(order),
+    parties: partiesForViewer(ticket, order),
+    partiesReveal: revealOf(ticket, user.id),
     messages: messages.map((message) => toMessageDto(message, order)),
     closedAt: ticket.closed_at,
     closedReason: ticket.closed_reason,
@@ -547,6 +594,7 @@ function toAdminSummary(row: AdminTicketRow): AdminTicketSummaryDto {
     createdAt: row.created_at,
     lastMessageAt: row.last_message_at,
     messageCount: row.message_count,
+    partiesRevealStatus: row.parties_reveal_status,
   };
 }
 
@@ -608,6 +656,7 @@ export function getTicketForAdmin(ticketId: string): AdminTicketDto {
   return {
     ...toAdminSummary(row),
     parties: partiesOf(order),
+    partiesReveal: revealOf(row, ""),
     messages: messages.map((message) => toMessageDto(message, order)),
     closedAt: row.closed_at,
     closedReason: row.closed_reason,
@@ -735,8 +784,102 @@ export function closeTicketByAdmin(
   return getTicketForAdmin(ticket.id);
 }
 
-/** 后台任务：把 7 天没有新消息的工单自动关闭，返回关闭条数 */
-export function closeStaleTickets(now = new Date()): number {
+/** 订单任意一方可以申请披露双方资料，由平台审核（审核前双方都看不到对方完整资料） */
+export function requestPartiesReveal(ticketId: string, user: UserRow, ip: string): TicketDto {
+  const { ticket, order } = requireTicketForUser(ticketId, user);
+  if (ticket.status !== "open") throw errors.validation("工单已关闭，不能再申请披露资料");
+  if (ticket.parties_reveal_status === "approved") {
+    throw errors.validation("双方资料已经披露过，不需要再申请");
+  }
+  if (ticket.parties_reveal_status === "pending") {
+    throw errors.validation("资料披露申请已经提交，请等待平台审核");
+  }
+  const now = nowIso();
+  execute(
+    `UPDATE tickets SET parties_reveal_status = 'pending', parties_reveal_requested_by = ?,
+            parties_reveal_requested_at = ?, parties_reveal_note = NULL, updated_at = ?
+      WHERE id = ?`,
+    user.id,
+    now,
+    now,
+    ticket.id,
+  );
+  writeAudit({
+    action: "ticket.reveal_requested",
+    actorId: user.id,
+    actorRole: "user",
+    targetType: "ticket",
+    targetId: ticket.id,
+    detail: `订单 ${order.order_no} 申请披露双方资料`,
+    ip,
+  });
+  return getTicket(ticket.id, user);
+}
+
+/** 平台审核资料披露申请：批准后双方资料才可见，并在对话里留一条系统提示、通知双方 */
+export function reviewPartiesReveal(
+  ticketId: string,
+  adminUser: UserRow,
+  decision: "approve" | "reject",
+  note: string | null,
+  ip: string,
+): AdminTicketDto {
+  const { ticket, order } = loadTicketForAdmin(ticketId);
+  if (ticket.parties_reveal_status !== "pending") {
+    throw errors.validation("当前没有待审核的资料披露申请");
+  }
+  const trimmed = note?.trim() ? note.trim() : null;
+  if (trimmed && trimmed.length > REVEAL_NOTE_MAX) {
+    throw errors.validation(`审核说明不能超过 ${REVEAL_NOTE_MAX} 个字`);
+  }
+  const approved = decision === "approve";
+  const now = nowIso();
+  const systemBody = approved
+    ? `平台已批准资料披露申请，双方完整资料（姓名、学号、QQ、邮箱）现已可见。${trimmed ? `平台说明：${trimmed}` : ""}`
+    : `平台未批准这次资料披露申请${trimmed ? `：${trimmed}` : ""}。`;
+  transaction(() => {
+    execute(
+      `UPDATE tickets SET parties_reveal_status = ?, parties_reveal_note = ?,
+              parties_revealed_at = ?, parties_revealed_by = ?, updated_at = ?
+        WHERE id = ?`,
+      approved ? "approved" : "rejected",
+      trimmed,
+      approved ? now : null,
+      adminUser.id,
+      now,
+      ticket.id,
+    );
+    execute(
+      "INSERT INTO ticket_messages (id, ticket_id, sender_id, sender_kind, body, created_at) VALUES (?, ?, ?, 'system', ?, ?)",
+      newId(),
+      ticket.id,
+      adminUser.id,
+      systemBody,
+      now,
+    );
+    execute(
+      "UPDATE tickets SET message_count = message_count + 1, last_message_at = ? WHERE id = ?",
+      now,
+      ticket.id,
+    );
+  });
+  writeAudit({
+    action: approved ? "ticket.reveal_approved" : "ticket.reveal_rejected",
+    actorId: adminUser.id,
+    actorRole: "admin",
+    targetType: "ticket",
+    targetId: ticket.id,
+    detail: `订单 ${order.order_no} ${approved ? "批准" : "驳回"}资料披露申请${trimmed ? `：${trimmed}` : ""}`,
+    ip,
+  });
+  notifyParties(order, ticket.id, { preview: systemBody.slice(0, 60), createdAt: now, role: "system" });
+  for (const userId of new Set([order.payer_id, order.merchant_id])) {
+    mailTicketNotice(userId, ticket.id, order, "平台客服", systemBody, false);
+  }
+  return getTicketForAdmin(ticket.id);
+}
+
+/** 后台任务：把 7 天没有新消息的工单自动关闭，返回关闭条数 */export function closeStaleTickets(now = new Date()): number {
   const cutoff = new Date(now.getTime() - TICKET_AUTO_CLOSE_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const result = execute(
     `UPDATE tickets SET status = 'closed', closed_at = ?, closed_reason = 'timeout', updated_at = ?

@@ -228,7 +228,14 @@ CREATE TABLE IF NOT EXISTS tickets (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   last_message_at TEXT NOT NULL,
-  message_count INTEGER NOT NULL DEFAULT 0
+  message_count INTEGER NOT NULL DEFAULT 0,
+  -- 双方资料披露：hidden（默认隐藏）| pending（已申请待平台审核）| approved（平台已批准）| rejected（平台驳回）
+  parties_reveal_status TEXT NOT NULL DEFAULT 'hidden',
+  parties_reveal_requested_by TEXT REFERENCES users(id),
+  parties_reveal_requested_at TEXT,
+  parties_reveal_note TEXT,
+  parties_revealed_at TEXT,
+  parties_revealed_by TEXT REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_tickets_order ON tickets(order_id, status);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status, last_message_at);

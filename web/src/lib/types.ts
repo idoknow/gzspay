@@ -555,14 +555,29 @@ export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
 /** 工单状态：进行中 / 已关闭 */
 export type TicketStatus = "open" | "closed";
 
+/** 双方资料披露状态：默认隐藏，需要申请并由平台审核通过后才披露 */
+export type PartiesRevealStatus = "hidden" | "pending" | "approved" | "rejected";
+
+/** 双方资料披露状态与申请信息 */
+export interface PartiesReveal {
+  status: PartiesRevealStatus;
+  /** 这次申请是不是自己发起的 */
+  requestedByMe: boolean;
+  requestedAt: string | null;
+  /** 平台审核说明（驳回原因或批准说明） */
+  note: string | null;
+  revealedAt: string | null;
+}
+
 /** 工单消息 */
 export interface TicketMessage {
   id: string;
   ticketId: string;
   senderId: string;
-  senderRole: "payer" | "merchant" | "admin";
+  /** system=平台系统提示（资料披露审核结果等），居中展示 */
+  senderRole: "payer" | "merchant" | "admin" | "system";
   senderName: string;
-  /** 头像地址；平台介入的消息为 null，展示站点 logo */
+  /** 头像地址；平台介入与系统提示的消息为 null，展示站点 logo */
   senderAvatarUrl: string | null;
   body: string;
   createdAt: string;
@@ -602,14 +617,20 @@ export interface TicketSummary {
   lastMessageAt: string;
   messageCount: number;
   unreadCount: number;
-  lastMessage: { body: string; senderRole: "payer" | "merchant" | "admin"; createdAt: string } | null;
+  lastMessage: {
+    body: string;
+    senderRole: "payer" | "merchant" | "admin" | "system";
+    createdAt: string;
+  } | null;
 }
 
 /** 工单详情 */
 export interface TicketDetail extends TicketSummary {
   role: "payer" | "merchant";
-  /** 订单双方资料（姓名、学号、QQ、邮箱），仅工单双方与平台可见 */
-  parties: TicketParties;
+  /** 订单双方资料；需要申请并由平台审核通过后才返回，否则为 null */
+  parties: TicketParties | null;
+  /** 资料披露状态与申请信息 */
+  partiesReveal: PartiesReveal;
   messages: TicketMessage[];
   closedAt: string | null;
   closedReason: "user" | "admin" | "timeout" | null;

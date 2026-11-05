@@ -59,6 +59,7 @@ import {
   closeTicketByAdmin,
   getTicketForAdmin,
   listTicketsForAdmin,
+  reviewPartiesReveal,
   sendAdminTicketMessage,
 } from "../services/tickets.js";
 
@@ -470,6 +471,30 @@ adminRouter.post(
     const body = parse(z.object({ note: z.string().max(300).nullable().optional() }), req.body);
     res.json(
       closeTicketByAdmin(String(req.params.id), req.admin!.user, body.note ?? null, requestIp(req)),
+    );
+  }),
+);
+
+/** 审核双方资料披露申请：批准后订单双方才能看到对方完整资料 */
+adminRouter.post(
+  "/tickets/:id/reveal",
+  requireAdmin(["super", "ops"]),
+  asyncHandler((req, res) => {
+    const body = parse(
+      z.object({
+        decision: z.enum(["approve", "reject"], { message: "请选择批准或驳回" }),
+        note: z.string().trim().max(200, "审核说明不能超过 200 个字").nullable().optional(),
+      }),
+      req.body,
+    );
+    res.json(
+      reviewPartiesReveal(
+        String(req.params.id),
+        req.admin!.user,
+        body.decision,
+        body.note ?? null,
+        requestIp(req),
+      ),
     );
   }),
 );
