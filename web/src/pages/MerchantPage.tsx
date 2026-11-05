@@ -450,7 +450,6 @@ export function MerchantPage(): ReactNode {
         open={passwordOpen}
         onClose={() => setPasswordOpen(false)}
         title="输入支付密码"
-        description="修改收款码需要验证支付密码"
         onSubmit={uploadQr}
       />
     </div>

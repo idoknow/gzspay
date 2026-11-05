@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Dialog } from "./Dialog";
+import { EyeIcon } from "./EyeIcon";
 import { PaymentPasswordDialog } from "./PaymentPasswordDialog";
 import { useToast } from "./Toast";
 import { verifyPaymentPassword } from "../lib/api";
@@ -25,11 +26,10 @@ import {
 } from "../lib/privacy";
 
 const PRIVACY_POINTS = [
-  "「我的」页面的姓名、学号、校园卡等个人信息会隐藏",
-  "设置页的通知设置、登录设备管理会隐藏",
+  "「我的」个人信息、设置里的通知与设备管理会隐藏",
   "商家中心的商品与店铺设置会隐藏",
-  "收付款码、扫码付款、订单与工单仍然可以正常使用",
-  "电脑端最多在线 30 分钟，到期前 1 分钟提醒，随后自动退出登录",
+  "收付款码、扫码付款、订单与工单照常使用",
+  "电脑端最多在线 30 分钟，到期前 1 分钟提醒后自动退出",
 ];
 
 function formatClock(ms: number): string {
@@ -61,7 +61,7 @@ export function PrivacyModePrompt(): ReactNode {
         disablePrivacyMode();
       }}
       title="这台电脑是公共设备吗？"
-      description="如果是在教室、机房、图书馆等公共电脑上登录，建议开启隐私模式。"
+      description="在教室、机房等公共电脑上登录时，建议开启隐私模式。"
       footer={
         <div className="space-y-2">
           <button
@@ -97,9 +97,6 @@ export function PrivacyModePrompt(): ReactNode {
           </li>
         ))}
       </ul>
-      <p className="mt-3 rounded-xl bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted">
-        退出隐私模式需要输入支付密码，所以离开前记得退出登录。
-      </p>
     </Dialog>
   );
 }
@@ -124,7 +121,6 @@ export function ExitPrivacyButton({
         open={open}
         onClose={() => setOpen(false)}
         title="退出隐私模式"
-        description="请输入支付密码，确认这是你自己的设备"
         onSubmit={async (password) => {
           await verifyPaymentPassword(password);
           disablePrivacyMode();
@@ -143,8 +139,8 @@ export function PrivacyModeBanner(): ReactNode {
   return (
     <div className="border-b border-line bg-surface-2/80 px-3 py-2 backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-center gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-text/10 text-[11px]">
-          🔒
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-text/10 text-muted">
+          <EyeIcon off size={11} />
         </span>
         <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted">
           隐私模式已开启，个人信息与设置已隐藏
@@ -302,7 +298,7 @@ export function PrivacyBlocked({
   return (
     <div className="card flex flex-col items-center gap-3 px-4 py-8 text-center">
       <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-2 text-muted ring-1 ring-line">
-        🔒
+        <EyeIcon off size={18} />
       </span>
       <div className="space-y-1">
         <p className="text-sm font-semibold text-text">{title}</p>

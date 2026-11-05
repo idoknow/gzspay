@@ -505,8 +505,7 @@ export function ProfilePage(): ReactNode {
       <PaymentPasswordDialog
         open={passwordAction !== null}
         onClose={() => setPasswordAction(null)}
-        title="验证支付密码"
-        description="该操作需要验证支付密码"
+        title="输入支付密码"
         onSubmit={handlePassword}
       />
 

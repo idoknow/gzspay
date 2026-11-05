@@ -6,6 +6,7 @@ import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { EyeIcon } from "../components/EyeIcon";
 import { PageHeader } from "../components/PageHeader";
 import { ExitPrivacyButton } from "../components/PrivacyMode";
 import { usePrivacyMode } from "../lib/privacy";
@@ -270,15 +271,15 @@ export function MePage(): ReactNode {
           privacy.enabled ? (
             <section className="card flex items-start gap-3 p-4">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-muted ring-1 ring-line">
-                🔒
+                <EyeIcon off size={16} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-text">隐私模式已开启</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-muted">
-                  姓名、学号、校园卡等个人信息已隐藏，收付款、订单与工单仍然可以正常使用。
+                  个人信息已隐藏，收付款、订单与工单照常可用。
                 </p>
                 <div className="mt-3">
-                  <ExitPrivacyButton label="输入支付密码退出隐私模式" className="btn btn-primary btn-sm" />
+                  <ExitPrivacyButton label="输入密码退出" className="btn btn-primary btn-sm" />
                 </div>
               </div>
             </section>

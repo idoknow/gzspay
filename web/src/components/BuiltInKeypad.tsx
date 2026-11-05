@@ -23,6 +23,8 @@ export interface BuiltInKeypadProps {
   cancelText?: string;
   /** 键盘下方的附加内容（如「忘记密码」入口） */
   footerExtra?: ReactNode;
+  /** 空状态下的提示文案；传 null 不显示 */
+  hint?: string | null;
   className?: string;
 }
 
@@ -34,6 +36,7 @@ export function BuiltInKeypad({
   onCancel,
   cancelText = "取消",
   footerExtra,
+  hint = "密码只在本机输入",
   className,
 }: BuiltInKeypadProps): ReactNode {
   const [value, setValue] = useState("");
@@ -138,9 +141,9 @@ export function BuiltInKeypad({
           >
             {error}
           </span>
-        ) : (
-          <span className="text-xs text-muted watch:text-[10px]">密码只在本机输入</span>
-        )}
+        ) : hint ? (
+          <span className="text-xs text-muted watch:text-[10px]">{hint}</span>
+        ) : null}
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2.5 watch:mt-2 watch:gap-1.5">
