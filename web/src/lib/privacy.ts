@@ -12,14 +12,21 @@ import { useEffect, useState } from "react";
 const STORAGE_KEY = "gzspay.privacy-mode";
 const CHANGE_EVENT = "gzspay:privacy-mode";
 
+/** 隐私模式最长在线时长：30 分钟后强制退出登录 */
+export const PRIVACY_SESSION_MS = 30 * 60 * 1000;
+/** 到期前多久提醒（60 秒倒计时） */
+export const PRIVACY_WARN_MS = 60 * 1000;
+
 export type PrivacyChoice = "private" | "public";
 
 interface PrivacyState {
   enabled: boolean;
   choice: PrivacyChoice | null;
+  /** 开启隐私模式的时间戳（毫秒），用于 30 分钟强制下线；刷新页面不会重置 */
+  startedAt: number | null;
 }
 
-const EMPTY_STATE: PrivacyState = { enabled: false, choice: null };
+const EMPTY_STATE: PrivacyState = { enabled: false, choice: null, startedAt: null };
 
 function parseState(raw: string | null): PrivacyState {
   if (!raw) return EMPTY_STATE;
@@ -27,7 +34,8 @@ function parseState(raw: string | null): PrivacyState {
     const value = JSON.parse(raw) as Partial<PrivacyState> | null;
     if (!value) return EMPTY_STATE;
     const choice = value.choice === "private" || value.choice === "public" ? value.choice : null;
-    return { enabled: value.enabled === true && choice === "private", choice };
+    const startedAt = typeof value.startedAt === "number" && Number.isFinite(value.startedAt) ? value.startedAt : null;
+    return { enabled: value.enabled === true && choice === "private", choice, startedAt };
   } catch {
     return EMPTY_STATE;
   }
@@ -52,14 +60,19 @@ function writeState(state: PrivacyState): void {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-/** 开启隐私模式（公共设备） */
+/** 开启隐私模式（公共设备）。已开启时保留原开始时间，避免刷新 / 重复点击延长 30 分钟上限 */
 export function enablePrivacyMode(): void {
-  writeState({ enabled: true, choice: "private" });
+  const current = readPrivacyState();
+  writeState({
+    enabled: true,
+    choice: "private",
+    startedAt: current.enabled && current.startedAt ? current.startedAt : Date.now(),
+  });
 }
 
 /** 关闭隐私模式（用户确认这是自己的设备） */
 export function disablePrivacyMode(): void {
-  writeState({ enabled: false, choice: "public" });
+  writeState({ enabled: false, choice: "public", startedAt: null });
 }
 
 /** 退出登录时清除，下一位使用者会重新被询问 */
@@ -86,7 +99,7 @@ export function isDesktopDevice(): boolean {
 }
 
 /** 订阅隐私模式状态（同一页面内多处使用会同步更新） */
-export function usePrivacyMode(): { enabled: boolean; asked: boolean } {
+export function usePrivacyMode(): { enabled: boolean; asked: boolean; startedAt: number | null } {
   const [state, setState] = useState<PrivacyState>(readPrivacyState);
 
   useEffect(() => {
@@ -100,5 +113,5 @@ export function usePrivacyMode(): { enabled: boolean; asked: boolean } {
     };
   }, []);
 
-  return { enabled: state.enabled, asked: state.choice !== null };
+  return { enabled: state.enabled, asked: state.choice !== null, startedAt: state.startedAt };
 }

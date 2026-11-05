@@ -7,7 +7,7 @@ import { createContext, lazy, Suspense, useContext, useEffect, useState, type Co
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { LoadingBlock, PageLoading } from "./components/Loading";
 import { PaymentRequestDialog } from "./components/PaymentRequestDialog";
-import { PrivacyGuard, PrivacyModeBanner, PrivacyModePrompt } from "./components/PrivacyMode";
+import { DevtoolsShield, PrivacyGuard, PrivacyModeBanner, PrivacyModePrompt, PrivacySessionGuard } from "./components/PrivacyMode";
 import { getSetupStatus } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/session";
 import type { SessionResponse, SetupStatus } from "./lib/types";
@@ -102,6 +102,8 @@ function BusinessLayout(): ReactNode {
       </PageSuspense>
       <PaymentRequestDialog />
       <PrivacyModePrompt />
+      <PrivacySessionGuard />
+      <DevtoolsShield />
     </>
   );
 }
