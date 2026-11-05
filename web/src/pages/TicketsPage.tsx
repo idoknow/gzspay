@@ -27,7 +27,6 @@ function UnreadBadge({ count }: { count: number }): ReactNode {
 }
 
 function TicketCard({ item, onOpen }: { item: TicketSummary; onOpen: () => void }): ReactNode {
-  const preview = item.lastMessage?.body?.trim() ?? "";
   return (
     <button
       type="button"
@@ -59,18 +58,6 @@ function TicketCard({ item, onOpen }: { item: TicketSummary; onOpen: () => void 
             <span>与 {maskPersonName(item.counterparty.displayName)}</span>
             <span>单号 {item.orderNo}</span>
           </span>
-          {preview ? (
-            <span className="mt-1 line-clamp-1 block text-[12.5px] leading-relaxed text-muted watch:text-[11.5px]">
-              <span className="mr-1 text-muted/80">
-                {item.lastMessage?.senderRole === "merchant"
-                  ? "商家"
-                  : item.lastMessage?.senderRole === "admin"
-                    ? "平台客服"
-                    : "同学"}：
-              </span>
-              {preview}
-            </span>
-          ) : null}
           <span className="mt-1 flex items-center justify-between text-[11px] text-muted/85">
             <span>{formatFriendlyTime(item.lastMessageAt)}</span>
             <span>{item.messageCount} 条消息</span>
