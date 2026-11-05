@@ -1,6 +1,7 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { errors } from "../lib/errors.js";
+import { avatarPathOf } from "../lib/avatar.js";
 import { asyncHandler } from "../lib/http.js";
 import { clientIp, rateLimit } from "../lib/rate-limit.js";
 import { setupTokenRequired, verifySetupToken } from "../lib/setup-token.js";
@@ -13,7 +14,7 @@ export const setupRouter: Router = Router();
 function currentUserOf(req: Request): { id: string; displayName: string; avatarUrl: string | null } | null {
   const user = req.auth?.user;
   if (!user) return null;
-  return { id: user.id, displayName: displayNameOf(user), avatarUrl: user.avatar_url };
+  return { id: user.id, displayName: displayNameOf(user), avatarUrl: avatarPathOf(user) };
 }
 
 function statusPayload(req: Request) {

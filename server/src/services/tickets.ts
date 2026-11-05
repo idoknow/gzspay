@@ -1,5 +1,6 @@
 import { execute, nowIso, queryAll, queryOne, transaction } from "../db/index.js";
 import { writeAudit } from "../lib/audit.js";
+import { avatarPathOf } from "../lib/avatar.js";
 import { newId } from "../lib/crypto.js";
 import { errors } from "../lib/errors.js";
 import type {
@@ -168,7 +169,7 @@ function toMessageDto(message: TicketMessageRow, order: OrderRow): TicketMessage
             ? order.payer_name_snapshot
             : order.merchant_name_snapshot,
     // 平台介入的消息不带头像，前端展示站点 logo
-    senderAvatarUrl: role === "admin" ? null : (sender?.avatar_url ?? null),
+    senderAvatarUrl: role === "admin" ? null : sender ? avatarPathOf(sender) : null,
     body: message.body,
     createdAt: message.created_at,
   };
@@ -188,7 +189,7 @@ function partyOf(order: OrderRow, role: "payer" | "merchant"): TicketPartyDto {
     studentNo: user?.student_no ?? null,
     qq: user?.qq ?? null,
     email: user?.email ?? null,
-    avatarUrl: user?.avatar_url ?? null,
+    avatarUrl: user ? avatarPathOf(user) : null,
   };
 }
 

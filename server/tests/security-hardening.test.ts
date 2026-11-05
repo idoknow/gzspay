@@ -158,4 +158,25 @@ describe("安全加固回归", () => {
     expect(all.body.total).toBe(0);
     expect(none.body.total).toBe(0);
   });
+
+  it("头像统一走本站代理地址，接口里不出现 QQ 号", async () => {
+    execute(
+      "UPDATE users SET avatar_url = ? WHERE id = ?",
+      "https://q1.qlogo.cn/g?b=qq&nk=13800000000&s=100",
+      payer.id,
+    );
+    const me = await payer.api.get("/api/me").expect(200);
+    expect(me.body.avatarUrl).toBe(`/api/avatar/${payer.id}`);
+    expect(JSON.stringify(me.body)).not.toContain("qlogo");
+
+    // 未登录不能取头像
+    await request(app).get(`/api/avatar/${payer.id}`).expect(401);
+
+    // 没有头像的账号返回 404，不会回退到外部地址
+    const outsider = await login("avatar-outsider", "avatar-outsider");
+    execute("UPDATE users SET avatar_url = NULL WHERE id = ?", outsider.id);
+    await outsider.api.get(`/api/avatar/${outsider.id}`).expect(404);
+    // 非法用户 id 直接 404，不会当成路径
+    await payer.api.get("/api/avatar/..%2F..%2Fpackage.json").expect(404);
+  });
 });

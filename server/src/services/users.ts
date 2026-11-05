@@ -1,7 +1,7 @@
 import { config } from "../config.js";
 import { execute, isoAfter, nowIso, queryOne, transaction } from "../db/index.js";
 import { writeAudit, writeRiskLog } from "../lib/audit.js";
-import { qqAvatarUrl } from "../lib/avatar.js";
+import { avatarPathOf, qqAvatarUrl } from "../lib/avatar.js";
 import {
   displayFullName,
   isValidEmail,
@@ -67,7 +67,7 @@ export function publicUserOf(user: UserRow): PublicUser {
   return {
     id: user.id,
     displayName: displayNameOf(user),
-    avatarUrl: user.avatar_url,
+    avatarUrl: avatarPathOf(user),
     studentNoMasked: maskStudentNo(user.student_no),
     isMerchant: isMerchant(user.id),
   };
@@ -130,7 +130,7 @@ export function toMe(user: UserRow): Me {
     emailMasked: maskEmail(user.email),
     cardNo: user.card_no,
     cardNoMasked: maskCardNo(user.card_no),
-    avatarUrl: user.avatar_url,
+    avatarUrl: avatarPathOf(user),
     onboarded: user.onboarded === 1,
     onboardStep: user.onboard_step,
     isMerchant: isMerchant(user.id),

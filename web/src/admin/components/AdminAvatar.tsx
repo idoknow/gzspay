@@ -4,15 +4,15 @@ import { cx } from "./ui";
 interface AdminAvatarProps {
   /** 姓名，用于加载失败时显示首字 */
   name?: string | null;
-  /** QQ 头像地址（服务端返回 qlogo 链接） */
+  /** 头像地址（服务端返回本站代理地址 `/api/avatar/<用户 id>`） */
   avatarUrl?: string | null;
   size?: "sm" | "md";
   className?: string;
 }
 
 /**
- * 管理后台头像：优先显示 QQ 头像，加载失败或没有地址时回退到姓名首字。
- * 头像地址来自用户资料（`https://q1.qlogo.cn/...`），带 no-referrer 避免泄露 Referer。
+ * 管理后台头像：优先显示服务端代理的头像，加载失败或没有地址时回退到姓名首字。
+ * 头像统一走本站 `/api/avatar/...`，页面源码里不会出现 QQ 号。
  */
 export function AdminAvatar({ name, avatarUrl, size = "sm", className }: AdminAvatarProps) {
   const [failed, setFailed] = useState(false);

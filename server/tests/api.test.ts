@@ -137,9 +137,9 @@ describe("基础接口", () => {
     const response = await agentWith(session).get("/api/me").expect(200);
     expect(response.body.onboardStep).toBe("name");
     expect(response.body.onboarded).toBe(false);
-    // 头像直接使用 QQ 官方头像地址（登录账号的 QQ 号来自测试种子 13800000000）
-    expect(String(response.body.avatarUrl)).toContain("qlogo.cn");
-    expect(String(response.body.avatarUrl)).toContain("13800000000");
+    // 头像统一走本站代理地址，接口里不再出现 QQ 号
+    expect(String(response.body.avatarUrl)).toMatch(/^\/api\/avatar\/[A-Za-z0-9_-]+$/);
+    expect(JSON.stringify(response.body)).not.toContain("qlogo");
     const sessionInfo = await agentWith(session).get("/api/auth/session").expect(200);
     expect(sessionInfo.body.authenticated).toBe(true);
   });

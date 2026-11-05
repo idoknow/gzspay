@@ -49,11 +49,22 @@
 interface PublicUser {
   id: string;
   displayName: string;      // 商家名称或用户姓名
-  avatarUrl: string | null; // QQ 头像地址（有 QQ 号时）；null 表示用姓名首字
+  avatarUrl: string | null; // 本站代理地址 `/api/avatar/<用户 id>`；null 表示用姓名首字（永远不返回 QQ 头像原链接）
   studentNoMasked: string;  // 例 2023****01
   isMerchant: boolean;
 }
 ```
+
+---
+
+### 头像 `GET /api/avatar/:userId`
+
+返回该用户的头像图片（需登录）。服务端按用户资料里的 QQ 号去 QQ 头像 CDN 拉取并缓存 6 小时后再转给浏览器，所以页面源码、网络请求与截图里只会出现 `/api/avatar/<用户 id>`，不会出现 QQ 号。
+
+- 成功：`200`，`Content-Type: image/jpeg | image/png`，`Cache-Control: private, max-age=3600`。
+- 用户没有头像、或上游拉取失败：`404`（前端回退姓名首字）。
+- 只允许拉取 `https://*.qlogo.cn` 的头像地址、不跟随跳转、单张上限 2MB、按文件头确认是 PNG/JPEG；每个人每分钟最多 120 次。
+- 历史本地头像（`/media/...`）会 `302` 重定向到本站静态地址。
 
 ### 当前用户 `Me`
 
@@ -69,7 +80,7 @@ interface Me {
   email: string | null;          // 本人可见完整邮箱（前端直接展示，不再脱敏）
   cardNo: string | null;         // 本人可见完整卡号（前端直接展示，不再脱敏）
   cardNoMasked: string | null;
-  avatarUrl: string | null;
+  avatarUrl: string | null;      // 本站代理地址 `/api/avatar/<用户 id>`，不含 QQ 号
   onboarded: boolean;
   onboardStep: "name" | "studentNo" | "email" | "card" | "password" | "done";
   isMerchant: boolean;

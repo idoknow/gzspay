@@ -3,6 +3,7 @@ import path from "node:path";
 import { config, isCampuxConfigured } from "../config.js";
 import { db, execute, nowIso, queryAll, queryOne, setConfigValue } from "../db/index.js";
 import { alertStatus } from "../lib/alerts.js";
+import { avatarPathOf } from "../lib/avatar.js";
 import { writeAudit, writeMailOutbox, writeSystemError, toCsv } from "../lib/audit.js";
 import {
   displayFullName,
@@ -343,7 +344,7 @@ function toAdminUser(row: AdminUserRow): AdminUserDto {
   return {
     id: row.id,
     displayName: nameOf(row),
-    avatarUrl: row.avatar_url,
+    avatarUrl: avatarPathOf({ id: row.id, avatar_url: row.avatar_url }),
     studentNo: row.student_no,
     email: row.email,
     studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
@@ -451,7 +452,7 @@ export function adminUserLogins(limit = 8) {
     recent: rows.map<AdminUserLoginDto>((row) => ({
       id: row.id,
       displayName: nameOf(row),
-      avatarUrl: row.avatar_url,
+      avatarUrl: avatarPathOf({ id: row.id, avatar_url: row.avatar_url }),
       studentNo: row.student_no,
       studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
       isMerchant: row.is_merchant > 0,
@@ -509,7 +510,7 @@ export function adminOnlineUsers() {
     byUser.set(row.user_id, {
       id: row.user_id,
       displayName: nameOf(row),
-      avatarUrl: row.avatar_url,
+      avatarUrl: avatarPathOf({ id: row.user_id, avatar_url: row.avatar_url }),
       studentNo: row.student_no,
       studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
       isMerchant: row.is_merchant > 0,
@@ -668,7 +669,7 @@ function toAdminMerchant(
     userId: row.user_id,
     merchantName: row.name,
     displayName: nameOf(row),
-    avatarUrl: row.avatar_url,
+    avatarUrl: avatarPathOf({ id: row.user_id, avatar_url: row.avatar_url }),
     studentNo: row.student_no,
     studentNoMasked: row.student_no ? maskStudentNo(row.student_no) : null,
     noteRequirement: row.note_requirement ?? "",
@@ -888,7 +889,7 @@ export function adminMembers() {
     id: row.user_id,
     userId: row.user_id,
     displayName: nameOf(row),
-    avatarUrl: row.avatar_url ?? null,
+    avatarUrl: avatarPathOf({ id: row.user_id, avatar_url: row.avatar_url ?? null }),
     email: row.email ?? null,
     emailMasked: row.email ? maskEmail(row.email) : null,
     role: row.role,
@@ -1727,7 +1728,7 @@ export function adminIdentity(user: UserRow, admin: AdminRow) {
   return {
     id: user.id,
     displayName: nameOf(user),
-    avatarUrl: user.avatar_url || null,
+    avatarUrl: avatarPathOf(user),
     email: user.email,
     emailMasked: user.email ? maskEmail(user.email) : null,
     role: admin.role,
