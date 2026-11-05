@@ -1,8 +1,9 @@
 import { Router } from "express";
+import { timingSafeEqual } from "node:crypto";
 import { config, isCampuxConfigured } from "../config.js";
 import { execute, isoAfter, nowIso, queryOne } from "../db/index.js";
 import { writeAudit, writeLoginLog } from "../lib/audit.js";
-import { completeAuthorization, createAuthorizationRequest } from "../lib/campux.js";
+import { completeAuthorization, createAuthorizationRequest, OAUTH_STATE_COOKIE, oauthStateCookieOptions } from "../lib/campux.js";
 import { randomToken } from "../lib/crypto.js";
 import { AppError, errors } from "../lib/errors.js";
 import { asyncHandler, attachUser } from "../lib/http.js";
@@ -72,7 +73,9 @@ authRouter.get(
         );
       }
       const redirectTo = typeof req.query.redirect === "string" ? req.query.redirect : null;
-      const url = createAuthorizationRequest(redirectTo);
+      const { url, state } = createAuthorizationRequest(redirectTo);
+      // 把 state 绑到当前浏览器，回调时比对，防止登录 CSRF / 会话固定
+      res.cookie(OAUTH_STATE_COOKIE, state, oauthStateCookieOptions());
       res.redirect(302, url);
     } catch (error) {
       next(error);
@@ -115,6 +118,27 @@ authRouter.get(
     const ip = requestIp(req);
     const code = typeof req.query.code === "string" ? req.query.code : undefined;
     const state = typeof req.query.state === "string" ? req.query.state : undefined;
+    // state 必须与发起登录时写进本浏览器 Cookie 的值一致，否则是别人构造的回调链接
+    const stateCookie = req.cookies?.[OAUTH_STATE_COOKIE];
+    const sameState =
+      typeof state === "string" &&
+      typeof stateCookie === "string" &&
+      state.length === stateCookie.length &&
+      timingSafeEqual(Buffer.from(state), Buffer.from(stateCookie));
+    if (!sameState) {
+      res.clearCookie(OAUTH_STATE_COOKIE, { path: "/api" });
+      res
+        .status(400)
+        .type("html")
+        .send(
+          errorPage(
+            "登录已失效",
+            "本次授权请求与当前浏览器不匹配，请在同一个浏览器里重新发起登录。",
+          ),
+        );
+      return;
+    }
+    res.clearCookie(OAUTH_STATE_COOKIE, { path: "/api" });
     try {
       const { profile, redirectTo, purpose } = await completeAuthorization(code, state);
 
@@ -212,12 +236,22 @@ authRouter.get(
   }),
 );
 
-authRouter.post("/logout", (req, res) => {
-  const token = sessionTokenFromRequest(req);
-  if (token) revokeSessionByToken(token);
-  clearSessionCookie(res);
-  res.json({ ok: true });
-});
+authRouter.post(
+  "/logout",
+  rateLimit({
+    scope: "auth.logout",
+    limit: 20,
+    windowSeconds: 60,
+    message: "操作太频繁了，请稍后再试",
+    keyBy: (req) => requestIp(req),
+  }),
+  (req, res) => {
+    const token = sessionTokenFromRequest(req);
+    if (token) revokeSessionByToken(token);
+    clearSessionCookie(res);
+    res.json({ ok: true });
+  },
+);
 
 /** 退出登录的写请求走这里时也允许（保持与其他写接口一致的 CSRF 要求） */
 authRouter.use((_req, _res, next) => {

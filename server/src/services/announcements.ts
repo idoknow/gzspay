@@ -122,11 +122,21 @@ function mailAnnouncement(title: string, content: string): void {
   }
 }
 
+/** 公告正文里的 Markdown 链接不允许危险协议（前端也会再做一次白名单） */
+const UNSAFE_LINK_PATTERN = /\]\(\s*(?:javascript|data|vbscript|file)\s*:/i;
+
+function assertSafeAnnouncementContent(content: string): void {
+  if (UNSAFE_LINK_PATTERN.test(content)) {
+    throw errors.validation("公告里的链接只支持 http(s)、mailto 或站内地址");
+  }
+}
+
 export function createAnnouncement(
   actorId: string,
   input: AnnouncementInput,
   ip: string,
 ): { ok: true; id: string } {
+  assertSafeAnnouncementContent(input.content);
   const id = newId();
   const timestamp = nowIso();
   const publishedAt = normalizeIso(input.publishedAt) ?? timestamp;
@@ -174,6 +184,7 @@ export function updateAnnouncement(
 ): AnnouncementUpdateResult {
   const row = queryOne<AnnouncementRow>("SELECT * FROM announcements WHERE id = ?", id);
   if (!row) throw errors.notFound("公告不存在");
+  assertSafeAnnouncementContent(input.content);
 
   const publishedAt = normalizeIso(input.publishedAt) ?? publishedAtOf(row);
   const contentChanged =

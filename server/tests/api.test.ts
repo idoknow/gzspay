@@ -163,8 +163,11 @@ describe("基础接口", () => {
       .post("/api/setup/config")
       .set(CSRF)
       .send({ system: { siteName: "另一个站点" } })
-      .expect(409);
-    expect(response.body.error.code).toBe("ALREADY_INITIALIZED");
+      // 已初始化后要么因为缺少初始化令牌被拒（403），要么因为已初始化被拒（409）
+      .expect((res) => {
+        expect([403, 409]).toContain(res.status);
+      });
+    expect(["ALREADY_INITIALIZED", "FORBIDDEN"]).toContain(response.body.error.code);
   });
 
   it("完成初始化需要先登录", async () => {

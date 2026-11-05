@@ -310,11 +310,14 @@ declare global {
   }
 }
 
+/**
+ * 请求来源 IP（用于审计/风控日志）。
+ *
+ * 只信任 express 依据 `TRUST_PROXY` 解析后的 `req.ip`：直接信任
+ * `X-Forwarded-For` 首段会让客户端随意伪造审计 IP（反代只会追加到末尾，
+ * 首段仍是攻击者自己写的）。
+ */
 export function requestIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.length > 0) {
-    return forwarded.split(",")[0]?.trim() ?? "unknown";
-  }
   return req.ip ?? req.socket.remoteAddress ?? "unknown";
 }
 

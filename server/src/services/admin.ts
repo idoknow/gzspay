@@ -14,6 +14,7 @@ import {
 import { AppError, errors } from "../lib/errors.js";
 import { templates } from "../lib/mail.js";
 import { revokeUserSessions } from "../lib/session.js";
+import { likePattern } from "../lib/sql.js";
 import type {
   AdminRole,
   AdminRow,
@@ -356,11 +357,12 @@ function toAdminUser(row: AdminUserRow): AdminUserDto {
 }
 
 export function adminUsers(query: string, page: number, pageSize: number) {
-  const like = `%${query.trim()}%`;
-  const where = query.trim()
-    ? `WHERE (u.surname LIKE ? OR u.given_name LIKE ? OR u.student_no LIKE ? OR u.email LIKE ? OR u.campux_sub LIKE ? OR u.campux_username LIKE ?)`
+  const keyword = query.trim();
+  const like = likePattern(keyword);
+  const where = keyword
+    ? `WHERE (u.surname LIKE ? ESCAPE '\\' OR u.given_name LIKE ? ESCAPE '\\' OR u.student_no LIKE ? ESCAPE '\\' OR u.email LIKE ? ESCAPE '\\' OR u.campux_sub LIKE ? ESCAPE '\\' OR u.campux_username LIKE ? ESCAPE '\\')`
     : "";
-  const params = query.trim() ? [like, like, like, like, like, like] : [];
+  const params = keyword ? [like, like, like, like, like, like] : [];
   const total =
     queryOne<{ total: number }>(
       `SELECT COUNT(*) AS total FROM users u ${where}`,
@@ -692,12 +694,12 @@ export function adminMerchants(
   pageSize: number,
 ) {
   const keyword = filters.query.trim();
-  const like = `%${keyword}%`;
+  const like = likePattern(keyword);
   const conditions: string[] = [];
   const params: unknown[] = [];
   if (keyword) {
     conditions.push(
-      "(m.name LIKE ? OR u.surname LIKE ? OR u.given_name LIKE ? OR u.student_no LIKE ? OR u.campux_username LIKE ?)",
+      "(m.name LIKE ? ESCAPE '\\' OR u.surname LIKE ? ESCAPE '\\' OR u.given_name LIKE ? ESCAPE '\\' OR u.student_no LIKE ? ESCAPE '\\' OR u.campux_username LIKE ? ESCAPE '\\')",
     );
     params.push(like, like, like, like, like);
   }
@@ -989,9 +991,9 @@ function orderFilterSql(filters: AdminOrderFilters): { sql: string; params: unkn
     params.push(filters.maxAmount);
   }
   if (filters.query) {
-    const like = `%${filters.query}%`;
+    const like = likePattern(filters.query);
     conditions.push(
-      "(o.order_no LIKE ? OR o.title LIKE ? OR o.merchant_name_snapshot LIKE ? OR o.payer_name_snapshot LIKE ?)",
+      "(o.order_no LIKE ? ESCAPE '\\' OR o.title LIKE ? ESCAPE '\\' OR o.merchant_name_snapshot LIKE ? ESCAPE '\\' OR o.payer_name_snapshot LIKE ? ESCAPE '\\')",
     );
     params.push(like, like, like, like);
   }
@@ -1473,8 +1475,8 @@ function logWindow(clauses: string[], params: unknown[], from?: string, to?: str
     params.push(to);
   }
   if (query && columns.length > 0) {
-    const like = `%${query}%`;
-    clauses.push(`(${columns.map((column) => `${column} LIKE ?`).join(" OR ")})`);
+    const like = likePattern(query);
+    clauses.push(`(${columns.map((column) => `${column} LIKE ? ESCAPE '\\'`).join(" OR ")})`);
     for (const _column of columns) params.push(like);
   }
 }

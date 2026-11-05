@@ -366,7 +366,17 @@ export function verifyPaymentPassword(
   user: UserRow,
   password: string,
   ip: string,
+  options: {
+    /**
+     * 是否把错误计入账号的锁定计数。
+     *
+     * 代输场景（商家在自己的手机上让客户输入密码、商家扫码代客户创建订单）必须
+     * 传 false：否则商家可以反复试错把客户账号锁死 30 分钟（Do S）。
+     */
+    countFailure?: boolean;
+  } = {},
 ): UserRow {
+  const countFailure = options.countFailure ?? true;
   if (!user.payment_pwd_hash) throw errors.paymentPasswordNotSet();
   if (user.payment_locked_until && user.payment_locked_until > nowIso()) {
     throw errors.paymentPasswordLocked(user.payment_locked_until);
@@ -384,6 +394,17 @@ export function verifyPaymentPassword(
       );
     }
     return findUserById(user.id) as UserRow;
+  }
+
+  if (!countFailure) {
+    // 代输：只记风险日志，不累计到客户账号的锁定计数
+    writeRiskLog({
+      userId: user.id,
+      type: "payment_password_wrong_proxy",
+      detail: "他人代输支付密码错误（不计入锁定次数）",
+      ip,
+    });
+    throw errors.paymentPasswordWrong(config.security.paymentMaxAttempts);
   }
 
   const failCount = user.payment_fail_count + 1;

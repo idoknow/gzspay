@@ -257,9 +257,14 @@ async function writeJson<T>(
   path: string,
   body?: unknown,
   notify = true,
+  extraHeaders?: Record<string, string>,
 ): Promise<T> {
   try {
-    return await request<T>(path, { method, body, headers: CSRF_HEADERS });
+    return await request<T>(path, {
+      method,
+      body,
+      headers: { ...CSRF_HEADERS, ...(extraHeaders ?? {}) },
+    });
   } catch (error) {
     if (notify) notifyAuthInvalid(error);
     throw error;
@@ -409,6 +414,7 @@ function mapSetupStatus(payload: unknown): SetupStatus {
     mailConfigured: firstBoolean(source, ["mailConfigured"]) ?? false,
     adminCount: numberOr(firstNumber(source, ["adminCount"]), 0),
     currentUser: mapSetupCurrentUser(source.currentUser),
+    setupTokenRequired: firstBoolean(source, ["setupTokenRequired", "requiresSetupToken"]) ?? false,
     system: {
       siteName: textOr(
         firstText(system, ["siteName", "name"]),
@@ -466,11 +472,26 @@ export async function getSetupStatus(): Promise<SetupStatus> {
 /**
  * POST /setup/config —— 保存初始化步骤配置。
  * 允许分步提交：只传当前步骤的字段；clientSecret / password 传空串表示保留旧值。
+ * 首次初始化必须带上服务端启动日志里的「初始化令牌」。
  */
 export async function saveSetupConfig(
   input: SetupConfigInput,
+  setupToken = "",
 ): Promise<SetupStatus> {
-  const payload = await writeJson<unknown>("POST", "/setup/config", input, false);
+  const payload = await writeJson<unknown>(
+    "POST",
+    "/setup/config",
+    input,
+    false,
+    setupToken ? { "x-setup-token": setupToken } : undefined,
+  );
+  const source = record(payload);
+  return mapSetupStatus(source.status ?? payload);
+}
+
+/** POST /setup/token —— 校验一次性初始化令牌（首次部署时防抢注） */
+export async function verifySetupToken(token: string): Promise<SetupStatus> {
+  const payload = await writeJson<unknown>("POST", "/setup/token", { token }, false);
   const source = record(payload);
   return mapSetupStatus(source.status ?? payload);
 }

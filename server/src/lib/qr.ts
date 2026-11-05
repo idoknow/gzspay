@@ -54,8 +54,9 @@ const jpeg = nodeRequire("jpeg-js") as {
   ): RawImage;
 };
 
-/** 解码上限：上传本身限 2MB，这里再兜底避免超大尺寸图片占满内存 */
-const MAX_IMAGE_PIXELS = 40_000_000;
+/** 解码上限：上传本身限 2MB，这里再兜底避免超大尺寸图片占满内存（解码后 RGBA 约为像素数 × 4 字节） */
+const MAX_IMAGE_PIXELS = 8_000_000;
+const MAX_IMAGE_SIDE = 4096;
 const MAX_IMAGE_MP = MAX_IMAGE_PIXELS / 1_000_000;
 
 /** 从 PNG 文件头（IHDR）读尺寸，解码前就能拒绝超大的图片 */
@@ -64,12 +65,20 @@ function pngSize(buffer: Buffer): { width: number; height: number } | null {
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
+/** 尺寸是否在允许范围内（总量 + 单边） */
+function sizeAllowed(width: number, height: number): boolean {
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return false;
+  if (width <= 0 || height <= 0) return false;
+  if (width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE) return false;
+  return width * height <= MAX_IMAGE_PIXELS;
+}
+
 /** 把 PNG / JPEG 解码成 RGBA 像素；其它格式返回 null */
 function decodeToRgba(buffer: Buffer): RawImage | null {
   const kind = sniffImageKind(buffer);
   if (kind === "png") {
     const size = pngSize(buffer);
-    if (!size || size.width * size.height > MAX_IMAGE_PIXELS) return null;
+    if (!size || !sizeAllowed(size.width, size.height)) return null;
     const png = PNG.sync.read(buffer);
     return { data: png.data, width: png.width, height: png.height };
   }
@@ -78,8 +87,9 @@ function decodeToRgba(buffer: Buffer): RawImage | null {
       useTArray: true,
       formatAsRGBA: true,
       maxResolutionInMP: MAX_IMAGE_MP,
-      maxMemoryUsageInMB: 256,
+      maxMemoryUsageInMB: 128,
     });
+    if (!sizeAllowed(image.width, image.height)) return null;
     return { data: image.data, width: image.width, height: image.height };
   }
   return null;

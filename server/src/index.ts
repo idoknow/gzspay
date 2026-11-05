@@ -9,6 +9,7 @@ import { backfillQqAvatars } from "./lib/avatar.js";
 import { geoDataError, geoDataMeta } from "./lib/geo.js";
 import { applyRuntimeConfig, isSystemReady, readAdminConfig } from "./lib/runtime-config.js";
 import { assertSecureConfig } from "./lib/security.js";
+import { ensureSetupToken } from "./lib/setup-token.js";
 import { reportSystemError } from "./lib/alerts.js";
 
 const METRICS_RETENTION_DAYS = 7;
@@ -90,6 +91,9 @@ function main(): void {
     console.log(
       `[gzspay] 初始化状态: ${isSystemReady() ? "已完成" : "未完成（打开 /admin 完成初始化向导）"}`,
     );
+    // 未初始化时生成一次性初始化令牌并打印到日志：写初始化配置与首个管理员
+    // 授予都要求该令牌，避免攻击者抢先初始化并接管管理员账号。
+    if (!isSystemReady()) ensureSetupToken();
   } catch (error) {
     reportSystemError({
       scope: "startup",

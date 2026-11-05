@@ -123,6 +123,25 @@ const merchantCreateSchema = z.object({
 /** 单手机收款：商家扫码 → 客户在商家手机上输入支付密码 */
 ordersRouter.post(
   "/merchant-create",
+  rateLimit({
+    scope: "orders.merchant_create",
+    limit: 10,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "收款太频繁了，请稍后再试",
+  }),
+  // 同一商家对同一张卡代输密码的次数限制：防止借代输把客户账号锁死、也防止枚举卡号
+  rateLimit({
+    scope: "orders.merchant_create_card",
+    limit: 5,
+    windowSeconds: 600,
+    keyBy: (req) => {
+      const body = (req.body ?? {}) as { cardContent?: unknown };
+      const card = typeof body.cardContent === "string" ? body.cardContent.slice(-64) : "";
+      return `${userKey(req)}:${card}`;
+    },
+    message: "这张卡的支付密码错误次数太多了，请稍后再试或让本人操作",
+  }),
   asyncHandler((req, res) => {
     const merchant = req.auth!.user;
     requireMerchant(merchant);
@@ -139,8 +158,9 @@ ordersRouter.post(
     const customer = resolveCardOwner(body.cardContent);
     if (!customer) throw errors.notFound("该校园卡尚未绑定账号，请提醒对方先注册 gzspay");
     if (customer.id === merchant.id) throw errors.conflict("不能向自己收款");
-    // 支付密码由客户在商家手机上输入：校验的是客户账号
-    verifyPaymentPassword(customer, body.paymentPassword, requestIp(req));
+    // 支付密码由客户在商家手机上输入：校验的是客户账号。
+    // 代输失败不计入客户的锁定次数（否则任何持卡人都能把对方账号锁死）。
+    verifyPaymentPassword(customer, body.paymentPassword, requestIp(req), { countFailure: false });
     const order = createOrderByMerchant(
       merchant,
       {
@@ -319,6 +339,13 @@ ordersRouter.get(
 
 ordersRouter.post(
   "/:id/payment-proof",
+  rateLimit({
+    scope: "orders.proof",
+    limit: 10,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "上传付款截图太频繁了，请稍后再试",
+  }),
   proofUpload.single("file"),
   asyncHandler((req, res) => {
     const file = (req as unknown as { file?: Express.Multer.File }).file;

@@ -82,10 +82,11 @@ export const config = {
   /** 内网 / 无 https 证书部署时显式放行 http 地址（见 lib/security.ts） */
   allowInsecureBaseUrl: bool("ALLOW_INSECURE_BASE_URL", false),
   /**
-   * 反向代理层数：默认生产信任 1 层（Nginx），开发直连不信任。
-   * 不放在代理后面却信任 X-Forwarded-For，会让攻击者伪造 IP 绕过限流。
+   * 反向代理层数：默认不信任 X-Forwarded-For（直连部署必须保持 false）。
+   * 只有确实部署在 Nginx / 负载均衡后面时才设置 `TRUST_PROXY=1`；
+   * 否则攻击者伪造该头即可拿着任意 IP 绕过限流与地区限制。
    */
-  trustProxy: str("TRUST_PROXY", isProduction ? "1" : "false"),
+  trustProxy: str("TRUST_PROXY", "false"),
 
   campux: {
     baseUrl: optionalStr("CAMPUX_BASE_URL") ?? "",

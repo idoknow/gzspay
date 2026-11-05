@@ -172,6 +172,12 @@ export function csrfGuard(req: Request, res: Response, next: NextFunction): void
   );
   const origin = originOf(req.headers.origin);
   const referer = originOf(req.headers.referer);
+  // 带了 Origin 却解析不出合法来源（例如 `Origin: null`、sandbox iframe、data: URL）
+  // 一律拒绝：这类来源常见于被注入页面发起的请求，不应作为「没有来源」放行。
+  if (req.headers.origin !== undefined && origin === null) {
+    reject("请求来源不被允许");
+    return;
+  }
   const source = origin ?? referer;
   if (source && !allowed.has(source)) {
     reject("请求来源不被允许");
@@ -333,6 +339,19 @@ export function errorHandler(
         message: error.message,
         // 细节（剩余次数、字段路径等）只在非生产环境返回
         ...(!config.isProduction && error.details !== undefined ? { details: error.details } : {}),
+      },
+    });
+    return;
+  }
+  // multer 的文件大小/数量/字段超限：转成 413/400，避免落到 5xx（并触发告警噪音）
+  const uploadError = error as { name?: unknown; code?: unknown };
+  if (uploadError?.name === "MulterError") {
+    const code = typeof uploadError.code === "string" ? uploadError.code : "";
+    const tooLarge = code === "LIMIT_FILE_SIZE";
+    res.status(tooLarge ? 413 : 400).json({
+      error: {
+        code: tooLarge ? "FILE_TOO_LARGE" : "UPLOAD_REJECTED",
+        message: tooLarge ? "文件太大了，请压缩或换一个更小的文件" : "上传的文件不符合要求，请重新选择",
       },
     });
     return;

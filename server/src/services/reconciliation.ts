@@ -187,6 +187,26 @@ export function importBill(
     throw errors.validation(`账单记录太多（超过 ${MAX_TRANSACTIONS} 笔），请分批上传`);
   }
 
+  // 去重：同一商家同一渠道的同一笔交易单号只导入一次，避免同一份账单反复上传
+  // 把同一笔收款重复确认到多个订单上。
+  const importedTradeNos = new Set(
+    queryAll<{ trade_no: string }>(
+      "SELECT trade_no FROM bill_transactions WHERE merchant_id = ? AND provider = ? AND trade_no != ''",
+      merchant.user_id,
+      parsed.provider,
+    ).map((row) => row.trade_no),
+  );
+  const seenTradeNos = new Set<string>();
+  const rows = parsed.rows.filter((row) => {
+    if (!row.tradeNo) return true;
+    if (importedTradeNos.has(row.tradeNo) || seenTradeNos.has(row.tradeNo)) return false;
+    seenTradeNos.add(row.tradeNo);
+    return true;
+  });
+  if (rows.length === 0) {
+    throw errors.validation("这些收款记录之前已经导入过了，不用重复上传");
+  }
+
   const importId = newId();
   const storedName = storedNameOf(importId, parsed.provider);
   const dir = uploadDir();
@@ -209,10 +229,10 @@ export function importBill(
       file.buffer.length,
       parsed.periodStart,
       parsed.periodEnd,
-      parsed.rows.length,
+      rows.length,
       createdAt,
     );
-    for (const row of parsed.rows) {
+    for (const row of rows) {
       const transactionId = newId();
       execute(
         `INSERT INTO bill_transactions
@@ -290,7 +310,7 @@ export function importBill(
     action: "bill.imported",
     targetType: "bill_import",
     targetId: importId,
-    detail: `${PROVIDER_LABELS[parsed.provider]}：${parsed.rows.length} 笔收款，自动匹配 ${matchedCount} 笔`,
+    detail: `${PROVIDER_LABELS[parsed.provider]}：${rows.length} 笔收款，自动匹配 ${matchedCount} 笔`,
     ip,
   });
 

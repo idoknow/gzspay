@@ -11,6 +11,7 @@ import type {
   UserRow,
 } from "../lib/types.js";
 import { templates } from "../lib/mail.js";
+import { likePattern } from "../lib/sql.js";
 import { pushToUser } from "./events.js";
 import { findOrderById, requireOrderForUser } from "./orders.js";
 import { displayNameOf, findUserById, mailUserWithSetting, publicUserOf } from "./users.js";
@@ -564,8 +565,8 @@ export function listTicketsForAdmin(query: AdminListTicketsQuery): {
   }
   const keyword = query.keyword?.trim();
   if (keyword) {
-    where.push("(o.order_no LIKE ? OR o.title LIKE ? OR t.id LIKE ?)");
-    const like = `%${keyword}%`;
+    where.push("(o.order_no LIKE ? ESCAPE '\\' OR o.title LIKE ? ESCAPE '\\' OR t.id LIKE ? ESCAPE '\\')");
+    const like = likePattern(keyword);
     params.push(like, like, like);
   }
   const whereSql = where.join(" AND ");

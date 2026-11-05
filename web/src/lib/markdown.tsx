@@ -11,6 +11,21 @@ import type { ReactNode } from "react";
 
 const INLINE_PATTERN = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
 
+/**
+ * 只允许安全的链接目标：http(s)、mailto、以及站内相对路径。
+ *
+ * 公告内容可以由运营在后台填写，若不限制协议，`[点我](javascript:alert(1))`
+ * 会变成存储型 XSS（虽然 CSP 限制了脚本，但不能依赖这一层）。
+ * 不安全的目标返回 null，调用方退化成纯文本渲染。
+ */
+function safeHref(raw: string): string | null {
+  const href = raw.trim();
+  if (href === "") return null;
+  if (href.startsWith("/") && !href.startsWith("//")) return href;
+  if (/^(https?:|mailto:)/i.test(href)) return href;
+  return null;
+}
+
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
@@ -31,12 +46,17 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     } else {
       const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
       const label = link?.[1] ?? token;
-      const href = link?.[2] ?? "#";
-      nodes.push(
-        <a key={key} href={href} target="_blank" rel="noreferrer noopener">
-          {label}
-        </a>,
-      );
+      const href = link ? safeHref(link[2] ?? "") : null;
+      if (!href) {
+        // 链接目标不安全（或不是链接）时按纯文本渲染，避免 javascript: / data: 协议注入
+        nodes.push(<span key={key}>{label}</span>);
+      } else {
+        nodes.push(
+          <a key={key} href={href} target="_blank" rel="noreferrer noopener">
+            {label}
+          </a>,
+        );
+      }
     }
     lastIndex = match.index + token.length;
     index += 1;

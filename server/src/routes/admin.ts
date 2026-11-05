@@ -166,7 +166,14 @@ adminRouter.get(
   "/users/:id",
   requireAdmin(),
   asyncHandler((req, res) => {
-    res.json(adminUserDetail(String(req.params.id)));
+    const detail = adminUserDetail(String(req.params.id));
+    // 只读审计员（auditor）不返回学号/邮箱/卡号明文：最小权限原则，
+    // 明文只给需要处理纠纷与运维的 super / ops。
+    if (req.admin!.admin.role === "auditor") {
+      res.json({ ...detail, user: { ...detail.user, studentNo: null, email: null, cardNo: null } });
+      return;
+    }
+    res.json(detail);
   }),
 );
 
@@ -344,7 +351,7 @@ adminRouter.get(
 
 adminRouter.get(
   "/orders/export",
-  requireAdmin(),
+  requireAdmin(["super", "ops"]),
   asyncHandler((req, res) => {
     const csv = adminOrdersCsv(orderFilters(req));
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -578,7 +585,7 @@ adminRouter.get(
 
 adminRouter.get(
   "/logs/export",
-  requireAdmin(),
+  requireAdmin(["super", "ops"]),
   asyncHandler((req, res) => {
     const query = req.query as Record<string, unknown>;
     const type = LOG_TYPES.includes(query.type as AdminLogType)

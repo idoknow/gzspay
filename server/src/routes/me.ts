@@ -5,7 +5,7 @@ import { z } from "zod";
 import { REPO_ROOT, config, isCampuxConfigured } from "../config.js";
 import { execute, isoAfter, nowIso, queryOne } from "../db/index.js";
 import { writeAudit } from "../lib/audit.js";
-import { createAuthorizationRequest } from "../lib/campux.js";
+import { createAuthorizationRequest, OAUTH_STATE_COOKIE, oauthStateCookieOptions } from "../lib/campux.js";
 import { buildCardQrContent, maskCardNo, randomToken, sha256 } from "../lib/crypto.js";
 import { issueEmailCode, consumeEmailCode, latestCodeEmail } from "../lib/email.js";
 import { AppError, errors } from "../lib/errors.js";
@@ -114,6 +114,13 @@ const emailVerifySchema = z.object({
 
 meRouter.post(
   "/email/verify",
+  rateLimit({
+    scope: "me.email_verify",
+    limit: 10,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "验证太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const user = req.auth!.user;
     const body = parse(emailVerifySchema, req.body);
@@ -140,6 +147,13 @@ const cardSchema = z.object({
 
 meRouter.post(
   "/card",
+  rateLimit({
+    scope: "me.card_bind",
+    limit: 5,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "绑定校园卡太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const user = req.auth!.user;
     const body = parse(cardSchema, req.body);
@@ -246,6 +260,13 @@ meRouter.get("/card-qr", (req, res) => {
 
 meRouter.post(
   "/payment-password/verify",
+  rateLimit({
+    scope: "me.pwd_verify",
+    limit: 10,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "验证太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const body = parse(z.object({ password: z.string().trim().min(1) }), req.body);
     verifyPaymentPassword(req.auth!.user, body.password, requestIp(req));
@@ -274,6 +295,13 @@ function issueResetToken(userId: string): { resetToken: string; expiresAt: strin
 
 meRouter.post(
   "/payment-password/reset/start",
+  rateLimit({
+    scope: "me.pwd_reset_start",
+    limit: 5,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "操作太频繁了，请稍后再试",
+  }),
   asyncHandler(async (req, res) => {
     const user = req.auth!.user;
     if (!user.email) throw errors.validation("请先绑定邮箱，再修改支付密码");
@@ -309,7 +337,8 @@ meRouter.get(
         "管理员尚未配置校园墙登录，暂时无法用校园墙验证",
       );
     }
-    const url = createAuthorizationRequest("/me/password", "password_verify");
+    const { url, state } = createAuthorizationRequest("/me/password", "password_verify");
+    res.cookie(OAUTH_STATE_COOKIE, state, oauthStateCookieOptions());
     res.redirect(302, url);
   },
 );
@@ -317,6 +346,13 @@ meRouter.get(
 /** 领取校园墙验证通过后的重置凭证（5 分钟内有效、一次性） */
 meRouter.post(
   "/payment-password/reset/campux/claim",
+  rateLimit({
+    scope: "me.pwd_claim",
+    limit: 10,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "操作太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const user = req.auth!.user;
     const row = queryOne<{ id: string }>(
@@ -334,6 +370,13 @@ meRouter.post(
 
 meRouter.post(
   "/payment-password/reset/verify",
+  rateLimit({
+    scope: "me.pwd_reset_verify",
+    limit: 10,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "验证太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const user = req.auth!.user;
     const body = parse(z.object({ code: z.string().trim().min(4) }), req.body);

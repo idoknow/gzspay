@@ -24,6 +24,9 @@ services:
       UPLOAD_DIR: /data/uploads
       AVATAR_DIR: /data/avatars
       WEB_DIST_DIR: /app/web/dist
+      # 直连部署（下面直接映射 3000 端口）必须保持 false，否则客户端可伪造
+      # X-Forwarded-For 绕过限流与地区限制；只有在前面加了 Nginx 才改成 1。
+      TRUST_PROXY: "false"
     ports:
       # 宿主机端口可用 GZSPAY_PORT 覆盖（应用在容器内始终监听 3000）
       - "${GZSPAY_PORT:-3000}:3000"

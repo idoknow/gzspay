@@ -4,6 +4,7 @@
  * PDF 不在这里生成：中文字体无法内嵌，改为前端打印视图（浏览器「另存为 PDF」）。
  */
 
+import { csvCell as csvCellShared } from "./csv.js";
 import { CHANNEL_LABELS, type OrderRow, type OrderStatus } from "./types.js";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -74,11 +75,9 @@ export function orderExportRecord(row: OrderRow, tzOffsetMinutes: number): Recor
 /* CSV                                                                 */
 /* ------------------------------------------------------------------ */
 
-/** 防止 Excel 把内容当公式执行（CSV 注入） */
+/** 防止 Excel 把内容当公式执行（CSV 注入）；实现与后台导出共用 */
 function csvCell(value: unknown): string {
-  const text = value === null || value === undefined ? "" : String(value);
-  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
-  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  return csvCellShared(value);
 }
 
 export function buildOrdersCsv(rows: OrderRow[], tzOffsetMinutes: number): Buffer {

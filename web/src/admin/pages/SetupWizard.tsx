@@ -14,6 +14,7 @@ import {
 } from "../api";
 import {
   Button,
+  Field,
   ProgressBar,
   ThemeSwitch,
   cx,
@@ -114,6 +115,8 @@ export function SetupWizard({
   const [saving, setSaving] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  /** 一次性初始化令牌（服务端启动日志里的「初始化令牌」） */
+  const [setupToken, setSetupToken] = useState("");
   // 表单只在首次拿到状态时回填，后续刷新（如登录后）不覆盖用户已填内容
   const hydratedRef = useRef(false);
 
@@ -246,6 +249,10 @@ export function SetupWizard({
 
   const handleSave = async () => {
     if (saving || finishing) return;
+    if (status?.setupTokenRequired && setupToken.trim() === "") {
+      setFormError("请先填写服务端启动日志里的「初始化令牌」，避免被他人抢先初始化。");
+      return;
+    }
     const validation = validateStep(step);
     if (validation) {
       setFormError(validation);
@@ -254,7 +261,7 @@ export function SetupWizard({
     setSaving(true);
     setFormError(null);
     try {
-      const next = await saveSetupConfig(buildInput(step));
+      const next = await saveSetupConfig(buildInput(step), setupToken);
       applyStatus(next);
       if (next.initialized) {
         onCompleted();
@@ -333,6 +340,28 @@ export function SetupWizard({
         <p className="admin-auth-sub">
           系统首次使用前需要完成以下配置；全部完成后，第一个登录的账号将成为超级管理员。
         </p>
+
+        {status?.setupTokenRequired ? (
+          <div className="admin-form-grid">
+            <Field
+              label="初始化令牌"
+              required
+              className="admin-field-full"
+              hint="服务端启动日志里会打印「初始化令牌：XXXXXXXX」。只有持有令牌的人才能完成初始化，避免被他人抢先接管。"
+            >
+              <input
+                className="admin-input"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={setupToken}
+                disabled={saving || finishing}
+                placeholder="例如 7K3M9QZ2AB4C"
+                onChange={(event) => setSetupToken(event.target.value.toUpperCase())}
+              />
+            </Field>
+          </div>
+        ) : null}
 
         {loading && status === null ? (
           <div className="admin-loading-note">

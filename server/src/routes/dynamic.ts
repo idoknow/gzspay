@@ -41,6 +41,13 @@ dynamicRouter.post(
 /** 扫码方解析动态码：只读，不消费令牌 */
 dynamicRouter.get(
   "/:token/resolve",
+  rateLimit({
+    scope: "dynamic.resolve",
+    limit: 30,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "查询太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const token = String(req.params.token).replace(/^gzspay:dynamic:/, "");
     const resolution = resolveDynamicCode(token, req.auth!.user, { consume: false });
@@ -105,6 +112,13 @@ dynamicRouter.get(
 
 dynamicRouter.post(
   "/requests/:id/accept",
+  rateLimit({
+    scope: "dynamic.accept",
+    limit: 10,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "操作太频繁了，请稍后再试",
+  }),
   asyncHandler((req, res) => {
     const body = parse(z.object({ paymentPassword: z.string().trim().min(1, "请输入支付密码") }), req.body);
     const result = acceptPaymentRequest(

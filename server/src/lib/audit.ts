@@ -1,4 +1,5 @@
 import { execute, nowIso, queryAll } from "../db/index.js";
+import { csvCell } from "./csv.js";
 import { newId } from "./crypto.js";
 import { CHANNEL_LABELS } from "./types.js";
 import type { Channel, OrderStatus, UserRow } from "./types.js";
@@ -134,19 +135,11 @@ export function channelLabel(channel: Channel | null | undefined): string {
   return CHANNEL_LABELS[channel];
 }
 
-/** 导出 CSV：转义引号与逗号 */
+/** 导出 CSV：转义引号/逗号，并防止 Excel 当公式执行（CSV 注入） */
 export function toCsv(headers: string[], rows: (string | number | null)[][]): string {
-  const escape = (value: string | number | null): string => {
-    if (value === null) return "";
-    const text = String(value);
-    if (/[",\n\r]/.test(text)) {
-      return `"${text.replace(/"/g, '""')}"`;
-    }
-    return text;
-  };
-  const lines = [headers.map(escape).join(",")];
+  const lines = [headers.map((value) => csvCell(value)).join(",")];
   for (const row of rows) {
-    lines.push(row.map(escape).join(","));
+    lines.push(row.map((value) => csvCell(value)).join(","));
   }
   return `\uFEFF${lines.join("\r\n")}\r\n`;
 }

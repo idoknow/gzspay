@@ -2,6 +2,8 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { errors } from "../lib/errors.js";
 import { asyncHandler } from "../lib/http.js";
+import { clientIp, rateLimit } from "../lib/rate-limit.js";
+import { setupTokenRequired, verifySetupToken } from "../lib/setup-token.js";
 import { requestIp } from "../lib/types.js";
 import { finishSetup, saveSetupConfig, setupStatus } from "../services/setup.js";
 import { displayNameOf } from "../services/users.js";
@@ -15,8 +17,31 @@ function currentUserOf(req: Request): { id: string; displayName: string; avatarU
 }
 
 function statusPayload(req: Request) {
-  return { ...setupStatus(), currentUser: currentUserOf(req) };
+  return {
+    ...setupStatus(),
+    currentUser: currentUserOf(req),
+    /** true 表示页面需要填写服务端日志里打印的一次性初始化令牌 */
+    setupTokenRequired: setupTokenRequired(),
+  };
 }
+
+/**
+ * 校验初始化令牌。
+ *
+ * 首次部署时攻击者可能抢在管理员前面调用初始化接口，因此写配置与
+ * 「首个账号成为超级管理员」都要求先通过令牌校验。
+ */
+setupRouter.post(
+  "/token",
+  rateLimit({ scope: "setup.token", limit: 10, windowSeconds: 60, keyBy: clientIp }),
+  asyncHandler((req, res) => {
+    const body = z.object({ token: z.string().trim().min(1, "请填写初始化令牌").max(64) }).parse(req.body ?? {});
+    if (!verifySetupToken(body.token)) {
+      throw errors.forbidden("初始化令牌不正确，请查看服务端启动日志里的「初始化令牌」");
+    }
+    res.json({ ok: true, status: statusPayload(req) });
+  }),
+);
 
 /** 初始化状态：无需登录即可读取 */
 setupRouter.get("/status", (req, res) => {
@@ -65,10 +90,19 @@ const setupConfigSchema = z.object({
 /** 保存初始化配置（可分步提交；密钥/密码留空表示不修改） */
 setupRouter.post(
   "/config",
+  rateLimit({ scope: "setup.config", limit: 20, windowSeconds: 60, keyBy: clientIp }),
   asyncHandler((req, res) => {
     const payload = setupConfigSchema.parse(req.body ?? {});
     if (!payload.campux && !payload.mail && !payload.system) {
       throw errors.validation("没有需要保存的配置");
+    }
+    // 未初始化阶段任何人都能访问这个接口，必须要求一次性初始化令牌，
+    // 否则攻击者可以抢先写入自己的 campux.baseUrl（伪造 IdP）并接管管理员账号。
+    const token = req.header("x-setup-token") ?? "";
+    if (!verifySetupToken(token)) {
+      throw errors.forbidden(
+        "请先填写初始化令牌（服务端启动日志里的「初始化令牌」），再保存初始化配置",
+      );
     }
     saveSetupConfig(payload, requestIp(req));
     res.json({ ok: true, status: statusPayload(req) });

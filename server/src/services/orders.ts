@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { randomInt } from "node:crypto";
 import { execute, nowIso, queryAll, queryOne, transaction } from "../db/index.js";
 import { writeAudit, writeRiskLog } from "../lib/audit.js";
 import { newId } from "../lib/crypto.js";
@@ -265,7 +266,8 @@ export function requireOrderForUser(orderId: string, user: UserRow): OrderRow {
   const order = findOrderById(orderId);
   if (!order) throw errors.notFound("订单不存在");
   if (order.payer_id !== user.id && order.merchant_id !== user.id) {
-    throw errors.forbidden("无权查看该订单");
+    // 不区分「不存在」与「无权查看」：否则可以用 403/404 的差异探测哪些订单号真实存在
+    throw errors.notFound("订单不存在");
   }
   return order;
 }
@@ -423,7 +425,7 @@ function generateOrderNo(): string {
   const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const candidate = `GZ${date}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}${pad(
-      Math.floor(Math.random() * 10000),
+      randomInt(0, 10000),
       4,
     )}`;
     const existing = queryOne<{ id: string }>("SELECT id FROM orders WHERE order_no = ?", candidate);

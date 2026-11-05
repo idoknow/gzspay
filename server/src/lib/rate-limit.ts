@@ -12,12 +12,18 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 
 /** 清理周期：定期扫掉过期桶，避免内存无限增长 */
 const CLEANUP_INTERVAL_MS = 60_000;
-/** 桶数量上限，超过时强制清理一次（极端情况下的兜底） */
+/** 桶数量上限，超过时先清理；仍然超限则拒绝新 key，避免被伪造 IP 撑爆内存 */
 const MAX_BUCKETS = 50_000;
 /** 桶内最久保留的命中时间（窗口最长按 1 小时算） */
 const MAX_WINDOW_MS = 60 * 60 * 1000;
 
-const buckets = new Map<string, number[]>();
+interface Bucket {
+  hits: number[];
+  /** 最后一次命中时间，用于按空闲时长清理 */
+  last: number;
+}
+
+const buckets = new Map<string, Bucket>();
 let cleanupTimer: NodeJS.Timeout | null = null;
 
 /** 客户端 IP：优先用 express 的 req.ip（已按 trust proxy 解析），退回复用 socket 地址 */
@@ -26,10 +32,14 @@ export function clientIp(req: Request): string {
 }
 
 function sweep(now: number): void {
-  for (const [key, hits] of buckets) {
-    const alive = hits.filter((at) => now - at < MAX_WINDOW_MS);
+  for (const [key, bucket] of buckets) {
+    if (now - bucket.last >= MAX_WINDOW_MS) {
+      buckets.delete(key);
+      continue;
+    }
+    const alive = bucket.hits.filter((at) => now - at < MAX_WINDOW_MS);
     if (alive.length === 0) buckets.delete(key);
-    else if (alive.length !== hits.length) buckets.set(key, alive);
+    else if (alive.length !== bucket.hits.length) bucket.hits = alive;
   }
 }
 
@@ -88,7 +98,8 @@ export function rateLimit(options: RateLimitOptions): RequestHandler {
     }
     const key = `${scope}:${keyOf(req)}`;
     const now = Date.now();
-    const hits = (buckets.get(key) ?? []).filter((at) => now - at < windowMs);
+    const existing = buckets.get(key);
+    const hits = (existing?.hits ?? []).filter((at) => now - at < windowMs);
     if (hits.length >= limit) {
       const retryAfterSeconds = Math.max(
         1,
@@ -98,9 +109,21 @@ export function rateLimit(options: RateLimitOptions): RequestHandler {
       res.status(429).json({ error: { code: "RATE_LIMITED", message } });
       return;
     }
+    if (!existing) {
+      // 桶数量超上限时先清理一遍；仍然超限就拒绝新 key（宁可误伤也不让内存被撑爆）
+      if (buckets.size >= MAX_BUCKETS) {
+        sweep(now);
+        if (buckets.size >= MAX_BUCKETS) {
+          res.setHeader("Retry-After", "60");
+          res
+            .status(429)
+            .json({ error: { code: "RATE_LIMITED", message: "服务器繁忙，请稍后再试" } });
+          return;
+        }
+      }
+    }
     hits.push(now);
-    buckets.set(key, hits);
-    if (buckets.size > MAX_BUCKETS) sweep(now);
+    buckets.set(key, { hits, last: now });
     next();
   };
 }

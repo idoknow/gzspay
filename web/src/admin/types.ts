@@ -766,6 +766,8 @@ export interface SetupStatus {
   adminCount: number;
   /** 当前主站登录用户；未登录为 null */
   currentUser: SetupCurrentUser | null;
+  /** true 表示初始化需要先填写服务端日志里打印的一次性初始化令牌 */
+  setupTokenRequired: boolean;
   system: SetupSystemInfo;
   campux: SetupCampuxInfo;
   mail: SetupMailInfo;

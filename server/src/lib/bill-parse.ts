@@ -9,7 +9,7 @@
  */
 
 import { inflateRawSync } from "node:zlib";
-import { errors } from "./errors.js";
+import { AppError, errors } from "./errors.js";
 
 export type BillProvider = "alipay" | "wechat";
 
@@ -67,10 +67,15 @@ function trimNote(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim().slice(0, NOTE_LIMIT);
 }
 
+/** 单笔金额上限（1 万元），避免超长数字串解析出 Infinity 之类的脏数据 */
+const MAX_BILL_AMOUNT_CENTS = 1_000_000;
+
 function parseMoneyCents(raw: string): number | null {
   const cleaned = raw.replace(/[¥￥,\s]/g, "");
-  if (!/^-?\d+(\.\d{1,2})?$/.test(cleaned)) return null;
-  return Math.round(Number(cleaned) * 100);
+  if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null;
+  const cents = Math.round(Number(cleaned) * 100);
+  if (!Number.isSafeInteger(cents) || cents <= 0 || cents > MAX_BILL_AMOUNT_CENTS) return null;
+  return cents;
 }
 
 /** 账单时间统一按东八区（微信/支付宝导出的都是 UTC+08:00）解释成 ISO */
@@ -186,12 +191,23 @@ function findAlipayHeader(lines: string[][]): { index: number; columns: AlipayCo
   return null;
 }
 
+/** CSV 解析上限：账单文件 ≤5MB，这里再兜底避免超长行/超多行拖慢解析 */
+const MAX_CSV_LINES = 20_000;
+const MAX_CSV_LINE_CHARS = 4_000;
+const MAX_BILL_ROWS = 5_000;
+
 function parseAlipayBill(buffer: Buffer): ParsedBill {
   const text = decodeText(buffer);
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => splitCsvLine(line))
-    .filter((cells) => cells.some((cell) => cell !== ""));
+  const rawLines = text.split(/\r?\n/);
+  if (rawLines.length > MAX_CSV_LINES) {
+    throw errors.validation(`账单行数太多（超过 ${MAX_CSV_LINES} 行），请分批上传`);
+  }
+  const lines: string[][] = [];
+  for (const line of rawLines) {
+    if (line.length > MAX_CSV_LINE_CHARS) continue;
+    const cells = splitCsvLine(line);
+    if (cells.some((cell) => cell !== "")) lines.push(cells);
+  }
   const header = findAlipayHeader(lines);
   if (!header) throw errors.validation("没有识别到支付宝账单表头，请上传支付宝记账本导出的 CSV");
 
@@ -218,6 +234,9 @@ function parseAlipayBill(buffer: Buffer): ParsedBill {
         header.columns.account >= 0 ? trimNote(cells[header.columns.account]) || null : null,
       paidAt,
     });
+    if (rows.length > MAX_BILL_ROWS) {
+      throw errors.validation(`账单里收款记录太多（超过 ${MAX_BILL_ROWS} 笔），请分批上传`);
+    }
   }
   return withPeriod("alipay", rows);
 }
@@ -225,6 +244,15 @@ function parseAlipayBill(buffer: Buffer): ParsedBill {
 // ---------------------------------------------------------------------------
 // 微信 XLSX
 // ---------------------------------------------------------------------------
+
+/** xlsx 解压上限：防止 zip bomb 把进程内存打爆（账单文件本身 ≤5MB） */
+const MAX_ZIP_ENTRIES = 128;
+const MAX_ZIP_ENTRY_BYTES = 8 * 1024 * 1024;
+const MAX_ZIP_TOTAL_BYTES = 32 * 1024 * 1024;
+/** 压缩比上限：正常 xlsx 的 XML 压缩比远低于这个值 */
+const MAX_ZIP_RATIO = 200;
+/** 只解压解析需要的条目，其它（图片、样式、批注等）一律跳过 */
+const ZIP_ENTRY_PATTERN = /^xl\/(?:sharedStrings\.xml|workbook\.xml|worksheets\/sheet\d+\.xml)$/;
 
 function unzip(buffer: Buffer): Map<string, Buffer> {
   const files = new Map<string, Buffer>();
@@ -238,36 +266,77 @@ function unzip(buffer: Buffer): Map<string, Buffer> {
   }
   if (eocd < 0) throw errors.validation("账单文件不是有效的 xlsx，请重新导出后再上传");
   const count = buffer.readUInt16LE(eocd + 10);
+  if (count > MAX_ZIP_ENTRIES) {
+    throw errors.validation("账单文件内容异常（压缩包条目过多），请重新导出后再上传");
+  }
   let offset = buffer.readUInt32LE(eocd + 16);
+  let totalBytes = 0;
   for (let i = 0; i < count; i += 1) {
     if (offset + 46 > buffer.length) break;
     if (buffer.readUInt32LE(offset) !== 0x0201_4b50) break;
     const method = buffer.readUInt16LE(offset + 10);
     const compressedSize = buffer.readUInt32LE(offset + 20);
+    const uncompressedSize = buffer.readUInt32LE(offset + 24);
     const nameLength = buffer.readUInt16LE(offset + 28);
     const extraLength = buffer.readUInt16LE(offset + 30);
     const commentLength = buffer.readUInt16LE(offset + 32);
     const localOffset = buffer.readUInt32LE(offset + 42);
+    if (offset + 46 + nameLength > buffer.length) break;
     const name = buffer.subarray(offset + 46, offset + 46 + nameLength).toString("utf8");
+    offset += 46 + nameLength + extraLength + commentLength;
+    if (method !== 0 && method !== 8) continue;
+    if (!ZIP_ENTRY_PATTERN.test(name)) continue;
+    // 本地文件头必须完整且签名正确，避免把任意字节段当作压缩流
+    if (localOffset + 30 > buffer.length) break;
+    if (buffer.readUInt32LE(localOffset) !== 0x0403_4b50) break;
     const localNameLength = buffer.readUInt16LE(localOffset + 26);
     const localExtraLength = buffer.readUInt16LE(localOffset + 28);
     const dataStart = localOffset + 30 + localNameLength + localExtraLength;
+    if (dataStart + compressedSize > buffer.length) break;
+    if (uncompressedSize > MAX_ZIP_ENTRY_BYTES) {
+      throw errors.validation("账单文件内容异常（单个文件解压后过大），请重新导出后再上传");
+    }
+    if (compressedSize > 0 && uncompressedSize > compressedSize * MAX_ZIP_RATIO + 1_048_576) {
+      throw errors.validation("账单文件内容异常（解压比例过高），请重新导出后再上传");
+    }
     const raw = buffer.subarray(dataStart, dataStart + compressedSize);
     try {
-      if (method === 0) files.set(name, Buffer.from(raw));
-      else if (method === 8) files.set(name, inflateRawSync(raw));
-    } catch {
+      let content: Buffer | null = null;
+      if (method === 0) content = Buffer.from(raw);
+      // maxOutputLength 兜底：即使中央目录谎报大小也不会解压出超过上限的数据
+      else content = inflateRawSync(raw, { maxOutputLength: MAX_ZIP_ENTRY_BYTES });
+      if (!content) continue;
+      totalBytes += content.length;
+      if (totalBytes > MAX_ZIP_TOTAL_BYTES) {
+        throw errors.validation("账单文件内容异常（解压后总大小超限），请重新导出后再上传");
+      }
+      files.set(name, content);
+    } catch (error) {
+      if (error instanceof AppError) throw error;
       // 单个文件解压失败不影响其它文件
     }
-    offset += 46 + nameLength + extraLength + commentLength;
   }
   return files;
 }
 
+/** 工作表 XML / 行数 / 列数上限：防止手写解析被超大或畸形 XML 拖死 */
+const MAX_SHEET_XML_CHARS = 16 * 1024 * 1024;
+const MAX_SHEET_ROWS = 20_000;
+const MAX_SHEET_COLUMNS = 64;
+const MAX_ROW_BODY_CHARS = 200_000;
+const MAX_SHARED_STRINGS = 100_000;
+const MAX_SHARED_STRING_CHARS = 4_096;
+
+function codePointOf(raw: string, radix: number): string {
+  const code = Number.parseInt(raw, radix);
+  if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return "";
+  return String.fromCodePoint(code);
+}
+
 function decodeXml(value: string): string {
   return value
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number.parseInt(dec, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => codePointOf(hex, 16))
+    .replace(/&#(\d+);/g, (_, dec: string) => codePointOf(dec, 10))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
@@ -277,47 +346,123 @@ function decodeXml(value: string): string {
 
 function parseSharedStrings(xml: string): string[] {
   const items: string[] = [];
-  for (const match of xml.matchAll(/<si>([\s\S]*?)<\/si>/g)) {
-    const inner = match[1] ?? "";
-    const texts = [...inner.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((item) =>
-      decodeXml(item[1] ?? ""),
-    );
-    items.push(texts.join(""));
+  let cursor = 0;
+  while (items.length < MAX_SHARED_STRINGS) {
+    const start = xml.indexOf("<si", cursor);
+    if (start < 0) break;
+    const gt = xml.indexOf(">", start);
+    if (gt < 0) break;
+    if (xml.startsWith("/>", gt + 1)) {
+      items.push("");
+      cursor = gt + 3;
+      continue;
+    }
+    const close = xml.indexOf("</si>", gt);
+    if (close < 0) break;
+    const inner = xml.slice(gt + 1, Math.min(close, gt + 1 + MAX_SHARED_STRING_CHARS));
+    let text = "";
+    let innerCursor = 0;
+    while (text.length < MAX_SHARED_STRING_CHARS) {
+      const tStart = inner.indexOf("<t", innerCursor);
+      if (tStart < 0) break;
+      const tGt = inner.indexOf(">", tStart);
+      if (tGt < 0) break;
+      const tClose = inner.indexOf("</t>", tGt);
+      if (tClose < 0) break;
+      text += decodeXml(inner.slice(tGt + 1, tClose));
+      innerCursor = tClose + 4;
+    }
+    items.push(text.slice(0, MAX_SHARED_STRING_CHARS));
+    cursor = close + 5;
   }
   return items;
 }
 
 function columnIndex(letters: string): number {
+  if (letters.length === 0 || letters.length > 3) return -1;
   let index = 0;
-  for (const char of letters) index = index * 26 + (char.charCodeAt(0) - 64);
+  for (const char of letters) {
+    const code = char.charCodeAt(0);
+    if (code < 65 || code > 90) return -1;
+    index = index * 26 + (code - 64);
+  }
   return index - 1;
 }
 
-function parseSheetRows(xml: string, shared: string[]): string[][] {
-  const rows: string[][] = [];
-  for (const rowMatch of xml.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)) {
-    const cells: string[] = [];
-    const rowBody = rowMatch[1] ?? "";
-    for (const cellMatch of rowBody.matchAll(/<c([^>]*)>([\s\S]*?)<\/c>/g)) {
-      const attrs = cellMatch[1] ?? "";
-      const body = cellMatch[2] ?? "";
-      const ref = /r="([A-Z]+)\d+"/.exec(attrs)?.[1];
-      const index = ref ? columnIndex(ref) : cells.length;
-      const type = /t="([^"]+)"/.exec(attrs)?.[1];
-      let value = "";
-      if (type === "s") {
-        const raw = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1] ?? "";
-        value = shared[Number(raw)] ?? "";
-      } else if (type === "inlineStr") {
-        value = [...body.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)]
-          .map((item) => decodeXml(item[1] ?? ""))
-          .join("");
-      } else {
-        value = decodeXml(/<v>([\s\S]*?)<\/v>/.exec(body)?.[1] ?? "");
-      }
-      cells[index] = value;
+/** 单行解析：只用 indexOf 切分，避免惰性正则在大段畸形 XML 上回溯成平方级 */
+function parseRowCells(body: string, shared: string[]): string[] {
+  const cells: string[] = [];
+  if (body.length > MAX_ROW_BODY_CHARS) {
+    throw errors.validation("账单文件内容异常（工作表行过长），请重新导出后再上传");
+  }
+  let cursor = 0;
+  while (true) {
+    const start = body.indexOf("<c", cursor);
+    if (start < 0) break;
+    const nextChar = body.charAt(start + 2);
+    if (nextChar !== " " && nextChar !== ">" && nextChar !== "/") {
+      cursor = start + 2;
+      continue;
     }
-    rows.push(cells);
+    const gt = body.indexOf(">", start);
+    if (gt < 0) break;
+    const attrs = body.slice(start + 2, gt);
+    if (body.startsWith("/>", gt + 1)) {
+      cursor = gt + 3;
+      continue;
+    }
+    const close = body.indexOf("</c>", gt);
+    if (close < 0) break;
+    const inner = body.slice(gt + 1, close);
+    cursor = close + 4;
+    const ref = /r="([A-Z]+)\d+"/.exec(attrs)?.[1];
+    const index = ref ? columnIndex(ref) : cells.length;
+    if (index < 0 || index >= MAX_SHEET_COLUMNS) continue;
+    const type = /t="([^"]+)"/.exec(attrs)?.[1];
+    let value = "";
+    if (type === "s") {
+      const raw = /<v>([\s\S]*?)<\/v>/.exec(inner)?.[1] ?? "";
+      value = shared[Number(raw)] ?? "";
+    } else if (type === "inlineStr") {
+      const tStart = inner.indexOf("<t");
+      if (tStart >= 0) {
+        const tGt = inner.indexOf(">", tStart);
+        const tClose = tGt >= 0 ? inner.indexOf("</t>", tGt) : -1;
+        if (tGt >= 0 && tClose >= 0) value = decodeXml(inner.slice(tGt + 1, tClose));
+      }
+    } else {
+      value = decodeXml(/<v>([\s\S]*?)<\/v>/.exec(inner)?.[1] ?? "");
+    }
+    cells[index] = value;
+  }
+  return cells;
+}
+
+function parseSheetRows(xml: string, shared: string[]): string[][] {
+  if (xml.length > MAX_SHEET_XML_CHARS) {
+    throw errors.validation("账单文件内容异常（工作表过大），请重新导出后再上传");
+  }
+  const rows: string[][] = [];
+  let cursor = 0;
+  while (rows.length < MAX_SHEET_ROWS) {
+    const start = xml.indexOf("<row", cursor);
+    if (start < 0) break;
+    const nextChar = xml.charAt(start + 4);
+    if (nextChar !== " " && nextChar !== ">" && nextChar !== "/") {
+      cursor = start + 4;
+      continue;
+    }
+    const gt = xml.indexOf(">", start);
+    if (gt < 0) break;
+    if (xml.startsWith("/>", gt + 1)) {
+      rows.push([]);
+      cursor = gt + 3;
+      continue;
+    }
+    const close = xml.indexOf("</row>", gt);
+    if (close < 0) break;
+    rows.push(parseRowCells(xml.slice(gt + 1, close), shared));
+    cursor = close + 6;
   }
   return rows;
 }

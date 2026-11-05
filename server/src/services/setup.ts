@@ -1,6 +1,7 @@
 import { execute, nowIso, queryOne } from "../db/index.js";
 import { writeAudit } from "../lib/audit.js";
 import { AppError, errors } from "../lib/errors.js";
+import { clearSetupToken, setupTokenVerified } from "../lib/setup-token.js";
 import {
   countAdmins,
   isCampuxReady,
@@ -146,6 +147,7 @@ export function finishSetup(user: UserRow, ip: string): AdminRow {
     });
   }
   markInitialized();
+  clearSetupToken();
   writeAudit({
     actorId: user.id,
     actorRole: "system",
@@ -165,6 +167,15 @@ export function ensureFirstAdmin(user: UserRow, ip: string): AdminRow | null {
   const existing = findAdminRow(user.id);
   if (existing) return null;
   if (countAdmins() > 0) return null;
+  // 安全闸门：只有校验过一次性初始化令牌的实例，才允许把第一个登录账号提升为
+  // 超级管理员。否则任何人只要抢先登录（例如通过被篡改的 campux.baseUrl 伪造
+  // 身份）就能拿到管理员权限。
+  if (!setupTokenVerified()) {
+    console.warn(
+      "[gzspay] 首个管理员自动授予已跳过：请先在初始化页面填写服务端日志里的「初始化令牌」",
+    );
+    return null;
+  }
   execute(
     "INSERT INTO admins (user_id, role, created_by, created_at) VALUES (?, 'super', NULL, ?)",
     user.id,

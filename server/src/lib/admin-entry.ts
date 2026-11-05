@@ -2,7 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { config } from "../config.js";
 import { execute, nowIso, queryAll, queryOne } from "../db/index.js";
-import { randomToken } from "./crypto.js";
+import { randomToken, sha256 } from "./crypto.js";
+import { rateLimit } from "./rate-limit.js";
 import { readAdminEntryConfig } from "./runtime-config.js";
 
 /**
@@ -81,19 +82,19 @@ let insertSincePrune = 0;
 export function recordAdminEntryVisit(req: Request): void {
   try {
     const ip = req.ip ?? req.socket.remoteAddress ?? null;
-    const query = req.originalUrl.includes("?")
-      ? req.originalUrl.slice(req.originalUrl.indexOf("?") + 1).slice(0, 300)
-      : null;
+    // 只留探索路径本身：不落 query（可能带 token）、UA、Referer 与明文 IP，
+    // IP 做哈希后仍可用于「同一扫描源来了几次」的聚合判断。
+    const ipHash = ip ? sha256(`admin-entry:${ip}`).slice(0, 16) : null;
     execute(
       `INSERT INTO admin_entry_visits (id, ip, method, path, query, user_agent, referer, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       randomToken(16),
-      ip,
+      ipHash,
       req.method,
       req.path.slice(0, 300),
-      query,
-      req.header("user-agent")?.slice(0, 500) ?? null,
-      req.header("referer")?.slice(0, 500) ?? null,
+      null,
+      null,
+      null,
       nowIso(),
     );
     insertSincePrune += 1;
@@ -173,6 +174,18 @@ function setEntryCookie(res: Response, entryPath: string): void {
  * 安全入口中间件：必须在 cookie-parser 之后、静态资源与页面路由之前挂载。
  * 只处理页面导航（GET/HEAD），接口请求不受影响。
  */
+/**
+ * 管理入口探测防护：同一 IP 每分钟最多 10 次后台入口相关请求。
+ * 没有入口名时也能挡住「字典猜入口」这类扫描。
+ */
+const entryProbeLimit = rateLimit({
+  scope: "admin.entry",
+  limit: 10,
+  windowSeconds: 60,
+  message: "请求太频繁了，请稍后再试",
+  keyBy: (req) => req.ip ?? req.socket.remoteAddress ?? "unknown",
+});
+
 export function createAdminEntryGuard(): (req: Request, res: Response, next: NextFunction) => void {
   return function adminEntryGuard(req: Request, res: Response, next: NextFunction): void {
     const { entryPath } = readAdminEntryConfig();
@@ -210,14 +223,17 @@ export function createAdminEntryGuard(): (req: Request, res: Response, next: Nex
       return;
     }
 
-    if (cookieMatches(req.cookies?.[ADMIN_ENTRY_COOKIE], entryPath)) {
-      next();
-      return;
-    }
+    // 只有 /admin* 才计入探测限流，避免正常浏览页面被限
+    entryProbeLimit(req, res, () => {
+      if (cookieMatches(req.cookies?.[ADMIN_ENTRY_COOKIE], entryPath)) {
+        next();
+        return;
+      }
 
-    recordAdminEntryVisit(req);
-    // 打标记：访问统计里记为「后台入口探测」
-    res.locals.adminEntryProbe = true;
-    res.status(404).type("html").send(NOT_FOUND_HTML);
+      recordAdminEntryVisit(req);
+      // 打标记：访问统计里记为「后台入口探测」
+      res.locals.adminEntryProbe = true;
+      res.status(404).type("html").send(NOT_FOUND_HTML);
+    });
   };
 }

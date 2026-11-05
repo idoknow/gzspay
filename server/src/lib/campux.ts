@@ -63,17 +63,23 @@ export function oauthRedirectUri(): string {
 /**
  * 生成 state + PKCE（S256），写入 oauth_states，10 分钟过期。
  * purpose 决定回调如何处理：登录（user）还是身份验证（password_verify）。
+ *
+ * 返回的 `state` 需要同时写进浏览器 Cookie（见 `oauthStateCookieOptions`）：
+ * 回调时比对 Cookie 与 query 里的 state，可以阻止「攻击者拿自己的 code + state
+ * 诱导受害者访问回调」的登录 CSRF / 会话固定。
  */
 export function createAuthorizationRequest(
   redirectTo: string | null,
   purpose: AuthorizationPurpose = "user",
-): string {
+): { url: string; state: string } {
   if (!isCampuxConfigured()) {
     throw errors.validation("系统尚未配置校园墙登录，请联系管理员在管理后台完成初始化");
   }
   const state = randomBytes(24).toString("base64url");
   const codeVerifier = randomBytes(32).toString("base64url");
   const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
+  // 登录入口每次 GET 都会写一行 state，顺手清掉过期的旧行，避免被反复请求撑大表
+  execute("DELETE FROM oauth_states WHERE expires_at <= ?", nowIso());
   execute(
     `INSERT INTO oauth_states (state, code_verifier, redirect_to, purpose, created_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -94,7 +100,27 @@ export function createAuthorizationRequest(
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
   });
-  return `${authorizeEndpoint()}?${params.toString()}`;
+  return { url: `${authorizeEndpoint()}?${params.toString()}`, state };
+}
+
+/** OAuth state 与浏览器绑定的 Cookie 名 */
+export const OAUTH_STATE_COOKIE = "gzs_oauth_state";
+
+/** state Cookie 的写入参数（10 分钟内有效，回调后清除） */
+export function oauthStateCookieOptions(): {
+  httpOnly: boolean;
+  sameSite: "lax";
+  secure: boolean;
+  path: string;
+  maxAge: number;
+} {
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: config.isProduction,
+    path: "/api",
+    maxAge: 600 * 1000,
+  };
 }
 
 /** 只允许站内相对路径，避免开放重定向 */
