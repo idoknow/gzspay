@@ -123,8 +123,8 @@ export function PayPage(): ReactNode {
   const [transferTarget, setTransferTarget] = useState<PublicUser | null>(null);
   const [transferLookupState, setTransferLookupState] = useState<"idle" | "loading" | "error">("idle");
   const [transferLookupError, setTransferLookupError] = useState("");
-  /** 找到收款人后的 3 秒核对倒计时，归零才能继续 */
-  const [transferCountdown, setTransferCountdown] = useState(0);
+  /** 收款人是否需要手动确认（姓名与头像核对无误后点「确认是本人」才能继续） */
+  const [transferConfirmed, setTransferConfirmed] = useState(false);
 
   // 收款
   const [collectStep, setCollectStep] = useState<CollectStep>("scan");
@@ -462,19 +462,19 @@ export function PayPage(): ReactNode {
     }
   };
 
-  // 学号变化后自动查询收款人（防抖 350ms），拿到结果再开始 3 秒核对倒计时
+  // 学号变化后自动查询收款人（防抖 350ms），查到后需要手动确认是本人
   useEffect(() => {
     if (!transferOpen) {
       setTransferTarget(null);
       setTransferLookupState("idle");
       setTransferLookupError("");
-      setTransferCountdown(0);
+      setTransferConfirmed(false);
       return;
     }
     const value = transferStudentNo.trim();
     setTransferTarget(null);
     setTransferLookupError("");
-    setTransferCountdown(0);
+    setTransferConfirmed(false);
     if (value.length < 4) {
       setTransferLookupState("idle");
       return;
@@ -487,7 +487,6 @@ export function PayPage(): ReactNode {
           if (!active) return;
           setTransferTarget(user);
           setTransferLookupState("idle");
-          setTransferCountdown(3);
         })
         .catch((cause: unknown) => {
           if (!active) return;
@@ -501,13 +500,6 @@ export function PayPage(): ReactNode {
     };
   }, [transferOpen, transferStudentNo]);
 
-  // 核对倒计时：3 → 2 → 1 → 0
-  useEffect(() => {
-    if (transferCountdown <= 0) return;
-    const timer = window.setTimeout(() => setTransferCountdown((value) => Math.max(0, value - 1)), 1000);
-    return () => window.clearTimeout(timer);
-  }, [transferCountdown]);
-
   /** 打开转账弹窗：每次清空上次填写的内容 */
   const openTransfer = (): void => {
     setTransferStudentNo("");
@@ -516,7 +508,7 @@ export function PayPage(): ReactNode {
     setTransferTarget(null);
     setTransferLookupState("idle");
     setTransferLookupError("");
-    setTransferCountdown(0);
+    setTransferConfirmed(false);
     setTransferOpen(true);
   };
 
@@ -531,8 +523,8 @@ export function PayPage(): ReactNode {
       toast.error("请先确认收款人，没有找到这个学号对应的账号");
       return;
     }
-    if (transferCountdown > 0) {
-      toast.error(`请核对姓名与头像，${transferCountdown} 秒后即可继续`);
+    if (!transferConfirmed) {
+      toast.error("请先核对姓名与头像，点「确认是本人」后再继续");
       return;
     }
     const amountCents = yuanToCents(transferAmount);
@@ -1199,7 +1191,7 @@ export function PayPage(): ReactNode {
         open={transferOpen}
         onClose={() => setTransferOpen(false)}
         title="转账给同学"
-        description="输入对方学号后会显示姓名与头像，核对满 3 秒才能继续。单笔最多 200 元，每天最多 1000 元。"
+        description="输入对方学号后会显示姓名与头像，核对无误后点「确认是本人」才能继续。单笔最多 200 元，每天最多 1000 元。"
         footer={
           <div className="flex gap-2">
             <button type="button" className="btn btn-outline flex-1" onClick={() => setTransferOpen(false)}>
@@ -1208,10 +1200,10 @@ export function PayPage(): ReactNode {
             <button
               type="button"
               className="btn btn-primary flex-1"
-              disabled={!transferTarget || transferCountdown > 0}
+              disabled={!transferTarget || !transferConfirmed}
               onClick={confirmTransfer}
             >
-              {!transferTarget ? "下一步" : transferCountdown > 0 ? `核对中 ${transferCountdown}s` : "下一步"}
+              {!transferTarget ? "下一步" : transferConfirmed ? "下一步" : "请先确认收款人"}
             </button>
           </div>
         }
@@ -1245,10 +1237,16 @@ export function PayPage(): ReactNode {
                   {transferTarget.studentNoMasked ? `学号 ${transferTarget.studentNoMasked}` : "已找到该学号"}
                 </p>
               </div>
-              {transferCountdown > 0 ? (
-                <span className="chip chip-active shrink-0">{transferCountdown}s</span>
+              {transferConfirmed ? (
+                <span className="chip chip-active shrink-0">已确认</span>
               ) : (
-                <span className="shrink-0 text-xs font-semibold text-brand">已核对</span>
+                <button
+                  type="button"
+                  className="btn btn-outline shrink-0 px-3 py-1 text-xs"
+                  onClick={() => setTransferConfirmed(true)}
+                >
+                  确认是本人
+                </button>
               )}
             </div>
           ) : null}
