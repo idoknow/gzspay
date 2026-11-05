@@ -7,6 +7,7 @@ import { createContext, lazy, Suspense, useContext, useEffect, useState, type Co
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { LoadingBlock, PageLoading } from "./components/Loading";
 import { PaymentRequestDialog } from "./components/PaymentRequestDialog";
+import { PrivacyGuard, PrivacyModeBanner, PrivacyModePrompt } from "./components/PrivacyMode";
 import { getSetupStatus } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/session";
 import type { SessionResponse, SetupStatus } from "./lib/types";
@@ -95,10 +96,12 @@ function BusinessLayout(): ReactNode {
   }
   return (
     <>
+      <PrivacyModeBanner />
       <PageSuspense>
         <Outlet />
       </PageSuspense>
       <PaymentRequestDialog />
+      <PrivacyModePrompt />
     </>
   );
 }
@@ -181,14 +184,14 @@ const router = createBrowserRouter([
       { path: "/dynamic-code", element: <DynamicCodePage /> },
       { path: "/me", element: <MePage /> },
       { path: "/me/stats", element: <StatsPage /> },
-      { path: "/me/profile", element: <ProfilePage /> },
+      { path: "/me/profile", element: <PrivacyGuard title="个人信息"><ProfilePage /></PrivacyGuard> },
       { path: "/me/password", element: <ChangePasswordPage /> },
       { path: "/me/settings", element: <SettingsPage /> },
-      { path: "/me/devices", element: <DevicesPage /> },
+      { path: "/me/devices", element: <PrivacyGuard title="登录设备管理" description="隐私模式下不展示登录过的设备与 IP。"><DevicesPage /></PrivacyGuard> },
       { path: "/me/about", element: <AboutPage /> },
       { path: "/merchant", element: <MerchantPage /> },
       { path: "/merchant/register", element: <MerchantRegisterPage /> },
-      { path: "/merchant/products", element: <ProductsPage /> },
+      { path: "/merchant/products", element: <PrivacyGuard title="商品与店铺设置" description="隐私模式下不展示商品、价格与店铺设置。"><ProductsPage /></PrivacyGuard> },
       { path: "/merchant/collect", element: <MerchantCollectPage /> },
       { path: "/collect/id/:id", element: <CollectPage /> },
       { path: "/collect/:token", element: <CollectPage /> },

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { getSession, logout as apiLogout } from "./api";
 import { ApiError } from "./http";
+import { clearPrivacyState } from "./privacy";
 import type { Me, SessionResponse } from "./types";
 
 export interface AuthContextValue {
@@ -92,6 +93,8 @@ export function AuthProvider({
       if (!(error instanceof ApiError)) throw error;
     }
     setSessionState((current) => anonymousState(current));
+    // 公共设备上的隐私模式随登录一起清掉，下一位使用者会重新被询问
+    clearPrivacyState();
     window.location.assign("/login");
   }, []);
 

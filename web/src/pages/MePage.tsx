@@ -7,6 +7,8 @@ import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { PageHeader } from "../components/PageHeader";
+import { ExitPrivacyButton } from "../components/PrivacyMode";
+import { usePrivacyMode } from "../lib/privacy";
 import { useToast } from "../components/Toast";
 import { getTicketUnreadCount } from "../lib/api";
 import { formatFriendlyTime } from "../lib/format";
@@ -213,6 +215,7 @@ export function MePage(): ReactNode {
   const toast = useToast();
   const watch = useWatchLayout();
   const { me, logout } = useAuth();
+  const privacy = usePrivacyMode();
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const visible = useVisible();
@@ -224,10 +227,12 @@ export function MePage(): ReactNode {
     if (visible) ticketUnread.reload();
   }, 15000);
 
-  const accountMenu: MenuItem[] = [
-    { label: "个人信息", description: "姓名、学号、邮箱、校园卡", path: "/me/profile", icon: <UserIcon /> },
-    { label: "修改密码", description: "支付密码与登录安全", path: "/me/password", icon: <LockIcon /> },
-  ];
+  const accountMenu: MenuItem[] = privacy.enabled
+    ? [{ label: "修改密码", description: "支付密码与登录安全", path: "/me/password", icon: <LockIcon /> }]
+    : [
+        { label: "个人信息", description: "姓名、学号、邮箱、校园卡", path: "/me/profile", icon: <UserIcon /> },
+        { label: "修改密码", description: "支付密码与登录安全", path: "/me/password", icon: <LockIcon /> },
+      ];
 
   const appMenu: MenuItem[] = [
     {
@@ -262,6 +267,22 @@ export function MePage(): ReactNode {
 
       <main className="page page-with-nav space-y-4 pt-4 watch:space-y-3">
         {me ? (
+          privacy.enabled ? (
+            <section className="card flex items-start gap-3 p-4">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-muted ring-1 ring-line">
+                🔒
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-text">隐私模式已开启</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                  姓名、学号、校园卡等个人信息已隐藏，收付款、订单与工单仍然可以正常使用。
+                </p>
+                <div className="mt-3">
+                  <ExitPrivacyButton label="输入支付密码退出隐私模式" className="btn btn-primary btn-sm" />
+                </div>
+              </div>
+            </section>
+          ) : (
           <section className="hero-gradient relative overflow-hidden rounded-3xl p-5 watch:rounded-2xl watch:p-3.5">
             <div
               aria-hidden="true"
@@ -301,6 +322,7 @@ export function MePage(): ReactNode {
               </p>
             ) : null}
           </section>
+          )
         ) : null}
 
         <section className="grid grid-cols-3 gap-2.5 watch:gap-2">

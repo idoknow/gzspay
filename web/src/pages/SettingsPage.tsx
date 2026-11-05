@@ -4,10 +4,12 @@ import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { Toggle } from "../components/Toggle";
+import { ExitPrivacyButton } from "../components/PrivacyMode";
 import { useToast } from "../components/Toast";
 import { updateNotificationSettings } from "../lib/api";
 import { cn } from "../lib/format";
 import { errorMessage } from "../lib/http";
+import { enablePrivacyMode, usePrivacyMode } from "../lib/privacy";
 import { useAuth } from "../lib/session";
 import { setThemeMode, type ThemeMode } from "../lib/theme";
 import { useThemeMode } from "../lib/hooks";
@@ -136,6 +138,7 @@ export function SettingsPage(): ReactNode {
   const toast = useToast();
   const navigate = useNavigate();
   const { me, patchMe } = useAuth();
+  const privacy = usePrivacyMode();
   const themeMode = useThemeMode();
   const [saving, setSaving] = useState<keyof NotificationSettings | null>(null);
   const [settings, setSettings] = useState<NotificationSettings>(
@@ -223,6 +226,45 @@ export function SettingsPage(): ReactNode {
           </div>
         </section>
 
+        <section className="card p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-text">公共设备隐私模式</h2>
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-muted">
+              {privacy.enabled ? "已开启" : "未开启"}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted">
+            {privacy.enabled
+              ? "当前已隐藏「我的」个人信息、通知设置与商家设置；退出需要输入支付密码。"
+              : "在教室、机房等公共电脑上使用时可开启，隐藏个人信息与设置；退出需要支付密码。"}
+          </p>
+          <div className="mt-3">
+            {privacy.enabled ? (
+              <ExitPrivacyButton label="退出隐私模式" className="btn btn-secondary btn-sm" />
+            ) : (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  enablePrivacyMode();
+                  toast.success("已开启隐私模式");
+                }}
+              >
+                开启隐私模式
+              </button>
+            )}
+          </div>
+        </section>
+
+        {privacy.enabled ? (
+          <section className="card p-4">
+            <h2 className="text-sm font-semibold text-text">隐私模式下已隐藏</h2>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted">
+              登录设备管理、邮件通知设置在这台公共设备上不展示。需要修改请先退出隐私模式。
+            </p>
+          </section>
+        ) : (
+          <>
         <section className="card p-0">
           <h2 className="px-4 pt-4 text-sm font-semibold text-text">账号安全</h2>
           <button
@@ -265,6 +307,8 @@ export function SettingsPage(): ReactNode {
             ))}
           </div>
         </section>
+          </>
+        )}
       </main>
     </div>
   );
