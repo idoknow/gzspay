@@ -339,10 +339,8 @@ CREATE TABLE IF NOT EXISTS bill_transactions (
 );
 CREATE INDEX IF NOT EXISTS idx_bill_transactions_import ON bill_transactions(import_id, status);
 CREATE INDEX IF NOT EXISTS idx_bill_transactions_merchant ON bill_transactions(merchant_id, status, amount_cents);
--- 同一商家同一渠道的交易单号唯一：防止同一份账单被重复导入/重放确认订单
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bill_transactions_trade
-  ON bill_transactions(merchant_id, provider, trade_no)
-  WHERE trade_no != '';
+-- 同一商家同一渠道的交易单号唯一索引在 migrate() 里创建：老库里可能存在重复流水，
+-- 需要先去重再建唯一索引，否则直接写在 schema.sql 会导致旧库启动失败。
 
 
 CREATE TABLE IF NOT EXISTS notification_settings (

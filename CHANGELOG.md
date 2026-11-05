@@ -54,6 +54,7 @@
 - 指定金额收款不再单独出二维码 / 链接：商家发起收款单后，付款人扫商家**原本的校园卡二维码**即可直接打开这笔收款单（`POST /api/scan/card` 返回 `pendingCollection`，并新增 `GET /api/collections/id/:id` 与 `POST /api/collections/id/:id/pay`）；付款页不进入商品/金额选择，直接展示金额、明细与商家备注，商家的备注要求会单独展示且需阅读 3 秒后才能输入支付密码；令牌链接 `/collect/:token` 保留兼容。
 
 ### 修复
+- 修复老库升级到本版本时启动失败：账单流水唯一索引改为先清理历史重复流水再创建，索引创建失败也不会挡住服务启动。
 - 安全加固（本地渗透测试后修复）：`POST /api/setup/config` 改为必须携带启动日志里打印的一次性「初始化令牌」（`X-Setup-Token`，通过 `POST /api/setup/token` 校验），未初始化期间不再允许任何人抢先写入校园墙配置；首次登录者也不再自动获得超级管理员，必须校验初始化令牌后才授权。
 - 安全加固：`TRUST_PROXY` 生产默认值改为 `false`（只有确实部署在 Nginx / 负载均衡后面时才设为 1），`requestIp()` 改用 `req.ip`，不再直接信任 `X-Forwarded-For` 首段；`X-Forwarded-For` 不再能伪造客户端 IP 绕过限流、地区限制或污染审计日志。
 - 安全加固：`csrfGuard` 在缺少 `Origin` / `Referer` 或收到 `Origin: null` 时直接拒绝；校园墙 OAuth 的 `state` 同时写入 HttpOnly Cookie 并在回调时比对，避免登录 CSRF 与会话固定。

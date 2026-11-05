@@ -50,6 +50,7 @@ export function migrate(): void {
   const schema = readFileSync(resolveSchemaPath(), "utf-8");
   db.exec(schema);
   applyLegacyMigrations();
+  ensureBillTradeUniqueness();
   const version = 4;
   const exists = db
     .prepare("SELECT version FROM schema_migrations WHERE version = ?")
@@ -59,6 +60,32 @@ export function migrate(): void {
       version,
       new Date().toISOString(),
     );
+  }
+}
+
+/**
+ * 账单流水唯一索引：老库里可能已经有重复的（商家 + 渠道 + 交易单号）流水，
+ * 直接建唯一索引会让旧库启动失败，所以先去重（保留最早一条）再建索引。
+ */
+function ensureBillTradeUniqueness(): void {
+  try {
+    db.exec(`
+      DELETE FROM bill_transactions
+      WHERE trade_no != ''
+        AND rowid NOT IN (
+          SELECT MIN(rowid) FROM bill_transactions
+          WHERE trade_no != ''
+          GROUP BY merchant_id, provider, trade_no
+        );
+    `);
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_bill_transactions_trade
+        ON bill_transactions(merchant_id, provider, trade_no)
+        WHERE trade_no != '';
+    `);
+  } catch (error) {
+    // 索引只用于防重放，建不成也不能挡住启动
+    console.warn("[gzspay] 账单流水唯一索引创建失败：", error instanceof Error ? error.message : error);
   }
 }
 
