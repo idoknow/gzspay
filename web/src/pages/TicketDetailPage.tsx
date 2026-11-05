@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { Dialog } from "../components/Dialog";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
@@ -77,7 +78,12 @@ function PartyRow({ party, self }: { party: TicketParty; self: boolean }): React
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 text-[13px] font-medium text-text">
           <span className="truncate">{party.displayName}</span>
-          <span className="chip px-1.5 py-0.5 text-[10px]">
+          <span
+            className={cn(
+              "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+              party.role === "merchant" ? "bg-brand-soft text-brand" : "bg-surface-2 text-muted",
+            )}
+          >
             {party.role === "merchant" ? "商家" : "付款人"}
           </span>
           {self ? <span className="text-[10px] text-muted">（我）</span> : null}
@@ -88,6 +94,47 @@ function PartyRow({ party, self }: { party: TicketParty; self: boolean }): React
         </p>
       </div>
     </div>
+  );
+}
+
+/** 双方信息摘要：只显示头像、姓名与身份，点开弹窗看完整资料 */
+function PartiesSummary({
+  parties,
+  role,
+  onOpen,
+}: {
+  parties: { payer: TicketParty; merchant: TicketParty };
+  role: "payer" | "merchant";
+  onOpen: () => void;
+}): ReactNode {
+  const rows: { party: TicketParty }[] = [{ party: parties.payer }, { party: parties.merchant }];
+  return (
+    <button
+      type="button"
+      className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center gap-3 rounded-xl border border-line/70 bg-surface px-3.5 py-3 text-left transition active:bg-surface-2"
+      onClick={onOpen}
+    >
+      <div className="flex shrink-0 items-center -space-x-2">
+        {rows.map(({ party }) => (
+          <span key={party.id} className="rounded-full ring-2 ring-surface">
+            <Avatar name={party.displayName} avatarUrl={party.avatarUrl} size={30} />
+          </span>
+        ))}
+      </div>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5 text-[13px] font-medium text-text">
+          <span className="truncate">{parties.payer.displayName}</span>
+          <span className="text-[11px] text-muted">与</span>
+          <span className="truncate">{parties.merchant.displayName}</span>
+        </span>
+        <span className="mt-0.5 block text-[11px] text-muted">
+          {role === "payer" ? "你是付款人" : "你是商家"} · 点开查看双方完整资料
+        </span>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-muted">
+        <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   );
 }
 
@@ -102,6 +149,7 @@ export function TicketDetailPage(): ReactNode {
   const [sending, setSending] = useState(false);
   const [closing, setClosing] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [partiesOpen, setPartiesOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const lastMarkedRef = useRef<string>("");
 
@@ -186,6 +234,7 @@ export function TicketDetailPage(): ReactNode {
   }
 
   const closed = data.status === "closed";
+  const conversation = data.messages.slice(1);
   const counterpart = maskPersonName(data.counterparty.displayName) || "对方";
 
   return (
@@ -223,15 +272,7 @@ export function TicketDetailPage(): ReactNode {
         </svg>
       </button>
 
-      <div className="mx-4 mt-3 rounded-xl border border-line/70 bg-surface px-3.5 py-3">
-        <p className="mb-2.5 text-[11px] font-medium text-muted">双方信息</p>
-        <div className="space-y-3">
-          <PartyRow party={data.parties.payer} self={data.role === "payer"} />
-          <div className="h-px bg-line/60" />
-          <PartyRow party={data.parties.merchant} self={data.role === "merchant"} />
-        </div>
-        <p className="mt-2.5 text-[10px] text-muted/80">双方资料仅对工单双方与平台客服可见。</p>
-      </div>
+      <PartiesSummary parties={data.parties} role={data.role} onOpen={() => setPartiesOpen(true)} />
 
       {closed ? (
         <p className="mx-4 mt-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted">
@@ -241,18 +282,19 @@ export function TicketDetailPage(): ReactNode {
       ) : null}
 
       <main className={cn("page flex-1 space-y-4 pt-4", closed ? "pb-10" : "pb-[132px]")}>
-        <div className="rounded-xl border border-line/70 bg-surface px-3.5 py-2.5 text-[12px] leading-relaxed text-muted">
-          <span className="font-medium text-text">问题描述：</span>
-          {data.messages[0]?.body ?? "—"}
+        <div className="rounded-2xl border border-brand/30 bg-brand-soft/70 px-4 py-3.5 shadow-[0_12px_26px_-20px_rgba(0,0,0,0.5)]">
+          <p className="text-[11px] font-medium text-brand">问题描述</p>
+          <p className="mt-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-text">
+            {data.messages[0]?.body ?? "—"}
+          </p>
         </div>
 
         <div className="space-y-3">
-          {data.messages.map((message, index) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              mine={message.senderRole === data.role && index > 0}
-            />
+          {conversation.length === 0 ? (
+            <p className="text-center text-[11.5px] text-muted">还没有新的消息，直接在下方回复对方吧。</p>
+          ) : null}
+          {conversation.map((message) => (
+            <MessageBubble key={message.id} message={message} mine={message.senderRole === data.role} />
           ))}
           <div ref={bottomRef} />
         </div>
@@ -298,6 +340,24 @@ export function TicketDetailPage(): ReactNode {
           </p>
         </div>
       )}
+
+      <Dialog
+        open={partiesOpen}
+        onClose={() => setPartiesOpen(false)}
+        title="双方信息"
+        description="仅工单双方与平台客服可见，请勿外传。"
+        footer={
+          <button type="button" className="btn btn-outline w-full" onClick={() => setPartiesOpen(false)}>
+            知道了
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          <PartyRow party={data.parties.payer} self={data.role === "payer"} />
+          <div className="h-px bg-line/60" />
+          <PartyRow party={data.parties.merchant} self={data.role === "merchant"} />
+        </div>
+      </Dialog>
 
       <ConfirmDialog
         open={closeOpen}

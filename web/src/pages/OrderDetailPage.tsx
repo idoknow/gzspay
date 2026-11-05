@@ -5,7 +5,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { ChannelIcon } from "../components/ChannelIcon";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { CountdownModal } from "../components/CountdownModal";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, PageLoading, Spinner } from "../components/Loading";
 import { MoneyText } from "../components/MoneyText";
@@ -778,16 +777,20 @@ export function OrderDetailPage(): ReactNode {
         </div>
       ) : null}
 
-      {/* 备注要求 3 秒倒计时 */}
-      <CountdownModal
+      {/* 商家备注要求：随时可以点「我已阅读」关闭，不再倒计时 */}
+      <Dialog
         open={requirementOpen}
-        title="商家备注要求"
-        seconds={3}
-        confirmText="我已阅读"
         onClose={closeRequirement}
+        title="商家备注要求"
+        description="付款时请按商家的要求填写备注，方便对方核对到账。"
+        footer={
+          <button type="button" className="btn btn-primary w-full" onClick={closeRequirement}>
+            我已阅读
+          </button>
+        }
       >
         <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-text">{order.noteRequirement}</p>
-      </CountdownModal>
+      </Dialog>
 
       {/* 我已支付 */}
       <Dialog
