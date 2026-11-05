@@ -6,6 +6,7 @@ import { Avatar } from "../components/Avatar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Dialog } from "../components/Dialog";
 import { EmptyState } from "../components/EmptyState";
+import { EyeIcon } from "../components/EyeIcon";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { useToast } from "../components/Toast";
@@ -169,23 +170,24 @@ function PartiesLocked({
   const pending = reveal.status === "pending";
   const rejected = reveal.status === "rejected";
   return (
-    <div className="mx-4 mt-3 rounded-xl border border-line/70 bg-surface px-3.5 py-3">
-      <p className="flex items-center gap-1.5 text-[13px] font-medium text-text">
-        <span aria-hidden="true">🔒</span>
-        双方资料未披露
-      </p>
-      <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
-        为了保护隐私，双方的学号、QQ 与邮箱默认互相隐藏。需要核对对方身份时，可以向平台申请披露，平台审核通过后双方才会看到。
+    <div className="mx-4 mt-3 rounded-2xl border border-line/70 bg-surface px-4 py-3.5">
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-2 text-muted">
+          <EyeIcon off size={14} />
+        </span>
+        <p className="text-[13px] font-medium text-text">双方资料未披露</p>
+      </div>
+      <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
+        姓名、学号、QQ 与邮箱默认隐藏，需要核对身份时可向平台申请，审核通过后双方可见。
       </p>
       {pending ? (
-        <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-1.5 text-[11.5px] leading-relaxed text-muted">
-          资料披露申请已提交{reveal.requestedByMe ? "（由你发起）" : ""}
-          {reveal.requestedAt ? ` · ${formatDateTime(reveal.requestedAt)}` : ""}，等待平台审核。
+        <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
+          {reveal.requestedByMe ? "你已提交申请" : "对方已提交申请"}，等待平台审核。
         </p>
       ) : null}
       {rejected ? (
-        <p className="mt-2 rounded-lg bg-surface-2 px-2.5 py-1.5 text-[11.5px] leading-relaxed text-muted">
-          平台未批准上次申请{reveal.note ? `：${reveal.note}` : ""}，可以和对方说明情况后重新申请。
+        <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
+          平台未通过{reveal.note ? `：${reveal.note}` : ""}
         </p>
       ) : null}
       <button
@@ -194,11 +196,9 @@ function PartiesLocked({
         disabled={pending || closed || busy}
         onClick={onRequest}
       >
-        {busy ? "提交中…" : pending ? "等待平台审核" : rejected ? "重新申请披露" : "向平台申请披露双方资料"}
+        {busy ? "提交中…" : pending ? "等待平台审核" : rejected ? "重新申请" : "申请披露双方资料"}
       </button>
-      {closed ? (
-        <p className="mt-1.5 text-[11px] text-muted">工单已结束，不能再申请披露资料。</p>
-      ) : null}
+      {closed ? <p className="mt-1.5 text-[11px] text-muted">工单已结束，不能再申请。</p> : null}
     </div>
   );
 }

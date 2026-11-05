@@ -128,6 +128,14 @@ export function maskCardNo(value: string | null | undefined): string {
   return `****${tail}`;
 }
 
+/** 姓名脱敏：保留姓氏首字，其余用 ** 代替（如「陈**」） */
+export function maskPersonName(value: string | null | undefined): string {
+  const text = (value ?? "").trim();
+  if (!text) return "";
+  const head = Array.from(text)[0] ?? "";
+  return `${head}**`;
+}
+
 /** 姓名展示：姓 + 名 */
 export function displayFullName(
   surname: string | null | undefined,

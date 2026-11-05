@@ -1,7 +1,7 @@
 import { execute, nowIso, queryAll, queryOne, transaction } from "../db/index.js";
 import { writeAudit } from "../lib/audit.js";
 import { avatarPathOf } from "../lib/avatar.js";
-import { newId } from "../lib/crypto.js";
+import { maskPersonName, newId } from "../lib/crypto.js";
 import { errors } from "../lib/errors.js";
 import type {
   OrderRow,
@@ -177,9 +177,20 @@ function senderRole(
   return message.sender_id === order.payer_id ? "payer" : "merchant";
 }
 
-function toMessageDto(message: TicketMessageRow, order: OrderRow): TicketMessageDto {
+function toMessageDto(
+  message: TicketMessageRow,
+  order: OrderRow,
+  options: { maskNames?: boolean } = {},
+): TicketMessageDto {
   const sender = findUserById(message.sender_id);
   const role = senderRole(message, order);
+  // 资料未披露时，对话里对方的姓名也要打码（批准后才显示完整姓名）
+  const rawName =
+    sender
+      ? displayNameOf(sender)
+      : role === "payer"
+        ? order.payer_name_snapshot
+        : order.merchant_name_snapshot;
   return {
     id: message.id,
     ticketId: message.ticket_id,
@@ -190,11 +201,9 @@ function toMessageDto(message: TicketMessageRow, order: OrderRow): TicketMessage
         ? "平台客服"
         : role === "system"
           ? "系统提示"
-          : sender
-            ? displayNameOf(sender)
-            : role === "payer"
-              ? order.payer_name_snapshot
-              : order.merchant_name_snapshot,
+          : options.maskNames
+            ? maskPersonName(rawName)
+            : rawName,
     // 平台介入与系统提示的消息不带头像，前端展示站点 logo / 居中文字
     senderAvatarUrl:
       role === "admin" || role === "system" ? null : sender ? avatarPathOf(sender) : null,
@@ -294,6 +303,7 @@ function lastMessageOf(ticket: TicketRow, order: OrderRow): TicketSummaryDto["la
 
 function toSummary(ticket: TicketRow, order: OrderRow, user: UserRow): TicketSummaryDto {
   const counterparty = counterpartyOf(order, user.id);
+  const counterpartyUser = publicUserOf(counterparty);
   return {
     id: ticket.id,
     orderId: order.id,
@@ -304,7 +314,11 @@ function toSummary(ticket: TicketRow, order: OrderRow, user: UserRow): TicketSum
     categoryLabel: TICKET_CATEGORY_LABELS[ticket.category] ?? "其他问题",
     status: ticket.status,
     openedByMe: ticket.opened_by === user.id,
-    counterparty: publicUserOf(counterparty),
+    // 资料未披露时对方姓名也打码（列表卡片与详情顶部都用这个字段）
+    counterparty:
+      ticket.parties_reveal_status === "approved"
+        ? counterpartyUser
+        : { ...counterpartyUser, displayName: maskPersonName(counterpartyUser.displayName) },
     createdAt: ticket.created_at,
     lastMessageAt: ticket.last_message_at,
     messageCount: ticket.message_count,
@@ -444,7 +458,10 @@ export function getTicket(ticketId: string, user: UserRow): TicketDto {
     role: roleOf(order, user.id),
     parties: partiesForViewer(ticket, order),
     partiesReveal: revealOf(ticket, user.id),
-    messages: messages.map((message) => toMessageDto(message, order)),
+    // 资料未披露时对话里的姓名一律打码（批准后才显示完整姓名）
+    messages: messages.map((message) =>
+      toMessageDto(message, order, { maskNames: ticket.parties_reveal_status !== "approved" }),
+    ),
     closedAt: ticket.closed_at,
     closedReason: ticket.closed_reason,
     resolutionNote: ticket.resolution_note,
@@ -835,8 +852,8 @@ export function reviewPartiesReveal(
   const approved = decision === "approve";
   const now = nowIso();
   const systemBody = approved
-    ? `平台已批准资料披露申请，双方完整资料（姓名、学号、QQ、邮箱）现已可见。${trimmed ? `平台说明：${trimmed}` : ""}`
-    : `平台未批准这次资料披露申请${trimmed ? `：${trimmed}` : ""}。`;
+    ? `平台已批准资料披露${trimmed ? `：${trimmed}` : ""}，双方资料现已可见。`
+    : `平台未批准资料披露${trimmed ? `：${trimmed}` : ""}。`;
   transaction(() => {
     execute(
       `UPDATE tickets SET parties_reveal_status = ?, parties_reveal_note = ?,

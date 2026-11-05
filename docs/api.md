@@ -527,7 +527,7 @@ interface TicketSummary {
   categoryLabel: string;
   status: "open" | "closed";
   openedByMe: boolean;
-  counterparty: PublicUser;        // 订单里的另一方，姓名由前端脱敏展示
+  counterparty: PublicUser;        // 订单里的另一方；资料未披露时 displayName 打码（如「陈**」）
   createdAt: string;
   lastMessageAt: string;
   messageCount: number;
@@ -568,7 +568,9 @@ interface TicketDetail extends TicketSummary {
     // 按发送入口判定：用户端发的算本人，后台「回复」发的算平台客服；
     // system 是平台审批披露申请后自动写入的系统提示（居中展示，不可回复）
     senderRole: "payer" | "merchant" | "admin" | "system";
-    senderName: string;            // 平台介入固定「平台客服」，系统提示固定「系统提示」
+    // 平台介入固定「平台客服」，系统提示固定「系统提示」；
+    // 资料未披露时双方姓名打码（如「陈**」），批准披露后才返回完整姓名
+    senderName: string;
     senderAvatarUrl: string | null; // 平台介入与系统提示为 null（前端用站点 logo）
     body: string;
     createdAt: string;

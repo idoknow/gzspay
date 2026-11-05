@@ -274,6 +274,9 @@ describe("交易工单", () => {
     expect(hidden.body.partiesReveal.status).toBe("hidden");
     expect(JSON.stringify(hidden.body)).not.toContain("20239102");
     expect(JSON.stringify(hidden.body)).not.toContain("20239101");
+    // 对话里的姓名同样打码，对方姓名也打码
+    expect(hidden.body.messages[0].senderName).toMatch(/\*{2}$/);
+    expect(hidden.body.counterparty.displayName).toMatch(/\*{2}$/);
 
     // 非参与方不能申请，也看不到工单
     const outsiderTry = await outsiderApi.post(`/api/tickets/${ticketId}/reveal`);
@@ -325,6 +328,9 @@ describe("交易工单", () => {
     expect(payerView.body.parties.merchant.studentNo).toBe("20239101");
     expect(payerView.body.parties.merchant.qq).toBeTruthy();
     expect(payerView.body.messages.at(-1).senderRole).toBe("system");
+    // 批准后姓名不再打码
+    expect(payerView.body.messages[0].senderName).not.toContain("*");
+    expect(payerView.body.counterparty.displayName).not.toContain("*");
     // 列表预览不展示系统提示
     const summary = (await payerApi.get("/api/tickets").expect(200)).body.items.find(
       (item: { id: string }) => item.id === ticketId,
