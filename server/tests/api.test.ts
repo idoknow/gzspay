@@ -722,6 +722,14 @@ describe("商家与订单", () => {
     expect(qr.headers["content-type"]).toContain("image/png");
   });
 
+  it("商家可以查看自己已上传的收款码，未上传的渠道与普通用户返回错误", async () => {
+    const own = await agentWith(merchantSession).get("/api/merchant/channels/alipay/qr").expect(200);
+    expect(own.headers["content-type"]).toContain("image/png");
+    expect(Buffer.from(own.body as Buffer).subarray(0, 4).toString("hex")).toBe("89504e47");
+    await agentWith(merchantSession).get("/api/merchant/channels/wechat/qr").expect(404);
+    await agentWith(payerSession).get("/api/merchant/channels/alipay/qr").expect(403);
+  });
+
   it("商家可以维护商品列表", async () => {
     const created = await agentWith(merchantSession)
       .post("/api/merchant/products")

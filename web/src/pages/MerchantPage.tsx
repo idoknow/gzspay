@@ -9,9 +9,16 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { PaymentPasswordDialog } from "../components/PaymentPasswordDialog";
+import { QrImage, useBlobUrl } from "../components/QrImage";
 import { Toggle } from "../components/Toggle";
 import { useToast } from "../components/Toast";
-import { getMerchant, setMerchantChannelEnabled, updateMerchant, uploadMerchantChannelQr } from "../lib/api";
+import {
+  getMerchant,
+  getMerchantChannelQrBlob,
+  setMerchantChannelEnabled,
+  updateMerchant,
+  uploadMerchantChannelQr,
+} from "../lib/api";
 import { cn } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { useAsync, useWatchLayout } from "../lib/hooks";
@@ -34,6 +41,7 @@ export function MerchantPage(): ReactNode {
   const { data, loading, error, reload } = useAsync(() => getMerchant(), []);
   const [busyChannel, setBusyChannel] = useState<PayChannel | null>(null);
   const [qrEdit, setQrEdit] = useState<QrEditState | null>(null);
+  const [qrView, setQrView] = useState<PayChannel | null>(null);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
@@ -50,6 +58,8 @@ export function MerchantPage(): ReactNode {
   }, [qrEdit?.previewUrl]);
 
   const enabledCount = merchant?.channels.filter((item) => item.enabled).length ?? 0;
+  const qrViewLabel = qrView ? (merchant?.channels.find((item) => item.channel === qrView)?.label ?? "") : "";
+  const qrViewBlob = useBlobUrl(qrView ? () => getMerchantChannelQrBlob(qrView) : null, [qrView ?? ""]);
 
   const openProfile = (): void => {
     if (!merchant) return;
@@ -305,13 +315,22 @@ export function MerchantPage(): ReactNode {
                       </span>
                     </div>
                     {item.hasQr ? (
-                      <button
-                        type="button"
-                        onClick={() => openQrEdit(item.channel)}
-                        className="mt-0.5 text-[11px] font-medium text-brand transition active:opacity-70"
-                      >
-                        更换收款码
-                      </button>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                        <button
+                          type="button"
+                          onClick={() => setQrView(item.channel)}
+                          className="text-[11px] font-medium text-brand transition active:opacity-70"
+                        >
+                          查看收款码
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openQrEdit(item.channel)}
+                          className="text-[11px] font-medium text-muted transition active:opacity-70"
+                        >
+                          更换收款码
+                        </button>
+                      </div>
                     ) : (
                       <button
                         type="button"
@@ -404,6 +423,51 @@ export function MerchantPage(): ReactNode {
             />
             <p className="mt-1 text-[11px] text-muted">付款人下单时会看到并按要求填写备注。</p>
           </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={qrView !== null}
+        onClose={() => setQrView(null)}
+        title={qrViewLabel ? `${qrViewLabel}收款码` : "收款码"}
+        description="付款人扫码时看到的就是这张码，可以保存到本地张贴或发给对方。"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setQrView(null)}>
+              关闭
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                const channel = qrView;
+                setQrView(null);
+                if (channel) openQrEdit(channel);
+              }}
+            >
+              更换收款码
+            </button>
+          </>
+        }
+      >
+        <div className="flex flex-col items-center gap-2.5">
+          {qrViewBlob.error ? (
+            <div className="rounded-2xl bg-surface-2 px-4 py-6 text-center text-[12px] text-muted">
+              <p>{qrViewBlob.error}</p>
+              <button
+                type="button"
+                onClick={qrViewBlob.reload}
+                className="mt-2 text-[12px] font-medium text-brand transition active:opacity-70"
+              >
+                重新加载
+              </button>
+            </div>
+          ) : (
+            <QrImage dataUrl={qrViewBlob.url} size={220} alt={`${qrViewLabel}收款码`} />
+          )}
+          <p className="text-[11px] leading-relaxed text-muted">
+            二维码由上传时识别出的收款码内容生成，扫码效果与上传的图片一致。
+          </p>
         </div>
       </Dialog>
 
