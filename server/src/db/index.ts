@@ -169,6 +169,13 @@ function applyLegacyMigrations(): void {
   if (!ticketColumns.some((column) => column.name === "parties_revealed_by")) {
     db.exec("ALTER TABLE tickets ADD COLUMN parties_revealed_by TEXT REFERENCES users(id);");
   }
+
+  const channelColumns = db
+    .prepare("PRAGMA table_info(merchant_channels)")
+    .all() as { name: string }[];
+  if (!channelColumns.some((column) => column.name === "pay_uid")) {
+    db.exec("ALTER TABLE merchant_channels ADD COLUMN pay_uid TEXT NOT NULL DEFAULT '';");
+  }
 }
 
 function normalizeParams(params: unknown[]): SQLInputValue[] {

@@ -117,7 +117,14 @@ gzspay 不接触资金（付款仍走支付宝 / 微信 / QQ 的收款码），�
 - **隐私边界**：`traffic_counters` 表只保存 `(day, kind, name, count)` 聚合计数，**不保存 IP、User-Agent、请求参数或任何可识别个人的信息**；数据保留 400 天，由定时清理任务删除过期记录。
 - 统计只通过 `GET /api/admin/traffic` 提供，仅管理员可读；前台页面、公开接口均无任何统计入口。
 
-## 12. 上线检查清单
+## 12. 支付宝「一键付款」的安全边界
+
+- 唤起链接（`alipays://platformapi/startapp…`）由服务端用商家后台配置的收款 PID 拼接，前端拿不到 PID，只能拿到自己订单的整段链接（`GET /api/orders/:id/alipay-prefill`）：必须登录、必须是**该订单的付款人**、订单必须是待付款、商家必须已启用支付宝且填过 PID；每分钟 20 次，响应 `Cache-Control: private, no-store`。
+- 收款 PID 只能由 `super` / `ops` 在后台填写或清空（`POST /api/admin/merchants/:userId/channels/:channel/pay-uid`），格式限定 `2088` 开头的 13～21 位数字，审计 detail 里 PID 打码；商家自己看不到也改不了，`auditor` 调用返回 403。
+- 备注由服务端生成（固定订单号，去控制字符并按码点截断 32 字），不接受前端传入，避免把任意内容拼进 scheme 参数。
+- **深度链接不是到账凭据**：唤起成功只代表打开了付款页，接口不返回任何支付结果；订单完成仍依赖商家核对到账或账单自动对账（备注＝订单号时命中），因此不构成「用链接伪造已付款」的路径。
+
+## 13. 上线检查清单
 
 1. `SESSION_SECRET` 用 `openssl rand -hex 32` 生成，至少 32 字符。
 2. `APP_BASE_URL`、`PUBLIC_BASE_URL` 都是 `https://`；没有证书的内网部署才设置 `ALLOW_INSECURE_BASE_URL=1`。

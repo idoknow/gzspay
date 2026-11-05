@@ -175,6 +175,8 @@ export interface AdminMerchantChannel {
   label: string;
   enabled: boolean;
   hasQr: boolean;
+  /** 支付宝收款 PID（2088 开头），后台可填、可改、可清空；其它渠道恒为空 */
+  alipayPid: string;
   updatedAt: string | null;
 }
 

@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS merchant_channels (
   channel TEXT NOT NULL,                      -- alipay|wechat|qq
   qr_content TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 1,
+  pay_uid TEXT NOT NULL DEFAULT '',           -- 支付宝收款 PID（2088 开头），用于生成「预填金额与备注」的唤起链接；仅后台可写
   updated_at TEXT NOT NULL,
   PRIMARY KEY (merchant_id, channel)
 );

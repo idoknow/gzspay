@@ -181,6 +181,8 @@ export interface MerchantChannel {
   label: string;
   enabled: boolean;
   hasQr: boolean;
+  /** 支付宝渠道是否已由平台填好收款 PID（可一键预填金额与备注） */
+  alipayPrefill?: boolean;
   updatedAt?: string;
 }
 
@@ -257,6 +259,17 @@ export interface Order {
   hasPaymentProof: boolean;
   /** 付款截图地址（仅订单双方可读），没有截图时为 null */
   paymentProofUrl: string | null;
+  /** 商家是否支持「支付宝一键付款」（后台填过收款 PID 且支付宝收款已启用） */
+  alipayPrefillEnabled?: boolean;
+}
+
+/** GET /api/orders/:id/alipay-prefill：金额与备注已由服务端填好的支付宝唤起链接 */
+export interface AlipayPrefill {
+  scheme: string;
+  /** 同一链接的二维码内容（电脑上扫码用） */
+  qrPayload: string;
+  amountCents: number;
+  memo: string;
 }
 
 /** 订单详情：在列表字段基础上附带商家已启用的收款方式 */

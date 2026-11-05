@@ -10,6 +10,7 @@ import {
   CHANNEL_LABELS,
   CHANNELS,
   type Channel,
+  type MerchantChannelRow,
   type MerchantRow,
   type OrderEventRow,
   type OrderRow,
@@ -19,7 +20,9 @@ import {
   type UserRow,
 } from "../lib/types.js";
 import { pushToUser } from "./events.js";
+import { buildAlipayPrefill } from "../lib/alipay-scheme.js";
 import {
+  alipayPrefillAvailable,
   channelQrContent,
   enabledChannels,
   merchantNameOf,
@@ -75,6 +78,8 @@ export interface OrderDto {
   hasPaymentProof: boolean;
   /** 付款截图读取地址（仅订单双方可用），没有截图时为 null */
   paymentProofUrl: string | null;
+  /** 商家是否支持「支付宝一键付款」（后台填过 PID 且支付宝收款已启用） */
+  alipayPrefillEnabled: boolean;
 }
 
 export interface OrderSummaryDto {
@@ -174,6 +179,7 @@ export function toOrderDto(order: OrderRow, viewerId: string): OrderDto {
     createdBy: order.created_by,
     hasPaymentProof: Boolean(order.payment_proof),
     paymentProofUrl: order.payment_proof ? `/api/orders/${order.id}/payment-proof` : null,
+    alipayPrefillEnabled: alipayPrefillAvailable(order.merchant_id),
   };
 }
 
@@ -1185,6 +1191,33 @@ export function orderQrContentForUser(
   if (order.status === "cancelled") throw errors.orderStatusInvalid("订单已取消，无需付款");
   if (!CHANNELS.includes(channel as Channel)) throw errors.validation("支付方式不正确");
   return channelQrContent(order.merchant_id, channel as Channel);
+}
+
+export interface OrderAlipayPrefillDto {
+  scheme: string;
+  qrPayload: string;
+  amountCents: number;
+  memo: string;
+}
+
+/**
+ * 付款人的「支付宝一键付款」数据：金额与备注（订单号）由服务端拼好。
+ * 只在待付款订单、商家支付宝收款方式已启用且后台填过 PID 时可用；
+ * 这是免签约的深度链接，只能省掉手输，不能证明到账。
+ */
+export function orderAlipayPrefill(orderId: string, user: UserRow): OrderAlipayPrefillDto {
+  const order = requireOrderForUser(orderId, user);
+  if (order.payer_id !== user.id) throw errors.forbidden("只有付款人可以发起付款");
+  if (order.status !== "pending_payment") throw errors.orderStatusInvalid("订单当前状态不需要付款");
+  const row = queryOne<MerchantChannelRow>(
+    "SELECT * FROM merchant_channels WHERE merchant_id = ? AND channel = 'alipay'",
+    order.merchant_id,
+  );
+  if (!row || !row.qr_content || row.enabled !== 1) {
+    throw errors.validation("商家当前没有开启支付宝收款");
+  }
+  if (!row.pay_uid) throw errors.validation("商家还没有开通支付宝快捷付款");
+  return buildAlipayPrefill({ pid: row.pay_uid, amountCents: order.amount_cents, memo: order.order_no });
 }
 
 /** 账单对账命中：直接标记为已完成（无需付款截图），返回 null 表示订单状态已变化 */

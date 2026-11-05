@@ -952,6 +952,7 @@ function mapMerchantChannel(raw: unknown): AdminMerchantChannel {
     ),
     enabled: firstBoolean(source, ["enabled", "active"]) ?? false,
     hasQr: firstBoolean(source, ["hasQr", "hasQR", "qrReady"]) ?? false,
+    alipayPid: textOr(firstText(source, ["alipayPid", "payUid"]), ""),
     updatedAt: isoOrNull(firstText(source, ["updatedAt"])),
   };
 }
@@ -1061,6 +1062,20 @@ export async function setMerchantChannel(
     "POST",
     `/admin/merchants/${encodeURIComponent(userId)}/channels`,
     { channel, enabled },
+  );
+  return mapMerchantDetail(payload);
+}
+
+/** POST /admin/merchants/:userId/channels/:channel/pay-uid —— 设置/清空支付宝收款 PID */
+export async function setMerchantPayUid(
+  userId: string,
+  channel: "alipay",
+  payUid: string,
+): Promise<MerchantDetailPayload> {
+  const payload = await writeJson<unknown>(
+    "POST",
+    `/admin/merchants/${encodeURIComponent(userId)}/channels/${channel}/pay-uid`,
+    { payUid },
   );
   return mapMerchantDetail(payload);
 }

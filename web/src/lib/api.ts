@@ -4,6 +4,7 @@ import { api, openEventStream, ApiError } from "./http";
 import { PAY_CHANNEL_LABELS } from "./types";
 import type {
   AboutResponse,
+  AlipayPrefill,
   AnnouncementReadResponse,
   AnnouncementsResponse,
   CardQrResponse,
@@ -461,6 +462,16 @@ export async function uploadPaymentProof(id: string, file: File): Promise<OrderD
 /** 读取付款截图（仅订单双方），用于展示与核对 */
 export function getPaymentProofBlob(id: string): Promise<Blob> {
   return api.blob(`/orders/${encodeURIComponent(id)}/payment-proof`);
+}
+
+/** 支付宝一键付款：金额与备注已填好的唤起链接（仅付款人、待付款订单可用） */
+export function getAlipayPrefill(id: string): Promise<AlipayPrefill> {
+  return api.get<AlipayPrefill>(`/orders/${encodeURIComponent(id)}/alipay-prefill`);
+}
+
+/** 支付宝一键付款的二维码图片（电脑上扫码用） */
+export function getAlipayPrefillQrBlob(id: string): Promise<Blob> {
+  return api.blob(`/orders/${encodeURIComponent(id)}/alipay-prefill/qr`);
 }
 
 export function confirmOrder(id: string): Promise<Order> {

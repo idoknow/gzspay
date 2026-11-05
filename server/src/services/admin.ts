@@ -3,6 +3,7 @@ import path from "node:path";
 import { config, isCampuxConfigured } from "../config.js";
 import { db, execute, nowIso, queryAll, queryOne, setConfigValue } from "../db/index.js";
 import { alertStatus } from "../lib/alerts.js";
+import { isValidAlipayPid } from "../lib/alipay-scheme.js";
 import { avatarPathOf } from "../lib/avatar.js";
 import { writeAudit, writeMailOutbox, writeSystemError, toCsv } from "../lib/audit.js";
 import {
@@ -593,6 +594,8 @@ export interface AdminMerchantChannelDto {
   label: string;
   enabled: boolean;
   hasQr: boolean;
+  /** 支付宝收款 PID（2088 开头，仅支付宝渠道可能有值）；后台可填、可改、可清空 */
+  alipayPid: string;
   updatedAt: string | null;
 }
 
@@ -656,6 +659,7 @@ function merchantChannelsOf(merchantUserId: string): AdminMerchantChannelDto[] {
       label: CHANNEL_LABELS[channel],
       enabled: row?.enabled === 1,
       hasQr: Boolean(row?.qr_content),
+      alipayPid: row?.pay_uid ?? "",
       updatedAt: row?.updated_at ?? null,
     };
   });
@@ -817,6 +821,50 @@ export function setMerchantChannelEnabled(
   });
   return adminMerchantDetail(merchantUserId);
 }
+
+/**
+ * 后台设置商家的支付宝收款 PID（2088 开头）。
+ * 填了之后该商家的支付宝收款方式会带「一键预填金额与备注」的唤起链接；传空字符串表示清除。
+ */
+export function setMerchantChannelPayUid(
+  actorId: string,
+  merchantUserId: string,
+  channel: string,
+  payUid: string,
+  ip: string,
+) {
+  requireMerchantRow(merchantUserId);
+  if (channel !== "alipay") {
+    throw errors.validation("只有支付宝支持预填金额与备注");
+  }
+  const trimmed = payUid.trim();
+  if (trimmed && !isValidAlipayPid(trimmed)) {
+    throw errors.validation("支付宝 PID 应为 2088 开头的 13～21 位数字");
+  }
+  const row = queryOne<MerchantChannelRow>(
+    "SELECT * FROM merchant_channels WHERE merchant_id = ? AND channel = ?",
+    merchantUserId,
+    "alipay",
+  );
+  if (!row) throw errors.notFound("该商家尚未配置支付宝收款方式");
+  execute(
+    "UPDATE merchant_channels SET pay_uid = ?, updated_at = ? WHERE merchant_id = ? AND channel = 'alipay'",
+    trimmed,
+    nowIso(),
+    merchantUserId,
+  );
+  writeAudit({
+    actorId,
+    actorRole: "admin",
+    action: "admin.merchant.alipay_pid_updated",
+    targetType: "merchant",
+    targetId: merchantUserId,
+    detail: trimmed ? `支付宝 PID 已更新（${trimmed.slice(0, 4)}****${trimmed.slice(-4)}）` : "已清除支付宝 PID",
+    ip,
+  });
+  return adminMerchantDetail(merchantUserId);
+}
+
 
 /**
  * 后台暂停 / 恢复商家收款。

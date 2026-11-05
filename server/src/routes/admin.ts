@@ -45,6 +45,7 @@ import {
   resetUserCard,
   saveAdminConfig,
   setMerchantChannelEnabled,
+  setMerchantChannelPayUid,
   setMerchantReceiving,
   setUserFrozen,
   type AdminLogType,
@@ -280,6 +281,26 @@ adminRouter.post(
         req.admin!.user.id,
         String(req.params.userId),
         body.enabled,
+        requestIp(req),
+      ),
+    );
+  }),
+);
+
+adminRouter.post(
+  "/merchants/:userId/channels/:channel/pay-uid",
+  requireAdmin(["super", "ops"]),
+  asyncHandler((req, res) => {
+    const body = parse(
+      z.object({ payUid: z.string().trim().max(32) }),
+      req.body,
+    );
+    res.json(
+      setMerchantChannelPayUid(
+        req.admin!.user.id,
+        String(req.params.userId),
+        String(req.params.channel),
+        body.payUid,
         requestIp(req),
       ),
     );

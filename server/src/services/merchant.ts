@@ -21,6 +21,8 @@ export interface MerchantChannelDto {
   label: string;
   enabled: boolean;
   hasQr: boolean;
+  /** 是否已配置支付宝 PID（后台填写），配置后付款人可以一键预填金额与备注 */
+  alipayPrefill: boolean;
   updatedAt: string | null;
 }
 
@@ -65,6 +67,7 @@ export function merchantDtoOf(merchant: MerchantRow): MerchantDto {
         label: CHANNEL_LABELS[channel],
         enabled: row?.enabled === 1,
         hasQr: Boolean(row?.qr_content),
+        alipayPrefill: channel === "alipay" && Boolean(row?.pay_uid),
         updatedAt: row?.updated_at ?? null,
       };
     }),
@@ -86,6 +89,15 @@ export function enabledChannels(merchantUserId: string): Channel[] {
   );
   // 保持固定顺序：支付宝、微信、QQ
   return CHANNELS.filter((channel) => rows.some((row) => row.channel === channel));
+}
+
+/** 商家的支付宝收款方式是否支持「一键预填金额与备注」（启用 + 有收款码 + 后台填了 PID）。 */
+export function alipayPrefillAvailable(merchantUserId: string): boolean {
+  const row = queryOne<MerchantChannelRow>(
+    "SELECT * FROM merchant_channels WHERE merchant_id = ? AND channel = 'alipay'",
+    merchantUserId,
+  );
+  return Boolean(row && row.enabled === 1 && row.qr_content && row.pay_uid);
 }
 
 export function channelQrContent(merchantUserId: string, channel: Channel): string {

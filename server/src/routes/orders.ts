@@ -21,6 +21,7 @@ import {
   listOrdersForExport,
   markOrderNotReceived,
   markOrderPaid,
+  orderAlipayPrefill,
   orderQrContentForUser,
   paymentProofForUser,
   readIdempotentResponse,
@@ -334,6 +335,42 @@ ordersRouter.get(
     const content = orderQrContentForUser(String(req.params.id), req.auth!.user, channel);
     const png = await generateQrPngBuffer(content);
     res.type("png").send(png);
+  }),
+);
+
+ordersRouter.get(
+  "/:id/alipay-prefill",
+  rateLimit({
+    scope: "orders.alipay_prefill",
+    limit: 20,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "打开支付宝太频繁了，请稍后再试",
+  }),
+  asyncHandler((req, res) => {
+    const prefill = orderAlipayPrefill(String(req.params.id), req.auth!.user);
+    // 链接里带金额与备注：不做缓存，避免留在共享代理里
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json(prefill);
+  }),
+);
+
+ordersRouter.get(
+  "/:id/alipay-prefill/qr",
+  rateLimit({
+    scope: "orders.alipay_prefill_qr",
+    limit: 20,
+    windowSeconds: 60,
+    keyBy: userKey,
+    message: "打开支付宝太频繁了，请稍后再试",
+  }),
+  asyncHandler(async (req, res) => {
+    const prefill = orderAlipayPrefill(String(req.params.id), req.auth!.user);
+    const png = await generateQrPngBuffer(prefill.qrPayload);
+    res.type("png");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(png);
   }),
 );
 

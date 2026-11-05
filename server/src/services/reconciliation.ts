@@ -134,7 +134,8 @@ function notesMatch(orderNote: string, billNote: string): boolean {
 }
 
 function orderNotesOf(order: OrderRow): string[] {
-  return [order.actual_note, order.reserved_note]
+  // 订单号也参与匹配：付款时用「支付宝一键付款」会把订单号预填进备注，账单里直接能对上
+  return [order.actual_note, order.reserved_note, order.order_no]
     .map((note) => (note ?? "").trim())
     .filter((note) => note.length > 0);
 }

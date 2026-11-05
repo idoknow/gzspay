@@ -1,5 +1,6 @@
 /**
- * 商家管理：查看商家概况、收款方式与商品，支持停用/启用收款方式、暂停/恢复商家收款。
+ * 商家管理：查看商家概况、收款方式与商品，支持停用/启用收款方式、暂停/恢复商家收款，
+ * 以及给支付宝收款方式填写收款 PID（填好后付款人可一键预填金额与备注）。
  */
 import { useEffect, useState } from "react";
 import {
@@ -7,6 +8,7 @@ import {
   getMerchants,
   getMerchantSummary,
   setMerchantChannel,
+  setMerchantPayUid,
   setMerchantReceiving,
 } from "../api";
 import { ChannelIcon } from "../../components/ChannelIcon";
@@ -413,6 +415,36 @@ function MerchantDetailDrawer({
     }
   };
 
+  const editPayUid = async (channel: AdminMerchantChannel) => {
+    const value = await feedback.prompt({
+      title: channel.alipayPid ? "修改支付宝收款 PID" : "设置支付宝收款 PID",
+      description:
+        "填好商家自己的支付宝 PID（2088 开头）后，付款人可以在订单里一键打开支付宝，金额和备注自动填好。留空保存表示关闭该功能。",
+      label: "支付宝 PID",
+      placeholder: "2088xxxxxxxxxxxx",
+      hint: "PID 是商家支付宝账号的唯一标识，在支付宝商家后台可以查到；这里只保存数字，不会展示给付款人。",
+      initialValue: channel.alipayPid,
+      confirmText: "保存",
+    });
+    if (value === null) return;
+    const trimmed = value.trim();
+    if (trimmed && !/^2088\d{12,20}$/.test(trimmed)) {
+      feedback.error("支付宝 PID 应为 2088 开头的 13～21 位数字");
+      return;
+    }
+    setBusyChannel(channel.channel);
+    try {
+      const next = await setMerchantPayUid(userId, "alipay", trimmed);
+      setDetail(next);
+      feedback.success(trimmed ? "已保存支付宝 PID" : "已清除支付宝 PID");
+      onChanged();
+    } catch (caught) {
+      feedback.error(errorMessage(caught));
+    } finally {
+      setBusyChannel(null);
+    }
+  };
+
   const toggleReceiving = async (target: AdminMerchant) => {
     const enabling = target.suspended;
     const confirmed = await feedback.confirm({
@@ -592,6 +624,13 @@ function MerchantDetailDrawer({
                         ? ` · 更新于 ${formatDateTime(channel.updatedAt)}`
                         : ""}
                     </div>
+                    {channel.channel === "alipay" ? (
+                      <div className="admin-cell-sub admin-text-xs">
+                        {channel.alipayPid
+                          ? `一键付款 PID：${channel.alipayPid}`
+                          : "一键付款未开通（未填 PID）"}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="admin-channel-row-actions">
@@ -600,6 +639,16 @@ function MerchantDetailDrawer({
                   ) : (
                     <Badge tone="neutral">已停用</Badge>
                   )}
+                  {channel.channel === "alipay" ? (
+                    <Button
+                      variant="subtle"
+                      size="sm"
+                      disabled={!canWrite || busyChannel !== null}
+                      onClick={() => void editPayUid(channel)}
+                    >
+                      {channel.alipayPid ? "修改 PID" : "设置 PID"}
+                    </Button>
+                  ) : null}
                   <Button
                     variant={channel.enabled ? "danger-ghost" : "subtle"}
                     size="sm"

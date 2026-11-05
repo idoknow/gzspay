@@ -172,6 +172,8 @@ export interface MerchantChannelRow {
   channel: Channel;
   qr_content: string;
   enabled: number;
+  /** 支付宝收款 PID（2088 开头），用于生成预填金额与备注的唤起链接；仅后台管理员可写 */
+  pay_uid: string;
   updated_at: string;
 }
 

@@ -197,6 +197,8 @@ interface Me {
 | `GET` | `/api/orders` | 列表：`scope=pay|receive`、`status=pending|paid|closed|settled|all`（`pending`＝进行中，含待付款与已支付待确认；`settled`＝已结束，含已完成与已取消）、`q`（关键词，模糊匹配订单号、标题、备注与对方姓名快照，最长 50 字，`%`/`_` 会被转义）、`page`、`pageSize` → `{ items: OrderSummary[], total, page, pageSize }` |
 | `GET` | `/api/orders/:id` | 订单详情（付款人/商家/管理员可见，含时间线、对方公开信息、可用支付方式）→ `Order` |
 | `GET` | `/api/orders/:id/qr?channel=alipay` | 商家收款码 PNG（仅订单双方；必须该渠道已启用） |
+| `GET` | `/api/orders/:id/alipay-prefill` | **支付宝一键付款**：仅付款人、仅待付款订单，且商家支付宝收款已启用 + 后台填过收款 PID；返回 `{ scheme, qrPayload, amountCents, memo }`（`memo` 固定为订单号）；商家未开通 400、非付款人 403、状态不符 409；每分钟限 20 次，`Cache-Control: private, no-store` |
+| `GET` | `/api/orders/:id/alipay-prefill/qr` | 同一链接的二维码 PNG（电脑上扫码用），校验与限流同上 |
 | `POST` | `/api/orders/:id/payment-proof` | 付款人上传付款截图：`multipart/form-data`，字段 `file`（PNG / JPG，≤5MB），仅待付款订单可传，重复上传会替换旧截图 → 返回 `Order`（`hasPaymentProof=true`） |
 | `GET` | `/api/orders/:id/payment-proof` | 读取付款截图原图（仅订单双方；`Cache-Control: private, no-store`，禁止缓存） |
 | `POST` | `/api/orders/:id/pay` | 付款人点「我已支付」：`{ channel, actualNote }`，**必须先上传付款截图**（否则 400），待付款 → 已支付 → 返回 `Order` |
@@ -235,6 +237,7 @@ interface Order {
   cancelledAt: string | null;
   hasPaymentProof: boolean;      // 付款人是否已上传付款截图（商家确认收款前需要核对）
   paymentProofUrl: string | null; // 付款截图地址（仅订单双方可读），没有截图时为 null
+  alipayPrefillEnabled: boolean; // 商家是否支持「支付宝一键付款」（后台填过 PID 且支付宝收款已启用）
   role: "payer" | "merchant";    // 当前用户在这笔订单中的角色
   createdBy: "payer" | "merchant"; // 订单由谁发起（付款人扫商家 / 商家扫客户卡）
   counterparty: PublicUser;      // 对方公开信息
@@ -456,9 +459,10 @@ interface Announcement {
 | `POST` | `/api/admin/users/:id/freeze` / `unfreeze` | 冻结/解冻（super/ops） |
 | `POST` | `/api/admin/users/:id/reset-card` | 重置绑卡（super/ops） |
 | `POST` | `/api/admin/users/:id/force-logout` | 强制下线（super/ops） |
-| `GET` | `/api/admin/merchants?query&state&page&pageSize` | 商家列表：`{ items: AdminMerchant[], total, page, pageSize }`；`query` 模糊匹配商家名/负责人姓名/学号，`state=ready|suspended` 按「是否有可用收款方式」筛选（`AdminMerchant` 含 `userId/merchantName/displayName/avatarUrl/studentNoMasked/noteRequirement/channels/enabledChannelCount/productCount/activeProductCount/orderCount/completedAmountCents/lastOrderAt/suspended/frozen/createdAt`，`channels` 固定返回支付宝/微信/QQ 三项，含 `enabled`、`hasQr`、`updatedAt`） |
+| `GET` | `/api/admin/merchants?query&state&page&pageSize` | 商家列表：`{ items: AdminMerchant[], total, page, pageSize }`；`query` 模糊匹配商家名/负责人姓名/学号，`state=ready|suspended` 按「是否有可用收款方式」筛选（`AdminMerchant` 含 `userId/merchantName/displayName/avatarUrl/studentNoMasked/noteRequirement/channels/enabledChannelCount/productCount/activeProductCount/orderCount/completedAmountCents/lastOrderAt/suspended/frozen/createdAt`，`channels` 固定返回支付宝/微信/QQ 三项，含 `enabled`、`hasQr`、`alipayPid`（支付宝收款 PID，其它渠道为空串）、`updatedAt`） |
 | `GET` | `/api/admin/merchants/summary` | `{ total, ready, suspended, newThisMonth }` |
 | `GET` | `/api/admin/merchants/:userId` | `{ merchant: AdminMerchant, products: AdminMerchantProduct[], recentOrders: AdminOrder[] }`，商家不存在返回 `404 NOT_FOUND` |
+| `POST` | `/api/admin/merchants/:userId/channels/:channel/pay-uid` | `{ payUid }` 设置 / 清空商家支付宝收款 PID（super/ops）：仅 `alipay` 渠道可设（其它 400），非空须为 `2088` 开头的 13～21 位数字（否则 400），空串表示关闭一键付款；写审计 `admin.merchant.alipay_pid_updated`（detail 里 PID 打码），返回更新后的商家详情 |
 | `POST` | `/api/admin/merchants/:userId/channels` | `{ channel: "alipay"|"wechat"|"qq", enabled }` 启用/停用某个收款方式（super/ops）；启用前必须已上传收款码，返回更新后的商家详情 |
 | `POST` | `/api/admin/merchants/:userId/receiving` | `{ enabled }` 暂停/恢复商家收款（super/ops）：暂停即停用全部收款方式，付款人下单返回 `409 CONFLICT`「商家当前暂停收款」；恢复只启用已上传收款码的渠道，没有可用收款码时返回 `400 VALIDATION_FAILED`，返回更新后的商家详情 |
 | `GET` | `/api/admin/admins` | `{ items: AdminMember[] }` |

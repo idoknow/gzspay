@@ -17,6 +17,8 @@ import {
   confirmOrder,
   createTicket,
   exportOrdersBlob,
+  getAlipayPrefill,
+  getAlipayPrefillQrBlob,
   getOrder,
   getOrderQrBlob,
   getPaymentProofBlob,
@@ -234,9 +236,14 @@ export function OrderDetailPage(): ReactNode {
   const [ticketCategory, setTicketCategory] = useState<TicketCategory>("amount");
   const [ticketDescription, setTicketDescription] = useState("");
   const [ticketBusy, setTicketBusy] = useState(false);
+  const [prefillOpen, setPrefillOpen] = useState(false);
+  const [prefillBusy, setPrefillBusy] = useState(false);
 
   const isMerchantView = order?.role === "merchant";
   const channels = order?.availableChannels ?? [];
+  // 微信内置浏览器不允许唤起支付宝，需要提示用户换浏览器
+  const inWechat =
+    typeof navigator !== "undefined" && /MicroMessenger/i.test(navigator.userAgent);
 
   const channel = useMemo<PayChannel | null>(() => {
     if (channels.length === 0) return null;
@@ -261,6 +268,12 @@ export function OrderDetailPage(): ReactNode {
 
   const proofFactory = order?.hasPaymentProof ? () => getPaymentProofBlob(order.id) : null;
   const proof = useBlobUrl(proofFactory, [order?.id ?? "", order?.hasPaymentProof ?? false]);
+
+  const prefillFactory =
+    order && pending && order.role === "payer" && order.alipayPrefillEnabled && prefillOpen
+      ? () => getAlipayPrefillQrBlob(order.id)
+      : null;
+  const prefillQr = useBlobUrl(prefillFactory, [order?.id ?? "", pending, prefillOpen]);
 
   // 待付款、已支付与已完成的订单都可以发起工单（已取消的不行）；这里顺带取出该订单进行中的那一条
   const ticketEligible =
@@ -330,6 +343,20 @@ export function OrderDetailPage(): ReactNode {
       toast.error(errorMessage(cause));
     } finally {
       setSavingQr(false);
+    }
+  };
+
+  const openAlipay = async (): Promise<void> => {
+    if (!order) return;
+    setPrefillBusy(true);
+    try {
+      const prefill = await getAlipayPrefill(order.id);
+      // 唤起支付宝客户端：金额与备注由服务端拼好，用户确认即可
+      window.location.href = prefill.scheme;
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setPrefillBusy(false);
     }
   };
 
@@ -665,6 +692,40 @@ export function OrderDetailPage(): ReactNode {
               {order.role === "merchant"
                 ? "确认收款前请打开截图，核对收款账户与金额是否与实际到账一致。"
                 : "已上传给商家核对，商家确认收款后交易完成。"}
+            </p>
+          </section>
+        ) : null}
+
+        {order.role === "payer" && order.status === "pending_payment" && order.alipayPrefillEnabled ? (
+          <section className="card p-4">
+            <h2 className="text-sm font-semibold text-text">支付宝一键付款</h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted">
+              金额和备注（订单号）已经填好，打开支付宝确认即可，不用手动输入。
+            </p>
+            {inWechat ? (
+              <p className="mt-1.5 text-xs leading-relaxed text-amber-600 dark:text-amber-400">
+                微信里打不开支付宝，请点右上角「···」选择用浏览器打开本页。
+              </p>
+            ) : null}
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                className="btn btn-primary h-10 flex-1 text-[13px]"
+                disabled={prefillBusy}
+                onClick={() => void openAlipay()}
+              >
+                {prefillBusy ? "打开中…" : "打开支付宝"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline h-10 flex-1 text-[13px]"
+                onClick={() => setPrefillOpen(true)}
+              >
+                显示二维码
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-muted">
+              这是支付宝的免签约唤起方式，付款后到账金额仍需商家确认或账单对账。
             </p>
           </section>
         ) : null}
@@ -1056,6 +1117,37 @@ export function OrderDetailPage(): ReactNode {
         ) : (
           <p className="text-sm text-danger">尚未启用收款方式，请先在商家中心上传并启用收款码。</p>
         )}
+      </Dialog>
+
+      {/* 支付宝一键付款二维码（电脑上扫码） */}
+      <Dialog
+        open={prefillOpen}
+        onClose={() => setPrefillOpen(false)}
+        title="支付宝扫码付款"
+        description="用手机支付宝「扫一扫」，金额与备注已经自动填好。"
+        footer={
+          <button type="button" className="btn btn-outline h-10 text-[13px]" onClick={() => setPrefillOpen(false)}>
+            关闭
+          </button>
+        }
+      >
+        <div className="flex flex-col items-center gap-3 py-2">
+          {prefillQr.error ? (
+            <div className="flex flex-col items-center gap-2 py-4">
+              <p className="text-center text-xs text-danger">{prefillQr.error}</p>
+              <button type="button" className="text-xs font-medium text-brand" onClick={prefillQr.reload}>
+                重新加载
+              </button>
+            </div>
+          ) : prefillQr.loading ? (
+            <div className="skeleton h-[220px] w-[220px] watch:h-[168px] watch:w-[168px]" />
+          ) : (
+            <QrImage dataUrl={prefillQr.url} size={220} alt="支付宝一键付款二维码" />
+          )}
+          <p className="text-center text-[11px] leading-relaxed text-muted">
+            备注是订单号 {order.orderNo}，付款后能自动和订单对上。
+          </p>
+        </div>
       </Dialog>
 
       {/* 发起工单 */}
