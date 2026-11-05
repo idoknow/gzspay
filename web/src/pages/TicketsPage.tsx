@@ -97,6 +97,7 @@ export function TicketsPage(): ReactNode {
             <button
               key={option.value}
               type="button"
+              aria-pressed={filter === option.value}
               className={cn("chip flex-1", filter === option.value && "chip-active")}
               onClick={() => setFilter(option.value)}
             >

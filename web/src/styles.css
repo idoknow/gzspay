@@ -165,7 +165,17 @@ body {
   outline-offset: 2px;
 }
 
-button,
+/*
+ * 表单控件继承字体。注意这里**不能**给 button 写 color: inherit：
+ * 这段规则在 @layer 之外，优先级高于 @layer components 里的 .chip / .btn 等，
+ * 会把「选中态白字」压回页面正文色，深色胶囊上的文字就会看不见。
+ * 按钮文字颜色交给各组件类（.btn、.chip-active 等）决定。
+ */
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
 input,
 textarea,
 select {
@@ -268,9 +278,13 @@ img {
     min-height: 34px;
     box-shadow: var(--shadow-xs);
   }
-  /* 选中态：固定深色实心胶囊 + 白色文字，避免与浅色主题的页面文字色（--text）撞色导致看不清 */
+  /* 选中态：固定深色实心胶囊 + 白色文字。
+     这里直接写 #fff 而不是 @apply text-white：Tailwind 会把 text-white 编译成
+     color: var(--color-white)，该变量在部分浏览器里解析失败会让 color 回退成继承色，
+     与深色底同色导致文字看不见（浅色主题下尤其明显）。 */
   .chip-active {
-    @apply border-transparent font-medium text-white;
+    @apply border-transparent font-medium;
+    color: #ffffff;
     background: #171a20;
     box-shadow: 0 10px 22px -14px rgba(0, 0, 0, 0.45);
   }
