@@ -195,9 +195,17 @@ export function PrivacySessionGuard(): ReactNode {
   return (
     <div className="fixed inset-x-0 bottom-4 z-40 px-3">
       <div className="mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-amber-400/40 bg-amber-50 px-3.5 py-3 shadow-lg dark:bg-amber-950/60">
-        <span aria-hidden="true" className="text-base">
-          ⏳
-        </span>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          className="shrink-0 text-amber-700 dark:text-amber-300"
+        >
+          <circle cx="12" cy="12" r="8.2" stroke="currentColor" strokeWidth="1.7" />
+          <path d="M12 7.8V12l3 1.9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         <p className="min-w-0 flex-1 text-[12px] leading-snug text-amber-900 dark:text-amber-100">
           隐私模式最多在线 30 分钟，将在 <b>{seconds}</b> 秒后自动退出登录
         </p>
@@ -269,8 +277,19 @@ export function DevtoolsShield(): ReactNode {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
       <div className="card w-full max-w-sm space-y-3 p-5 text-center">
-        <span aria-hidden="true" className="text-2xl">
-          🛡️
+        <span
+          aria-hidden="true"
+          className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-brand-soft text-brand"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 3.4l6.6 2.3v5.2c0 4.2-2.7 7.1-6.6 8.7-3.9-1.6-6.6-4.5-6.6-8.7V5.7L12 3.4Z"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinejoin="round"
+            />
+            <path d="M9.4 12.1l1.9 1.9 3.4-3.7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </span>
         <p className="text-sm font-semibold text-text">隐私模式下不允许打开开发者工具</p>
         <p className="text-[11px] leading-relaxed text-muted">
