@@ -496,13 +496,13 @@ interface Announcement {
 
 ## 12. 交易工单
 
-交易双方（付款人 / 商家）在**已支付或已完成**的订单里发起工单后用文字沟通争议。同一订单同时只允许 1 个进行中的工单，累计最多 3 个；超过 7 天没有新消息会自动关闭，双方任一方也可手动结束。参与方以外一律 404，内容只存纯文本。运营（`super` / `ops`）可以在后台以「平台客服」身份介入发言或结束工单，`auditor` 只读。
+交易双方（付款人 / 商家）在**待付款、已支付或已完成**的订单里发起工单后用文字沟通争议（已取消的订单不行，未付款也可以先沟通）。同一订单同时只允许 1 个进行中的工单，累计最多 3 个；超过 7 天没有新消息会自动关闭，双方任一方也可手动结束。参与方以外一律 404，内容只存纯文本。运营（`super` / `ops`）可以在后台以「平台客服」身份介入发言或结束工单，`auditor` 只读。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/tickets?status=open|closed&limit=50` | 当前用户参与的工单列表 → `{ items: TicketSummary[] }`，默认按最后消息时间倒序 |
 | `GET` | `/api/tickets/unread-count` | `{ count }`：当前用户全部工单未读消息总数 |
-| `POST` | `/api/tickets` | 发起工单：`{ orderId, category, description }`（`category` 为 `amount/not_received/not_as_described/refund/other`，`description` 5–500 字）→ `201 { ticket: TicketDetail, existing }`；订单状态不是已支付/已完成 400，已存在进行中工单时返回原工单（`existing: true`）；每人每小时 10 次 |
+| `POST` | `/api/tickets` | 发起工单：`{ orderId, category, description }`（`category` 为 `amount/not_received/not_as_described/refund/other`，`description` 5–500 字）→ `201 { ticket: TicketDetail, existing }`；订单状态为已取消时 400，已存在进行中工单时返回原工单（`existing: true`）；每人每小时 10 次 |
 | `GET` | `/api/tickets/:id` | 工单详情（含全部消息），非参与方 404 |
 | `POST` | `/api/tickets/:id/messages` | 发送消息：`{ body }`（≤1000 字）→ `201 TicketDetail`；工单已关闭 400；每分钟 30 条 |
 | `POST` | `/api/tickets/:id/read` | 标记已读 → `{ unreadCount, totalUnreadCount }` |

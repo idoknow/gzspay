@@ -230,7 +230,7 @@ export function OrderDetailPage(): ReactNode {
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [qrDialogChannel, setQrDialogChannel] = useState<PayChannel | null>(null);
-  /** 工单：已支付 / 已完成订单可以和对方沟通争议 */
+  /** 工单：待付款 / 已支付 / 已完成订单可以和对方沟通 */
   const [ticketOpen, setTicketOpen] = useState(false);
   const [ticketCategory, setTicketCategory] = useState<TicketCategory>("amount");
   const [ticketDescription, setTicketDescription] = useState("");
@@ -263,8 +263,9 @@ export function OrderDetailPage(): ReactNode {
   const proofFactory = order?.hasPaymentProof ? () => getPaymentProofBlob(order.id) : null;
   const proof = useBlobUrl(proofFactory, [order?.id ?? "", order?.hasPaymentProof ?? false]);
 
-  // 只有发生过付款的订单才允许发起工单；这里顺带取出该订单进行中的那一条
-  const ticketEligible = order?.status === "paid" || order?.status === "completed";
+  // 待付款、已支付与已完成的订单都可以发起工单（已取消的不行）；这里顺带取出该订单进行中的那一条
+  const ticketEligible =
+    order?.status === "pending_payment" || order?.status === "paid" || order?.status === "completed";
   const orderTickets = useAsync(
     () => (ticketEligible ? getTickets("open") : Promise.resolve({ items: [] })),
     [id, ticketEligible],
@@ -704,11 +705,11 @@ export function OrderDetailPage(): ReactNode {
           </section>
         ) : null}
 
-        {order.status === "paid" || order.status === "completed" ? (
+        {ticketEligible ? (
           <section className="card p-4">
             <h2 className="text-sm font-semibold text-text">订单沟通（工单）</h2>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
-              如果和对方在金额、收货或退款上有争议，可以发起工单在站内沟通。工单只有订单双方能看到，超过 7 天没有新消息会自动关闭。
+              还没付款也可以先发起工单：金额、收货或退款有争议时，在站内和对方沟通。工单只有订单双方能看到，超过 7 天没有新消息会自动关闭。
             </p>
             {currentTicket ? (
               <button

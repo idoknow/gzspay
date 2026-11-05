@@ -42,8 +42,8 @@ const MAX_MESSAGE_LENGTH = 1000;
 const MAX_DESCRIPTION_LENGTH = 500;
 const MAX_MESSAGES_RETURNED = 500;
 
-/** 允许发起工单的订单状态：只有真正发生过付款的订单才允许联系对方 */
-const TICKET_ORDER_STATUSES = new Set(["paid", "completed"]);
+/** 允许发起工单的订单状态：未付款、已支付待确认与已完成都可以联系对方（已取消的订单不行） */
+const TICKET_ORDER_STATUSES = new Set(["pending_payment", "paid", "completed"]);
 
 export interface TicketMessageDto {
   id: string;
@@ -280,7 +280,7 @@ function markSenderRead(ticketId: string, userId: string, at: string): void {
 
 function assertOrderTicketable(order: OrderRow): void {
   if (!TICKET_ORDER_STATUSES.has(order.status)) {
-    throw errors.validation("只有已支付或已完成的订单可以发起工单");
+    throw errors.validation("已取消的订单不能发起工单；待付款、已支付或已完成的订单都可以发起");
   }
 }
 

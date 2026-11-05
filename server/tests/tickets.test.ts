@@ -149,13 +149,24 @@ describe("交易工单", () => {
     expect(response.status).toBe(401);
   });
 
-  it("待付款订单不能发起工单", async () => {
+  it("待付款订单也可以发起工单，已取消的订单不行", async () => {
     const orderId = await createOrder();
-    const response = await payerApi
+    const created = await payerApi
       .post("/api/tickets")
-      .send({ orderId, category: "amount", description: "金额好像不对，想和商家确认一下" })
+      .send({ orderId, category: "amount", description: "还没付款，想先和商家确认一下金额" })
+      .expect(201);
+    expect(created.body.existing).toBe(false);
+    expect(created.body.ticket.status).toBe("open");
+    expect(created.body.ticket.orderId).toBe(orderId);
+
+    // 商家取消订单后就不能再发起新工单
+    const cancelledId = await createOrder();
+    await merchantApi.post(`/api/orders/${cancelledId}/cancel`).send({ reason: "对方未付款" }).expect(200);
+    const rejected = await payerApi
+      .post("/api/tickets")
+      .send({ orderId: cancelledId, category: "other", description: "订单已取消还想问一下情况" })
       .expect(400);
-    expect(response.body.error.message).toContain("已支付或已完成");
+    expect(rejected.body.error.message).toContain("已取消");
   });
 
   it("已支付订单可以发起工单，对方收到未读消息", async () => {

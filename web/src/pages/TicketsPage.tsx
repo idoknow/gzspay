@@ -1,4 +1,4 @@
-/** 交易工单：已支付 / 已完成订单可以进行中沟通，列表按最后消息时间倒序。 */
+/** 交易工单：待付款 / 已支付 / 已完成订单可以进行中沟通，列表按最后消息时间倒序。 */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -120,7 +120,7 @@ export function TicketsPage(): ReactNode {
             title={filter === "open" ? "暂无进行中的工单" : "暂无已结束的工单"}
             description={
               filter === "open"
-                ? "在已支付或已完成的订单详情里可以发起工单，和对方沟通争议"
+                ? "在待付款、已支付或已完成的订单详情里都可以发起工单，和对方沟通争议"
                 : "工单双方都可以关闭，关闭后会显示在这里"
             }
           />
