@@ -125,7 +125,7 @@ export function OrderPrintPage(): ReactNode {
             关闭
           </button>
           <button type="button" className="btn btn-primary btn-sm" onClick={handlePrint}>
-            打印 / 保存为 PDF
+            打印 / 存 PDF
           </button>
         </div>
       </div>

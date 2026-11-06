@@ -106,7 +106,7 @@ export function MerchantRegisterPage(): ReactNode {
     try {
       await registerMerchant(form);
       if (me) patchMe({ ...me, isMerchant: true });
-      toast.success("商家注册成功，可在「商品与发布」填写备注要求");
+      toast.success("注册成功");
       navigate("/merchant", { replace: true });
     } catch (cause) {
       const message = errorMessage(cause);
@@ -124,7 +124,7 @@ export function MerchantRegisterPage(): ReactNode {
       <main className="page space-y-4 pb-10 pt-4">
         {me?.isMerchant ? (
           <section className="card p-4">
-            <p className="text-sm text-text">你已经是商家，无需重复注册。</p>
+            <p className="text-sm text-text">你已是商家</p>
             <button type="button" className="btn btn-primary btn-block mt-3" onClick={() => navigate("/merchant")}>
               进入商家中心
             </button>
@@ -145,14 +145,14 @@ export function MerchantRegisterPage(): ReactNode {
               onChange={(event) => setName(event.target.value)}
             />
             <p className="mt-1 text-[11px] text-muted">
-              付款人扫码后会看到这个名称。备注要求可在注册后到「商品与发布」填写。
+              付款人扫码会看到此名称。
             </p>
           </div>
         </section>
 
         <section className="card p-4">
           <h2 className="text-sm font-semibold text-text">收款方式（可多选）</h2>
-          <p className="mt-1 text-[11px] text-muted">至少启用一种，未启用的渠道不会展示给付款人。</p>
+          <p className="mt-1 text-[11px] text-muted">至少启用一种。</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {PAY_CHANNELS.map((channel) => {
               const active = channels.includes(channel);
@@ -173,7 +173,7 @@ export function MerchantRegisterPage(): ReactNode {
           <div className="mt-3 space-y-3">
             {channels.length === 0 ? (
               <p className="rounded-2xl bg-surface-2 px-3 py-3 text-center text-xs text-muted">
-                选择收款方式后，需要分别上传对应的收款码图片
+                选择后需上传对应收款码
               </p>
             ) : null}
             {channels.map((channel) => {
@@ -218,7 +218,7 @@ export function MerchantRegisterPage(): ReactNode {
           </div>
 
           <p className="mt-2 text-[11px] leading-relaxed text-muted">
-            上传后由系统自动识别校验；识别失败会提示原因，请重新上传完整、清晰的收款码截图。收款码用于付款人查看与付款，资金不经过 gzspay。
+            上传清晰完整的收款码截图，识别失败会提示原因；资金不经过 gzspay。
           </p>
         </section>
 
@@ -238,7 +238,7 @@ export function MerchantRegisterPage(): ReactNode {
         <p className="text-center text-[11px] leading-relaxed text-muted">
           <LegalDocLinks prefix="提交即表示同意" suffix="。" />
           <br />
-          请确保上传的是本人收款码。
+          请上传本人收款码。
         </p>
       </main>
     </div>

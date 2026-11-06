@@ -22,16 +22,16 @@ export interface LoginPageProps {
 
 /** 左侧品牌区的三条说明 */
 const HERO_POINTS: { title: string; text: string }[] = [
-  { title: "复用主站登录会话", text: "用校园墙账号登录主站即可，后台不另设密码" },
-  { title: "按角色授权", text: "超级管理员 / 运营 / 只读审计，权限互不越界" },
-  { title: "操作全程留痕", text: "所有写操作写入不可修改的操作日志" },
+  { title: "复用主站会话", text: "用校园墙账号登录，后台不另设密码" },
+  { title: "按角色授权", text: "超级管理员 / 运营 / 只读审计" },
+  { title: "操作留痕", text: "写操作均记入操作日志" },
 ];
 
 /** 右侧底部的角色说明（与 AdminsPage 的角色定义一致） */
 const ROLE_ROWS: { name: string; text: string; tone: "primary" | "success" | "muted" }[] = [
-  { name: "超级管理员", text: "全部权限，可管理管理员与系统配置", tone: "primary" },
-  { name: "运营", text: "处理订单、用户与公告，不可改系统配置", tone: "success" },
-  { name: "只读审计", text: "仅可查看数据与日志，所有写操作禁用", tone: "muted" },
+  { name: "超级管理员", text: "全部权限", tone: "primary" },
+  { name: "运营", text: "处理业务，不可改配置", tone: "success" },
+  { name: "只读审计", text: "仅可查看", tone: "muted" },
 ];
 
 function InfoIcon(): ReactNode {
@@ -116,7 +116,7 @@ export function LoginPage({
               <span>管理后台</span>
             </h1>
             <p className="admin-login-hero-text">
-              处理订单、管理用户与公告、查看交易统计。管理员权限复用主站校园墙登录会话。
+              处理订单、用户、公告与交易统计。
             </p>
           </div>
 
@@ -132,7 +132,7 @@ export function LoginPage({
             ))}
           </ul>
 
-          <p className="admin-login-hero-foot">gzspay · 数据仅用于校园内的收付款记录与沟通</p>
+          <p className="admin-login-hero-foot">gzspay · 校园支付</p>
         </aside>
 
         <section className="admin-login-form">
@@ -140,19 +140,19 @@ export function LoginPage({
           <h2 className="admin-login-title">{notAdmin ? "账号暂无后台权限" : "登录管理后台"}</h2>
           <p className="admin-login-sub">
             {notAdmin
-              ? "你的校园墙账号可以正常使用主站，但还没有被加入管理员名单。"
-              : "使用登录 gzspay 主站的校园墙账号进入；如果该账号已是管理员，会直接看到后台数据。"}
+              ? "账号可用，但不在管理员名单。"
+              : "用已开通后台权限的校园墙账号登录。"}
           </p>
 
           {notAdmin ? (
             <div className="admin-inline-alert is-danger admin-login-alert" role="status">
               <InfoIcon />
-              <span>当前账号不在管理员名单内，请联系超级管理员开通。</span>
+              <span>请联系超级管理员开通权限。</span>
             </div>
           ) : (
             <div className="admin-inline-alert is-info admin-login-alert" role="status">
               <InfoIcon />
-              <span>请先登录 gzspay 主站，登录成功后会自动回到后台。</span>
+              <span>登录后会回到后台。</span>
             </div>
           )}
 
@@ -177,7 +177,7 @@ export function LoginPage({
 
           <p className="admin-login-badge">
             <ShieldIcon />
-            复用主站登录会话，无需单独密码
+            无需单独密码
           </p>
 
           <div className="admin-login-roles">
@@ -193,8 +193,8 @@ export function LoginPage({
 
           <p className="admin-login-foot">
             {notAdmin
-              ? "如需开通后台权限，请联系任意一位超级管理员，把你的账号加入管理员名单后再重新登录。"
-              : "登录即代表你已知悉并遵守校园支付系统安全规范，请勿在公共设备上保持登录。"}
+              ? "开通权限需超级管理员操作。"
+              : "公共设备用完请退出。"}
           </p>
         </section>
       </div>

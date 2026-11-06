@@ -91,7 +91,7 @@ export function NfcCardReader({
   const start = useCallback(async (): Promise<void> => {
     const ctor = ndefReaderCtor();
     if (!ctor) {
-      setNotice("当前浏览器不支持 NFC 读卡，请改用摄像头扫码或手动输入");
+      setNotice("当前浏览器不支持 NFC 读卡");
       return;
     }
     setNotice(null);
@@ -104,7 +104,7 @@ export function NfcCardReader({
         if (!mountedRef.current || controller.signal.aborted) return;
         const cardNo = pickCardNo(event.message.records);
         if (!cardNo) {
-          setNotice("读到的卡片内容不是 8 位卡号，请确认这张卡已写入卡号");
+          setNotice("读到的内容不是卡号");
           return;
         }
         if (typeof navigator.vibrate === "function") navigator.vibrate(50);
@@ -112,7 +112,7 @@ export function NfcCardReader({
         onRead(cardNo);
       };
       reader.onreadingerror = () => {
-        if (mountedRef.current) setNotice("读取失败，请把卡片贴近手机背面的 NFC 区域再试");
+        if (mountedRef.current) setNotice("读取失败，请把卡片贴近手机背面再试");
       };
       await reader.scan({ signal: controller.signal });
       if (mountedRef.current && !controller.signal.aborted) setScanning(true);
@@ -120,7 +120,7 @@ export function NfcCardReader({
       if (!mountedRef.current) return;
       setScanning(false);
       abortRef.current = null;
-      setNotice("无法启动 NFC：请用安卓 Chrome 打开本页，并在系统设置里开启 NFC");
+      setNotice("无法启动 NFC，请检查系统 NFC 设置");
     }
   }, [onRead, stop]);
 
@@ -139,7 +139,7 @@ export function NfcCardReader({
       {scanning ? (
         <button type="button" className={buttonClass} onClick={stop}>
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-brand" aria-hidden="true" />
-          正在读取 NFC…（点此停止）
+          正在读取 NFC，点此停止
         </button>
       ) : (
         <button
@@ -163,7 +163,7 @@ export function NfcCardReader({
               : "mt-1.5 text-center text-[11px] leading-relaxed text-muted"
           }
         >
-          把校园卡贴到手机背面的 NFC 区域，读取卡片名称作为卡号
+          把校园卡贴到手机背面的 NFC 区域
         </p>
       ) : null}
       {notice ? (

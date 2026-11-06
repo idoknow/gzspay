@@ -26,10 +26,10 @@ import {
 } from "../lib/privacy";
 
 const PRIVACY_POINTS = [
-  "「我的」个人信息、设置里的通知与设备管理会隐藏",
-  "商家中心的商品与店铺设置会隐藏",
-  "收付款码、扫码付款、订单与工单照常使用",
-  "电脑端最多在线 30 分钟，到期前 1 分钟提醒后自动退出",
+  "个人信息与通知、设备管理会隐藏",
+  "商家的商品与店铺设置会隐藏",
+  "收付款、扫码、订单与工单照常使用",
+  "电脑端在线 30 分钟，到期前提醒",
 ];
 
 function formatClock(ms: number): string {
@@ -61,7 +61,7 @@ export function PrivacyModePrompt(): ReactNode {
         disablePrivacyMode();
       }}
       title="这台电脑是公共设备吗？"
-      description="在教室、机房等公共电脑上登录时，建议开启隐私模式。"
+      description="公共电脑上建议开启。"
       footer={
         <div className="space-y-2">
           <button
@@ -82,7 +82,7 @@ export function PrivacyModePrompt(): ReactNode {
               setOpen(false);
             }}
           >
-            不用，这是我自己的电脑
+            这是我自己的电脑
           </button>
         </div>
       }
@@ -143,7 +143,7 @@ export function PrivacyModeBanner(): ReactNode {
           <EyeIcon off size={11} />
         </span>
         <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted">
-          隐私模式已开启，个人信息与设置已隐藏
+          隐私模式已开启
         </p>
         <ExitPrivacyButton className="btn btn-ghost btn-sm shrink-0 text-[11px]" />
       </div>
@@ -207,7 +207,7 @@ export function PrivacySessionGuard(): ReactNode {
           <path d="M12 7.8V12l3 1.9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <p className="min-w-0 flex-1 text-[12px] leading-snug text-amber-900 dark:text-amber-100">
-          隐私模式最多在线 30 分钟，将在 <b>{seconds}</b> 秒后自动退出登录
+          <b>{seconds}</b> 秒后自动退出登录
         </p>
         <button
           type="button"
@@ -291,13 +291,11 @@ export function DevtoolsShield(): ReactNode {
             <path d="M9.4 12.1l1.9 1.9 3.4-3.7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
-        <p className="text-sm font-semibold text-text">隐私模式下不允许打开开发者工具</p>
-        <p className="text-[11px] leading-relaxed text-muted">
-          检测到浏览器开发者工具处于打开状态，页面已暂停显示。请关闭开发者工具后继续，或者退出隐私模式。
-        </p>
+        <p className="text-sm font-semibold text-text">请关闭开发者工具</p>
+        <p className="text-[11px] leading-relaxed text-muted">隐私模式下页面暂停显示。</p>
         <div className="space-y-2 pt-1">
           <button type="button" className="btn btn-primary btn-block" onClick={() => setDetected(false)}>
-            我已关闭，继续使用
+            已关闭，继续使用
           </button>
           <ExitPrivacyButton label="退出隐私模式" className="btn btn-ghost btn-block" />
         </div>
@@ -309,7 +307,7 @@ export function DevtoolsShield(): ReactNode {
 /** 隐私模式下被挡住的页面占位（配合 <PrivacyGuard> 使用） */
 export function PrivacyBlocked({
   title,
-  description = "为保护隐私，隐私模式下不展示这个页面的内容。",
+  description = "隐私模式下不展示此页面内容。",
 }: {
   title: string;
   description?: string;

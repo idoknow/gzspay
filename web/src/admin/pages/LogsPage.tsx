@@ -112,7 +112,7 @@ export function LogsPage() {
     <>
       <PageHeader
         title="日志查看"
-        description="审计、登录、风控与系统错误日志，仅供追溯排查，不可修改或删除。"
+        description="审计、登录、风控与错误日志，不可修改。"
         actions={
           <button
             type="button"
@@ -135,7 +135,7 @@ export function LogsPage() {
       </div>
 
       <InfoBanner tone="info">
-        {TAB_DESCRIPTIONS[activeTab]} 日志数据由系统自动写入，后台仅支持查询与导出，任何管理员都无法修改或删除。
+        {TAB_DESCRIPTIONS[activeTab]}
       </InfoBanner>
 
       <div className="admin-card">
@@ -204,7 +204,6 @@ export function LogsPage() {
         ) : rows.length === 0 ? (
           <EmptyState
             title="暂无日志"
-            description="当前筛选条件下没有日志记录，可尝试调整时间范围或关键词。"
             action={
               <button
                 type="button"
@@ -375,9 +374,6 @@ export function LogsPage() {
             </section>
           </div>
 
-          <p className="admin-readonly-hint" style={{ marginTop: 16 }}>
-            日志为审计留痕数据，不可修改或删除。
-          </p>
         </Drawer>
       ) : null}
     </>

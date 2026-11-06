@@ -51,7 +51,7 @@ export function SetupStepCampux({
     <div className="admin-form-grid">
       <Field
         label="校园墙 Base URL"
-        hint="例如 https://gz.campux.top，不要带结尾斜杠"
+        hint="例如 https://gz.campux.top，末尾不带斜杠"
         required
         className="admin-field-full"
       >
@@ -88,8 +88,8 @@ export function SetupStepCampux({
         label="Client Secret"
         hint={
           secretConfigured
-            ? "已配置，留空表示不修改"
-            : "首次配置必填，保存后不会再回显"
+            ? "留空表示不修改"
+            : "校园墙后台获取"
         }
         required={!secretConfigured}
         className="admin-field-full"
@@ -164,8 +164,8 @@ export function SetupStepMail({
         label="SMTP 密码 / 授权码"
         hint={
           passwordConfigured
-            ? "已配置，留空表示不修改"
-            : "首次配置必填，QQ 邮箱需填写授权码"
+            ? "留空表示不修改"
+            : "QQ 邮箱需填授权码"
         }
         required={!passwordConfigured}
         className="admin-field-full"
@@ -230,7 +230,6 @@ export function SetupStepSystem({
     <div className="admin-form-grid">
       <Field
         label="站点名称"
-        hint="显示在登录页、邮件与页面标题中"
         required
         className="admin-field-full"
       >
@@ -245,7 +244,7 @@ export function SetupStepSystem({
       </Field>
       <Field
         label="站点地址"
-        hint="用于生成校园墙登录回调与邮件里的链接，例如 https://pay.idoknow.top；留空则使用当前访问地址"
+        hint="例如 https://pay.idoknow.top"
         className="admin-field-full"
       >
         <input
@@ -294,7 +293,7 @@ export function SetupStepFinish({
   return (
     <div className="admin-setup-finish">
       <InfoBanner tone="info">
-        完成初始化后，系统将正式对外运行；第一个完成登录的账号会自动成为超级管理员。
+        初始化后系统正式对外运行；首个登录账号成为超级管理员。
       </InfoBanner>
 
       {missing.length > 0 ? (
@@ -332,9 +331,6 @@ export function SetupStepFinish({
               <div className="admin-strong">{user.displayName}</div>
             </div>
           </div>
-          <p className="admin-field-hint">
-            确认无误后点击下方按钮，该账号将成为系统首位超级管理员。
-          </p>
           <div className="admin-form-actions">
             <Button
               variant="primary"
@@ -343,17 +339,17 @@ export function SetupStepFinish({
               disabled={!ready}
               onClick={onFinish}
             >
-              完成初始化，成为超级管理员
+              完成初始化
             </Button>
           </div>
           {!ready ? (
-            <p className="admin-field-hint">请先完成第 1、2 步的配置后再完成初始化。</p>
+            <p className="admin-field-hint">请先完成第 1、2 步。</p>
           ) : null}
         </div>
       ) : (
         <div className="admin-setup-account">
           <p className="admin-setup-login-note">
-            第 4 步需要用校园墙账号登录主站：系统会记录本次登录的账号，并在初始化完成后授予超级管理员。
+            先用校园墙账号登录主站。
           </p>
           <div className="admin-form-actions">
             <Button
@@ -366,7 +362,7 @@ export function SetupStepFinish({
           </div>
           <div className="admin-setup-links">
             <Button variant="link" size="sm" onClick={onRefresh}>
-              我已完成登录，刷新状态
+              刷新状态
             </Button>
           </div>
         </div>

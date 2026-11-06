@@ -89,7 +89,7 @@ export function PaymentRequestDialog(): ReactNode {
       open={request !== null}
       onClose={close}
       title={expired ? "请求已过期" : "收到确认请求"}
-      description={expired ? "该请求已过期，如需处理请让商家重新发起。" : "请核对商家信息与金额，确认无误后输入密码。"}
+      description={expired ? "已过期，请让商家重新发起。" : "核对商家与金额后输入密码。"}
       footer={
         phase === "detail" ? (
           expired ? (
@@ -103,7 +103,7 @@ export function PaymentRequestDialog(): ReactNode {
                 拒绝
               </button>
               <button type="button" className="btn btn-primary flex-1" onClick={() => setPhase("password")}>
-                确认提交
+                确认
               </button>
             </div>
           )
@@ -116,15 +116,11 @@ export function PaymentRequestDialog(): ReactNode {
     >
       {phase === "password" ? (
         <BuiltInKeypad
-          title="输入密码"
+          title="输入支付密码"
           description={`向 ${merchantName} 确认 ¥${formatCents(request.amountCents)}`}
           onSubmit={handleAccept}
           onCancel={() => setPhase("detail")}
-          footerExtra={
-            <p className="text-center text-[11px] text-muted">
-              {accepting ? "正在确认…" : "密码只在本机输入，不会显示明文"}
-            </p>
-          }
+          footerExtra={accepting ? <p className="text-center text-[11px] text-muted">正在确认…</p> : null}
         />
       ) : (
         <div className="space-y-4">
@@ -167,10 +163,6 @@ export function PaymentRequestDialog(): ReactNode {
               备注：{request.reservedNote}
             </p>
           ) : null}
-
-          <p className="text-center text-[11px] leading-relaxed text-muted">
-            请核对对方信息与金额，确认后再提交。
-          </p>
         </div>
       )}
     </Dialog>

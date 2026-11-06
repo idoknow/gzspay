@@ -35,7 +35,7 @@ export function SystemNotReadyPage({ status }: SystemNotReadyPageProps): ReactNo
         window.location.assign("/");
         return;
       }
-      setNote("系统仍未初始化，请完成初始化配置后再试");
+      setNote("仍未初始化");
     } catch (cause) {
       setNote(errorMessage(cause));
     } finally {
@@ -53,7 +53,7 @@ export function SystemNotReadyPage({ status }: SystemNotReadyPageProps): ReactNo
         <h1 className="mt-6 text-xl font-bold text-text watch:mt-4 watch:text-base">系统尚未初始化</h1>
 
         <p className="mt-3 text-sm leading-relaxed text-muted watch:mt-2 watch:text-[12px]">
-          请管理员前往管理后台完成初始化配置（校园墙登录、发件配置、站点信息）
+          请管理员完成初始化配置
         </p>
 
         {siteName ? (
@@ -75,7 +75,7 @@ export function SystemNotReadyPage({ status }: SystemNotReadyPageProps): ReactNo
           disabled={checking}
         >
           {checking ? <Spinner size={16} /> : null}
-          已完成初始化，重新检查
+          重新检查
         </button>
 
         {note ? (
@@ -84,10 +84,6 @@ export function SystemNotReadyPage({ status }: SystemNotReadyPageProps): ReactNo
           </p>
         ) : null}
       </div>
-
-      <p className="mt-6 text-center text-[11px] leading-relaxed text-muted watch:mt-3 watch:text-[9px]">
-        初始化完成后回到本页点击「重新检查」或刷新页面即可进入；如有疑问请联系站点管理员
-      </p>
     </div>
   );
 }

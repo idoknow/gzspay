@@ -91,7 +91,7 @@ export function GuidePage(): ReactNode {
               校园收付款使用说明
             </h1>
             <p className="mt-2 text-[13px] leading-relaxed text-[color:var(--hero-fg)]/85 watch:text-xs">
-              从登录、收付款到商家收款与后台管理的完整说明，也可以直接把链接分享给同学。
+              从登录到收付款、商家收款的完整说明。
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)]">
@@ -145,7 +145,7 @@ export function GuidePage(): ReactNode {
         <section className="card mt-6 p-5 text-center watch:mt-5 watch:p-4">
           <p className="text-sm font-semibold text-text">还有问题？</p>
           <p className="mt-1 text-xs leading-relaxed text-muted">
-            可以先查看左侧目录里的对应章节；仍无法解决请联系站点管理员，或在开源仓库提交 issue。
+            对照上方目录查看；仍有问题请联系站点管理员。
           </p>
           <div className="mt-3 flex flex-col gap-2">
             <a href={REPO_URL} target="_blank" rel="noreferrer noopener" className="btn btn-outline btn-block gap-2">

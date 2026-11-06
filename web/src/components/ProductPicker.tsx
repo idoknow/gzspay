@@ -30,7 +30,7 @@ export function selectedToItems(
 
 export function ProductPicker({ products, selected, onChange, disabled = false }: ProductPickerProps): ReactNode {
   if (products.length === 0) {
-    return <p className="py-3 text-sm text-muted">该商家还没有发布商品，可直接输入金额付款。</p>;
+    return <p className="py-3 text-sm text-muted">该商家暂无商品，可直接输入金额付款。</p>;
   }
 
   const adjust = (product: Product, delta: number): void => {

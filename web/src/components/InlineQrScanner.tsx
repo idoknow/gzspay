@@ -16,7 +16,7 @@ export interface InlineQrScannerProps {
 
 export function InlineQrScanner({
   active,
-  hint = "将二维码放入框内，自动识别",
+  hint = "将二维码放入框内",
   onResult,
   className,
 }: InlineQrScannerProps): ReactNode {

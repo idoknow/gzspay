@@ -195,7 +195,7 @@ export function PayPage(): ReactNode {
       return;
     }
     if (!result.isMerchant) {
-      toast.error("该动态码不是商家收款码，无法付款");
+      toast.error("该动态码不是商家收款码");
       return;
     }
     const publicInfo = await getMerchantPublic(result.user.id);
@@ -211,7 +211,7 @@ export function PayPage(): ReactNode {
   /** 扫描客户动态码：解析出客户后进入收款金额填写，下一步发起收款请求。 */
   const loadDynamicCollect = async (token: string): Promise<void> => {
     if (!me?.isMerchant) {
-      toast.error("收款需要先注册商家，正在为你打开注册页");
+      toast.error("收款需先注册商家");
       navigate("/merchant/register");
       return;
     }
@@ -237,7 +237,7 @@ export function PayPage(): ReactNode {
       return;
     }
     if (!result.isMerchant) {
-      toast.error("对方还不是商家，暂时无法付款");
+      toast.error("对方还不是商家");
       return;
     }
     // 商家已发起指定金额收款单：扫校园卡直接进入这笔收款单，不再显示商品/金额界面
@@ -257,7 +257,7 @@ export function PayPage(): ReactNode {
 
   const scanForCollect = async (content: string): Promise<void> => {
     if (!me?.isMerchant) {
-      toast.error("收款需要先注册商家，正在为你打开注册页");
+      toast.error("收款需先注册商家");
       navigate("/merchant/register");
       return;
     }
@@ -291,7 +291,7 @@ export function PayPage(): ReactNode {
       }
       const content = resolveCardContent(raw);
       if (!content) {
-        toast.error("无法识别的二维码，请扫描 gzspay 校园卡或动态码");
+        toast.error("无法识别，请扫校园卡或动态码");
         return;
       }
       if (mode === "pay") await scanForPay(content);
@@ -304,7 +304,7 @@ export function PayPage(): ReactNode {
   const handleManualSubmit = async (): Promise<void> => {
     const raw = manualValue.trim();
     if (!raw) {
-      toast.error("请输入校园卡号或二维码内容");
+      toast.error("请输入校园卡号");
       return;
     }
     if (!raw.toLowerCase().includes("gzspay:") && !isCardNo(raw)) {
@@ -326,7 +326,7 @@ export function PayPage(): ReactNode {
 
   const handleScanError = (cause: unknown): void => {
     if (cause instanceof ApiError && cause.code === "NOT_FOUND") {
-      toast.error("该校园卡尚未绑定 gzspay 账号，请提醒对方先注册");
+      toast.error("该校园卡未绑定账号，请对方先注册");
       return;
     }
     toast.error(errorMessage(cause));
@@ -417,7 +417,7 @@ export function PayPage(): ReactNode {
   const goPayConfirm = (): void => {
     if (!merchant) return;
     if (merchant.channels.length === 0) {
-      toast.error("商家尚未启用收款方式，请与商家联系");
+      toast.error("商家未启用收款方式");
       return;
     }
     if (payItemsCount === 0 && payAmountCents <= 0) {
@@ -449,7 +449,7 @@ export function PayPage(): ReactNode {
         dynamicCodeToken: dynamicToken ?? undefined,
       });
       setPasswordOpen(false);
-      toast.success("订单已创建，请完成付款");
+      toast.success("订单已创建");
       navigate(`/orders/${order.id}`, { replace: true });
     } catch (cause) {
       const message = errorMessage(cause);
@@ -520,11 +520,11 @@ export function PayPage(): ReactNode {
       return;
     }
     if (!transferTarget) {
-      toast.error("请先确认收款人，没有找到这个学号对应的账号");
+      toast.error("没有找到该学号对应的账号");
       return;
     }
     if (!transferConfirmed) {
-      toast.error("请先核对姓名与头像，点「确认是本人」后再继续");
+      toast.error("请先点「确认是本人」");
       return;
     }
     const amountCents = yuanToCents(transferAmount);
@@ -552,7 +552,7 @@ export function PayPage(): ReactNode {
       transferKey.current = randomIdempotencyKey();
       setPasswordOpen(false);
       setPendingTransfer(null);
-      toast.success("转账已发起，等待对方确认收款");
+      toast.success("转账已发起，等待对方确认");
       navigate(`/orders/${order.id}`, { replace: true });
     } catch (cause) {
       const message = errorMessage(cause);
@@ -668,7 +668,7 @@ export function PayPage(): ReactNode {
           </div>
           <h1 className="mt-4 text-lg font-bold text-text">收款需要先开通商家</h1>
           <p className="mx-auto mt-1.5 max-w-[300px] text-xs leading-relaxed text-muted">
-            收款是以商家身份向同学收钱。注册商家并上传至少一种收款码（支付宝、微信支付、QQ 钱包）后，才能扫客户校园卡收款或接收动态码收款请求。
+            上传至少一种收款码即可。
           </p>
         </div>
         <div className="space-y-2 p-4">
@@ -684,12 +684,12 @@ export function PayPage(): ReactNode {
       <section className="card space-y-2 p-4">
         <h2 className="text-sm font-semibold text-text">注册后可以</h2>
         <ul className="space-y-1.5 text-xs leading-relaxed text-muted">
-          <li>· 扫客户的校园卡收款，手机交给对方输入支付密码</li>
-          <li>· 接收他人的动态码付款，请求实时推送到你的手机</li>
-          <li>· 上架商品、填写备注要求，让付款人自助下单</li>
+          <li>· 扫客户校园卡收款</li>
+          <li>· 接收动态码收款请求</li>
+          <li>· 上架商品与备注要求</li>
         </ul>
         <p className="text-[11px] leading-relaxed text-muted">
-          资金通过你自己的第三方收款码流转，gzspay 不代收代付。备注要求可以在注册后到「商品与发布」填写。
+          备注要求在「商品与发布」填写。
         </p>
       </section>
     </div>
@@ -705,9 +705,7 @@ export function PayPage(): ReactNode {
           <InlineQrScanner
             active={scannerOpen}
             hint={
-              kind === "pay"
-                ? "将商家校园卡二维码放入框内，识别成功会自动继续"
-                : "将客户校园卡二维码放入框内，识别成功会自动继续"
+              kind === "pay" ? "放入商家校园卡二维码" : "放入客户校园卡二维码"
             }
             onResult={(raw) => {
               void handleScanned(raw).catch((cause: unknown) => handleScanError(cause));
@@ -723,7 +721,7 @@ export function PayPage(): ReactNode {
         </div>
         <div className="space-y-2 p-4">
           <button type="button" className="btn btn-outline btn-block" onClick={() => setScannerOpen(false)}>
-            停止扫码
+            停止
           </button>
           <button
             type="button"
@@ -734,7 +732,7 @@ export function PayPage(): ReactNode {
               setManualOpen(true);
             }}
           >
-            手动输入校园卡号
+            手动输入
           </button>
           <NfcCardReader
             disabled={scanning}
@@ -758,8 +756,8 @@ export function PayPage(): ReactNode {
           </h1>
           <p className="mx-auto mt-1.5 max-w-[280px] text-xs leading-relaxed text-muted">
             {kind === "pay"
-              ? "扫描商家出示的校园卡二维码，选择商品或输入金额后完成付款。"
-              : "扫描客户的校园卡二维码，输入金额后请把手机交给付款人输入支付密码。"}
+              ? "扫商家校园卡，选商品或输入金额。"
+              : "扫客户校园卡，输入金额后交给对方输密码。"}
           </p>
         </div>
         <div className="space-y-2 p-4">
@@ -773,7 +771,7 @@ export function PayPage(): ReactNode {
             {scanning ? "识别中…" : "开始扫码"}
           </button>
           <button type="button" className="btn btn-outline btn-block" disabled={scanning} onClick={() => setManualOpen(true)}>
-            手动输入校园卡号
+            手动输入
           </button>
           <NfcCardReader disabled={scanning} onRead={(cardNo) => void handleScanned(cardNo)} />
         </div>
@@ -790,7 +788,7 @@ export function PayPage(): ReactNode {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold text-text">转账给同学</span>
-              <span className="mt-0.5 block text-xs text-muted">输入对方学号，用支付密码转账</span>
+              <span className="mt-0.5 block text-xs text-muted">按学号转账，需支付密码</span>
             </span>
             <span className="text-muted">›</span>
           </button>
@@ -801,7 +799,7 @@ export function PayPage(): ReactNode {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold text-text">我的收付款码</span>
-            <span className="mt-0.5 block text-xs text-muted">出示动态收款码，对方扫码即可付款</span>
+            <span className="mt-0.5 block text-xs text-muted">对方扫码可向你付款</span>
           </span>
           <span className="text-muted">›</span>
         </button>
@@ -815,7 +813,7 @@ export function PayPage(): ReactNode {
 
       <main className="page page-with-nav space-y-4 pt-4">
         {entryLoading ? (
-          <PageLoading text="正在识别二维码…" />
+          <PageLoading text="正在识别…" />
         ) : mode === "pay" ? (
           <>
             {step === "scan" || !merchant ? scanPanel("pay") : null}
@@ -861,7 +859,7 @@ export function PayPage(): ReactNode {
                       />
                     </div>
                   ) : (
-                    <p className="mt-2 text-xs text-muted">商家暂未上架商品，可直接输入金额付款。</p>
+                    <p className="mt-2 text-xs text-muted">暂无商品，可直接输入金额。</p>
                   )}
 
                   <div className="divider my-4" />
@@ -880,13 +878,12 @@ export function PayPage(): ReactNode {
                         }}
                         placeholder="0.00"
                       />
-                      <p className="mt-1 text-[11px] text-muted">也可以直接输入金额付款</p>
                     </div>
                   )}
 
                   <div className="divider my-4" />
                   <label className="label" htmlFor="reservedNote">
-                    预留备注（默认姓名 + 学号后四位，可修改）
+                    预留备注（默认姓名和学号后四位）
                   </label>
                   <textarea
                     id="reservedNote"
@@ -960,16 +957,16 @@ export function PayPage(): ReactNode {
                     <ChannelBadges channels={merchant.channels} />
                   </div>
                   <p className="mt-2 text-[11px] leading-relaxed text-muted">
-                    下单后请使用以上任意一种方式完成付款；付完回到订单详情点「我已支付」，选择你实际使用的收款方式并上传付款截图。
+                    付款后在订单详情点「我已支付」并上传截图。
                   </p>
                 </section>
 
                 <p className="px-1 text-center text-[11px] leading-relaxed text-muted">
-                  请核对收款方信息。资金通过第三方收款码流转，gzspay 不代收代付。
+                  请核对收款方；资金不经过 gzspay。
                 </p>
 
                 <button type="button" className="btn btn-primary btn-block" onClick={() => setPasswordOpen(true)}>
-                  确认并输入支付密码
+                  确认并输入密码
                 </button>
                 <button type="button" className="btn btn-ghost btn-block" onClick={() => setStep("merchant")}>
                   返回修改
@@ -984,14 +981,14 @@ export function PayPage(): ReactNode {
                 {scanPanel("collect")}
                 <section className="card p-4 text-center">
                   <p className="text-xs leading-relaxed text-muted">
-                    不想先扫对方的动态码？可以直接定好金额或商品，让对方扫你的校园卡二维码付款。
+                    也可先定好金额，让对方扫码付款。
                   </p>
                   <button
                     type="button"
                     className="btn btn-secondary btn-block mt-3"
                     onClick={() => navigate("/merchant/collect")}
                   >
-                    让对方扫码收款
+                    让对方扫码
                   </button>
                 </section>
               </>
@@ -1029,7 +1026,7 @@ export function PayPage(): ReactNode {
                       />
                     </div>
                   ) : (
-                    <p className="mt-2 text-xs text-muted">暂未上架商品，可直接输入金额。</p>
+                    <p className="mt-2 text-xs text-muted">暂无商品，可直接输入金额。</p>
                   )}
 
                   <div className="divider my-4" />
@@ -1049,7 +1046,7 @@ export function PayPage(): ReactNode {
 
                   <div className="divider my-4" />
                   <label className="label" htmlFor="collectNote">
-                    备注（选填，会展示给付款人）
+                    备注（选填）
                   </label>
                   <textarea
                     id="collectNote"
@@ -1079,12 +1076,12 @@ export function PayPage(): ReactNode {
                 </div>
                 <h2 className="mt-4 text-base font-bold text-text">已发送收款请求</h2>
                 <p className="mt-1 text-xs leading-relaxed text-muted">
-                  已发送到 {customer.displayName} 的手机，请等待对方核对金额并输入支付密码确认。
+                  已发送到 {customer.displayName} 的手机，等待对方确认。
                 </p>
                 <div className="mt-4 rounded-2xl bg-surface-2/70 py-4">
                   <MoneyText cents={waitingRequest.amountCents} size="xl" />
                 </div>
-                <p className="mt-2 text-[11px] text-muted">收款请求 60 秒内有效，对方确认后会自动跳转订单详情</p>
+                <p className="mt-2 text-[11px] text-muted">60 秒内有效，确认后自动跳转订单</p>
                 <button
                   type="button"
                   className="btn btn-outline btn-block mt-4"
@@ -1093,7 +1090,7 @@ export function PayPage(): ReactNode {
                     setCollectStep("amount");
                   }}
                 >
-                  取消等待
+                  取消
                 </button>
               </section>
             ) : null}
@@ -1107,7 +1104,7 @@ export function PayPage(): ReactNode {
                     </div>
                     <h2 className="mt-3 text-base font-bold text-text">请把手机交给付款人</h2>
                     <p className="mt-1 text-xs leading-relaxed text-muted">
-                      付款人 {customer.displayName} 将在你的手机上输入 6 位支付密码完成付款
+                      {customer.displayName} 将在你的手机上输入支付密码。
                     </p>
                   </div>
                   <div className="divider my-3" />
@@ -1137,15 +1134,15 @@ export function PayPage(): ReactNode {
                 <section className="card p-4">
                   <BuiltInKeypad
                     title="付款人输入支付密码"
-                    description="密码只在本机输入，不会显示明文"
+                    description="密码不会显示明文"
                     onSubmit={submitCollect}
                     onCancel={() => setCollectStep("amount")}
-                    cancelText="返回修改金额"
+                    cancelText="修改金额"
                   />
                 </section>
 
                 <p className="px-1 text-center text-[11px] leading-relaxed text-muted">
-                  请核对收款方信息。资金通过第三方收款码流转，gzspay 不代收代付。
+                  请核对收款方；资金不经过 gzspay。
                 </p>
               </>
             ) : null}
@@ -1157,7 +1154,7 @@ export function PayPage(): ReactNode {
         open={manualOpen}
         onClose={resetManual}
         title="手动输入校园卡号"
-        description="校园卡号为 8 位数字或字母，也可以粘贴二维码中的原始内容；安卓手机可直接用 NFC 读卡。"
+        description="8 位数字或字母，也可粘贴二维码内容。"
         footer={
           <div className="flex gap-2">
             <button type="button" className="btn btn-outline flex-1" onClick={resetManual}>
@@ -1191,7 +1188,7 @@ export function PayPage(): ReactNode {
         open={transferOpen}
         onClose={() => setTransferOpen(false)}
         title="转账给同学"
-        description="输入对方学号后会显示姓名与头像，核对无误后点「确认是本人」才能继续。单笔最多 200 元，每天最多 1000 元。"
+        description="核对姓名头像后点「确认是本人」。单笔最多 200 元，每天 1000 元。"
         footer={
           <div className="flex gap-2">
             <button type="button" className="btn btn-outline flex-1" onClick={() => setTransferOpen(false)}>
@@ -1219,12 +1216,12 @@ export function PayPage(): ReactNode {
               placeholder="例如 20231234"
               onChange={(event) => setTransferStudentNo(event.target.value)}
             />
-            <span className="mt-1 block text-[11px] text-muted">输入完整学号后会自动显示对方的姓名与头像</span>
+            <span className="mt-1 block text-[11px] text-muted">输入完整学号后自动显示</span>
           </label>
           {transferLookupState === "loading" ? (
             <p className="flex items-center gap-2 text-xs text-muted">
               <Spinner size={14} />
-              正在核对学号…
+              查找中…
             </p>
           ) : null}
           {transferLookupState === "error" ? <p className="text-xs text-danger">{transferLookupError}</p> : null}
@@ -1259,7 +1256,6 @@ export function PayPage(): ReactNode {
               placeholder="例如 20.00"
               onChange={(event) => setTransferAmount(event.target.value)}
             />
-            <span className="mt-1 block text-[11px] text-muted">单笔最多 200 元，当天累计最多 1000 元</span>
           </label>
           <label className="block">
             <span className="label">备注（可选）</span>
@@ -1267,7 +1263,7 @@ export function PayPage(): ReactNode {
               className="input"
               maxLength={120}
               value={transferNote}
-              placeholder="让对方知道这笔钱是做什么的"
+              placeholder="如：午餐 AA"
               onChange={(event) => setTransferNote(event.target.value)}
             />
           </label>

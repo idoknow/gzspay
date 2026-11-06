@@ -35,7 +35,7 @@ const STATUS_TABS: Array<{ key: StatusTab; label: string }> = [
 
 const CLOSED_REASON_TEXT: Record<AdminTicketClosedReason, string> = {
   user: "双方处理后手动结束",
-  timeout: "超过 7 天没有新消息，系统自动结束",
+  timeout: "超 7 天无新消息，系统结束",
   admin: "平台客服结束",
 };
 
@@ -45,10 +45,10 @@ function statusBadge(status: AdminTicketStatus) {
 
 /** 资料披露状态的中文说明（后台详情页展示） */
 const REVEAL_STATUS_TEXT: Record<AdminPartiesRevealStatus, string> = {
-  hidden: "默认隐藏：双方看不到对方完整资料",
-  pending: "待审核：有订单一方申请披露双方资料",
-  approved: "已披露：双方可以看到对方完整资料",
-  rejected: "已驳回：上次申请未通过，可以重新申请",
+  hidden: "默认隐藏：双方看不到对方资料",
+  pending: "待审核：一方申请披露资料",
+  approved: "已披露：双方可见完整资料",
+  rejected: "已驳回：可重新申请",
 };
 
 /** 平台客服头像：站点 logo */
@@ -142,7 +142,7 @@ export function AdminTicketsPage() {
     <>
       <PageHeader
         title="交易工单"
-        description="交易双方在订单内发起的沟通记录。运营可以「平台客服」身份介入沟通或结束工单，审计员只读。"
+        description="订单内的双方沟通记录，可介入或结束工单；审计员只读。"
       />
 
       <Tabs
@@ -179,7 +179,7 @@ export function AdminTicketsPage() {
         {!tickets.error && rows.length === 0 && !tickets.loading ? (
           <EmptyState
             title={tab === "open" ? "暂无进行中的工单" : tab === "closed" ? "暂无已结束的工单" : "暂无交易工单"}
-            description="工单只会在「已支付」或「已完成」的订单里产生。"
+            description="仅已支付或已完成的订单有工单。"
           />
         ) : null}
 
@@ -292,7 +292,7 @@ function TicketDetailDrawer({
     if (decision === "reject") {
       note = await feedback.prompt({
         title: "驳回资料披露申请",
-        description: "可以填写驳回原因，订单双方都能看到；不填也可以。",
+        description: "驳回原因双方可见，可不填。",
         label: "驳回原因（可选）",
         placeholder: "例如：请先在工单里说明争议金额与凭证",
         multiline: true,
@@ -318,7 +318,7 @@ function TicketDetailDrawer({
       footer={
         <div className="admin-flex" style={{ gap: 8 }}>
           <span className="admin-muted" style={{ fontSize: 12 }}>
-            {canWrite ? "运营可介入沟通或结束工单；结束会通知双方。" : "当前账号为只读，不能发言或结束工单。"}
+            {canWrite ? "可介入沟通或结束工单。" : "只读账号不能发言或结束工单。"}
           </span>
           <span className="admin-spacer" />
           {canReply ? (
@@ -327,7 +327,7 @@ function TicketDetailDrawer({
               onClick={async () => {
                 const note = await feedback.prompt({
                   title: "结束工单",
-                  description: "结束前可以填写处理说明（双方都能看到），不填也可以。",
+                  description: "处理说明双方可见，可不填。",
                   label: "处理说明（可选）",
                   placeholder: "例如：双方已协商一致，工单关闭",
                   multiline: true,

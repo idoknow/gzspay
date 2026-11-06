@@ -53,7 +53,7 @@ export function SystemPage() {
     <>
       <PageHeader
         title="系统状态"
-        description="服务可用性、接口性能与基础设施指标，异常项会高亮告警。"
+        description="服务可用性、接口性能与资源占用。"
         actions={
           <button
             type="button"
@@ -90,7 +90,7 @@ export function SystemPage() {
             </div>
           ) : (
             <div className="admin-inline-alert is-info">
-              当前没有未处理的系统告警，各项指标正常。
+              当前没有系统告警。
             </div>
           )}
 
@@ -131,7 +131,7 @@ export function SystemPage() {
 
           <Card
             title="服务可用性"
-            subtitle="核心接口的可用状态、平均耗时与错误率"
+            subtitle="可用状态、平均耗时与错误率"
             extra={
               <span className="admin-text-sm admin-muted">
                 更新于 {formatDateTime(data.updatedAt)}
@@ -139,7 +139,7 @@ export function SystemPage() {
             }
           >
             {services.length === 0 ? (
-              <EmptyState title="暂无服务指标" description="尚未采集到服务健康数据。" />
+              <EmptyState title="暂无服务指标" />
             ) : (
               <div className="admin-service-grid">
                 {services.map((service) => (
@@ -153,7 +153,7 @@ export function SystemPage() {
           </Card>
 
           <div className="admin-grid-2">
-            <Card title="邮件服务" subtitle="系统通知与验证码邮件发送情况">
+            <Card title="邮件服务">
               <div className="admin-stack">
                 <div className="admin-flex" style={{ justifyContent: "space-between" }}>
                   <span className="admin-text-sm admin-muted">发送成功率</span>
@@ -192,12 +192,12 @@ export function SystemPage() {
                   </div>
                 </div>
                 <p className="admin-readonly-hint">
-                  若成功率持续偏低，请在「系统配置」中检查 SMTP 参数与发件邮箱配置。
+                  成功率持续偏低时，请检查「系统配置」中的 SMTP 参数。
                 </p>
               </div>
             </Card>
 
-            <Card title="校园墙授权连通性" subtitle="后台登录依赖校园墙 OAuth 授权">
+            <Card title="校园墙授权连通性" subtitle="登录依赖校园墙授权">
               <div className="admin-stack">
                 <div className="admin-flex" style={{ gap: 8 }}>
                   {data.campux.ok ? (
@@ -219,7 +219,7 @@ export function SystemPage() {
                   </div>
                 ) : (
                   <p className="admin-text-sm admin-muted">
-                    OAuth 授权端点响应正常，管理员可通过校园墙账号登录。
+                    授权正常，可用校园墙账号登录。
                   </p>
                 )}
               </div>
@@ -227,7 +227,7 @@ export function SystemPage() {
           </div>
 
           <div className="admin-grid-2">
-            <Card title="存储" subtitle="数据库与上传文件占用">
+            <Card title="存储" subtitle="数据库与上传占用">
               <div className="admin-stack">
                 <div className="admin-kv-grid">
                   <div className="admin-kv">
@@ -261,13 +261,13 @@ export function SystemPage() {
                 />
                 {(data.storage.diskUsedPercent ?? 0) >= 80 ? (
                   <div className="admin-inline-alert is-warning">
-                    磁盘使用率偏高，请及时清理上传文件或扩容存储。
+                    磁盘使用率偏高，请清理或扩容。
                   </div>
                 ) : null}
               </div>
             </Card>
 
-            <Card title="队列" subtitle="异步任务处理情况">
+            <Card title="队列">
               <div className="admin-kv-grid">
                 <div className="admin-kv">
                   <span className="admin-kv-label">等待处理</span>
@@ -297,7 +297,7 @@ export function SystemPage() {
               {data.queue.failed > 0 ? (
                 <div style={{ marginTop: 12 }}>
                   <div className="admin-inline-alert is-danger">
-                    存在 {formatNumber(data.queue.failed)} 个失败任务，请查看系统错误日志排查。
+                    有 {formatNumber(data.queue.failed)} 个失败任务，请查看系统错误日志。
                   </div>
                 </div>
               ) : null}
@@ -306,7 +306,7 @@ export function SystemPage() {
 
           <Card
             title="严重错误告警"
-            subtitle="接口 5xx、进程未捕获异常、定时任务失败与邮件发送失败会主动推送给管理员"
+            subtitle="严重错误会主动推送给管理员"
             extra={
               <Badge
                 tone={
@@ -351,12 +351,11 @@ export function SystemPage() {
                 </div>
               </div>
               <p className="admin-readonly-hint">
-                告警通过邮件通知已绑定邮箱的管理员，也可配置 ALERT_WEBHOOK_URL 推送到企业微信 /
-                钉钉 / 飞书群机器人。同一类错误短时间内只告警一次，期间重复出现会合并计数，避免故障时刷屏。
+                同一类错误短时间内只告警一次。
               </p>
               {!data.alerting.webhookConfigured && !data.alerting.emailEnabled ? (
                 <div className="admin-inline-alert is-warning">
-                  当前没有任何告警通道：请在服务端设置 ALERT_WEBHOOK_URL，或配置 SMTP 并给管理员账号绑定邮箱。
+                  当前没有告警通道：请配置 SMTP 并给管理员绑定邮箱。
                 </div>
               ) : null}
             </div>
@@ -365,7 +364,7 @@ export function SystemPage() {
           <AdminEntryVisitsCard />
         </div>
       ) : (
-        <EmptyState title="暂无系统状态" description="尚未采集到系统指标。" />
+        <EmptyState title="暂无系统状态" />
       )}
     </>
   );
@@ -382,7 +381,7 @@ function AdminEntryVisitsCard() {
   return (
     <Card
       title="后台入口访问尝试"
-      subtitle="配置安全入口后，绕过入口直接打开 /admin 的访问会被记录并返回 404"
+      subtitle="绕过入口直接访问 /admin 会被记录，并返回 404"
       extra={
         <div className="admin-flex" style={{ gap: 8, alignItems: "center" }}>
           <Badge tone={total > 0 ? "warning" : "neutral"} dot>
@@ -409,7 +408,6 @@ function AdminEntryVisitsCard() {
       ) : items.length === 0 ? (
         <EmptyState
           title="暂无访问记录"
-          description="没有检测到绕过安全入口直接访问后台的尝试。"
         />
       ) : (
         <div className="admin-table-wrap">

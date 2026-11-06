@@ -82,7 +82,7 @@ export function AnnouncementsPage() {
   async function handleDelete(announcement: Announcement) {
     const confirmed = await feedback.confirm({
       title: "删除公告",
-      description: `确定删除公告「${announcement.title}」吗？删除后不可恢复，用户端也会立即消失。`,
+      description: `删除「${announcement.title}」后不可恢复，用户端同步消失。`,
       confirmText: "删除",
       danger: true,
     });
@@ -103,7 +103,7 @@ export function AnnouncementsPage() {
     <>
       <PageHeader
         title="公告发布"
-        description="发布后主站顶部铃铛旁会显示未读红点，用户读过后红点消失；修改公告会重新推送。"
+        description="发布后主站显示未读红点，修改会重新推送。"
         actions={
           <>
             <button
@@ -133,13 +133,13 @@ export function AnnouncementsPage() {
         <div className="admin-stack">
           {!canWrite ? (
             <InfoBanner tone="info">
-              当前账号为只读审计角色，可以查看公告但无法新建、编辑或删除。
+              当前角色只读，不能新建、编辑或删除公告。
             </InfoBanner>
           ) : null}
 
           <Card
             title="公告列表"
-            subtitle="置顶公告优先展示，其余按发布日期倒序"
+            subtitle="置顶优先，其余按发布日期倒序"
             extra={
               <div className="admin-flex" style={{ gap: 8, flexWrap: "wrap" }}>
                 <Badge tone="neutral">{announcements.length} 条</Badge>
@@ -151,11 +151,7 @@ export function AnnouncementsPage() {
             {announcements.length === 0 ? (
               <EmptyState
                 title="暂无公告"
-                description={
-                  canWrite
-                    ? "点击右上角「新建公告」发布第一条公告。"
-                    : "还没有发布任何公告。"
-                }
+                description={canWrite ? "点击右上角「新建公告」发布。" : undefined}
               />
             ) : (
               <div className="admin-table-wrap">
@@ -331,12 +327,12 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
         const result = await updateAnnouncement(announcement.id, input);
         feedback.success(
           result.republished
-            ? "公告已更新并重新推送，用户端会重新出现未读红点"
-            : "公告已更新",
+            ? "已更新并重新推送"
+            : "已更新",
         );
       } else {
         await createAnnouncement(input);
-        feedback.success("公告已发布，用户端会出现未读红点");
+        feedback.success("已发布");
       }
       onSaved();
     } catch (err) {
@@ -351,7 +347,7 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
   return (
     <Modal
       title={isEdit ? "编辑公告" : "新建公告"}
-      description="公告内容会展示给全校用户；修改标题、正文、级别或发布日期后会重新推送。"
+      description="修改后会重新推送给全校用户。"
       onClose={onClose}
       wide
       footer={
@@ -392,7 +388,6 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
 
         <Field
           label="公告级别"
-          hint="重要与警告会在用户端用不同颜色标记，方便快速识别。"
         >
           <select
             className="admin-select"
@@ -409,7 +404,7 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
 
         <Field
           label="发布日期"
-          hint="默认等于创建时间，可以修改成更早或更晚的时间。"
+          hint="默认当前时间"
         >
           <input
             type="datetime-local"
@@ -428,7 +423,6 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
 
         <Field
           label="置顶展示"
-          hint="置顶公告在用户端公告列表顶部优先展示。"
           className="admin-field-full"
         >
           <Switch checked={pinned} onChange={setPinned} label="置顶该公告" />
@@ -442,8 +436,7 @@ function AnnouncementEditor({ announcement, onClose, onSaved }: AnnouncementEdit
       ) : null}
 
       <p className="admin-readonly-hint" style={{ marginTop: 12 }}>
-        提示：修改已发布公告的标题、正文、级别或发布日期后，已读记录会被清空，
-        所有用户会重新收到未读红点。
+        修改标题、正文、级别或发布日期后，已读记录清空，用户会重新收到红点。
       </p>
     </Modal>
   );

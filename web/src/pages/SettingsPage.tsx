@@ -121,17 +121,17 @@ function ThemePreview({ mode }: { mode: ThemeMode }): ReactNode {
 }
 
 const THEME_OPTIONS: { key: ThemeMode; label: string; description: string; icon: ReactNode }[] = [
-  { key: "light", label: "浅色", description: "明亮清爽", icon: <SunIcon /> },
-  { key: "dark", label: "深色", description: "夜间护眼", icon: <MoonIcon /> },
+  { key: "light", label: "浅色", description: "白色背景", icon: <SunIcon /> },
+  { key: "dark", label: "深色", description: "深色背景", icon: <MoonIcon /> },
   { key: "auto", label: "自动", description: "跟随系统", icon: <AutoIcon /> },
 ];
 
 const NOTIFY_ROWS: { key: keyof NotificationSettings; title: string; description: string }[] = [
-  { key: "newOrder", title: "新订单", description: "有人创建订单时发送邮件通知" },
-  { key: "paid", title: "付款通知", description: "付款人完成付款时发送邮件通知" },
-  { key: "settled", title: "结算通知", description: "订单确认收款、取消等状态变更时发送邮件通知" },
-  { key: "ticket", title: "工单通知", description: "交易工单有新消息、或平台客服介入时发送邮件通知" },
-  { key: "announcement", title: "平台公告", description: "平台发布新公告时发送邮件通知" },
+  { key: "newOrder", title: "新订单", description: "有人创建订单时" },
+  { key: "paid", title: "付款通知", description: "付款人付款后" },
+  { key: "settled", title: "结算通知", description: "确认收款、取消等状态变更" },
+  { key: "ticket", title: "工单通知", description: "工单有新消息或客服介入" },
+  { key: "announcement", title: "平台公告", description: "发布新公告时" },
 ];
 
 export function SettingsPage(): ReactNode {
@@ -180,7 +180,6 @@ export function SettingsPage(): ReactNode {
               当前 {THEME_OPTIONS.find((option) => option.key === themeMode)?.label ?? "自动"}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-muted">切换后立即生效，并记住你的选择。</p>
           <div className="mt-3 grid grid-cols-3 gap-2 watch:gap-1.5">
             {THEME_OPTIONS.map((option) => {
               const active = themeMode === option.key;
@@ -235,8 +234,8 @@ export function SettingsPage(): ReactNode {
           </div>
           <p className="mt-1 text-[11px] leading-relaxed text-muted">
             {privacy.enabled
-              ? "当前已隐藏「我的」个人信息、通知设置与商家设置；退出需要输入支付密码。"
-              : "在教室、机房等公共电脑上使用时可开启，隐藏个人信息与设置；退出需要支付密码。"}
+              ? "已隐藏个人信息与设置，退出需支付密码。"
+              : "公共设备上可隐藏个人信息，退出需支付密码。"}
           </p>
           <div className="mt-3">
             {privacy.enabled ? (
@@ -260,7 +259,7 @@ export function SettingsPage(): ReactNode {
           <section className="card p-4">
             <h2 className="text-sm font-semibold text-text">隐私模式下已隐藏</h2>
             <p className="mt-1 text-[11px] leading-relaxed text-muted">
-              登录设备管理、邮件通知设置在这台公共设备上不展示。需要修改请先退出隐私模式。
+              登录设备与通知设置已隐藏。
             </p>
           </section>
         ) : (
@@ -278,7 +277,7 @@ export function SettingsPage(): ReactNode {
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-text">登录设备管理</span>
               <span className="mt-0.5 block text-[11px] text-muted">
-                查看登录过的设备与 IP，可强制退出其它设备
+                查看设备与 IP，可强制退出
               </span>
             </span>
             <span className="shrink-0 text-muted" aria-hidden="true">
@@ -289,7 +288,7 @@ export function SettingsPage(): ReactNode {
 
         <section className="card p-4">
           <h2 className="text-sm font-semibold text-text">邮件通知</h2>
-          <p className="mt-1 text-[11px] text-muted">关闭后将不再接收对应类型的邮件提醒，站内状态不受影响。</p>
+          <p className="mt-1 text-[11px] text-muted">关闭后不再发送该类邮件。</p>
           <div className="mt-2 divide-y divide-line">
             {NOTIFY_ROWS.map((row) => (
               <div key={row.key} className="flex items-center gap-3 py-3">

@@ -280,7 +280,7 @@ export function ProfilePage(): ReactNode {
 
   const sendEmailCode = (): void => {
     if (!isQqNumber(email)) {
-      toast.error("请输入 5–12 位数字 QQ 号，@qq.com 会自动补上");
+      toast.error("请输入 5–12 位数字 QQ 号");
       return;
     }
     const target = qqEmailOf(email);
@@ -361,8 +361,8 @@ export function ProfilePage(): ReactNode {
   };
 
   const cardHint = me.cardNo
-    ? "换绑后旧卡将自动解绑，需要验证支付密码。"
-    : "还没有绑定校园卡，扫描校园卡上的二维码即可绑定。";
+    ? "换绑后旧卡自动解绑，需支付密码。"
+    : "扫描校园卡二维码即可绑定。";
 
   const chip =
     "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1 ring-[color:var(--hero-ring)] bg-[color:var(--hero-chip)] text-[color:var(--hero-fg)] watch:text-[10px]";
@@ -399,7 +399,7 @@ export function ProfilePage(): ReactNode {
             </div>
           </div>
           <p className="relative mt-4 text-[10.5px] text-[color:var(--hero-fg-faint)] watch:mt-3 watch:text-[9.5px]">
-            姓名、学号、邮箱、校园卡都可以点击下面任意一项修改
+            点击任意一项修改
           </p>
         </section>
 
@@ -408,7 +408,7 @@ export function ProfilePage(): ReactNode {
           <InfoRow
             label="姓名"
             value={me.displayName}
-            hint="修改后需要验证支付密码，并同步到校园墙账号。"
+            hint="修改需支付密码"
             icon={<UserIcon />}
             tone="brand"
             onClick={openNameEditor}
@@ -416,7 +416,7 @@ export function ProfilePage(): ReactNode {
           <InfoRow
             label="校学号"
             value={me.studentNo || "未填写"}
-            hint="用于付款人核对身份，可在同学搜索中展示。"
+            hint="付款人核对身份时会看到"
             icon={<IdIcon />}
             tone="accent"
             divider
@@ -425,7 +425,7 @@ export function ProfilePage(): ReactNode {
           <InfoRow
             label="登录邮箱"
             value={me.email || "未绑定"}
-            hint="更换邮箱需要验证支付密码，验证码 10 分钟内有效。"
+            hint="更换需支付密码"
             icon={<MailIcon />}
             divider
             onClick={openEmailEditor}
@@ -471,15 +471,15 @@ export function ProfilePage(): ReactNode {
           <InfoRow
             label="登录设备管理"
             value="查看已登录设备与 IP"
-            hint="发现陌生设备时可强制退出。"
+            hint="发现陌生设备可强制退出"
             icon={<ShieldIcon />}
             tone="neutral"
             onClick={() => navigate("/me/devices")}
           />
           <InfoRow
             label="刷新资料"
-            value="重新拉取最新资料"
-            hint="刚在其它设备修改过资料时可用。"
+            value="同步最新资料"
+            hint="在其它设备改过资料后使用"
             icon={<RefreshIcon />}
             tone="neutral"
             divider
@@ -513,7 +513,7 @@ export function ProfilePage(): ReactNode {
         open={nameOpen}
         onClose={() => setNameOpen(false)}
         title="修改姓名"
-        description="修改后需要验证支付密码，并同步到校园墙账号。"
+        description="保存后同步到校园墙账号"
         footer={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => setNameOpen(false)}>
@@ -555,8 +555,8 @@ export function ProfilePage(): ReactNode {
           </div>
         </div>
         <p className="mt-3 rounded-xl bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted">
-          保存后会显示为「{nameDraft.surname.trim() || "姓"}
-          {nameDraft.givenName.trim() || "名"}」，付款人扫码时看到的就是这个名字。
+          保存后显示为「{nameDraft.surname.trim() || "姓"}
+          {nameDraft.givenName.trim() || "名"}」。
         </p>
       </Dialog>
 
@@ -564,7 +564,7 @@ export function ProfilePage(): ReactNode {
         open={studentNoOpen}
         onClose={() => setStudentNoOpen(false)}
         title="修改学号"
-        description="修改后需要验证支付密码，并同步到校园墙账号。"
+        description="修改需支付密码，并同步到校园墙账号"
         footer={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => setStudentNoOpen(false)}>
@@ -596,7 +596,7 @@ export function ProfilePage(): ReactNode {
         open={emailOpen}
         onClose={() => setEmailOpen(false)}
         title="更换登录邮箱"
-        description="需要验证支付密码，验证码 10 分钟内有效。"
+        description="验证码 10 分钟内有效"
         footer={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => setEmailOpen(false)}>
@@ -681,7 +681,7 @@ export function ProfilePage(): ReactNode {
             <p className="rounded-xl bg-accent-soft px-3 py-2 text-[11px] text-warning">开发环境验证码：{devCode}</p>
           ) : (
             <p className="text-[11px] leading-relaxed text-muted">
-              只需填写 5–12 位数字 QQ 号，@qq.com 固定。验证码会发送到新邮箱，验证通过后才会替换当前邮箱。
+              填写 QQ 号即可，@qq.com 固定；验证码发到新邮箱。
             </p>
           )}
         </div>
@@ -714,7 +714,7 @@ export function ProfilePage(): ReactNode {
             }}
           >
             <ScanIcon />
-            扫描校园卡二维码
+            扫描校园卡
           </button>
           <NfcCardReader
             onRead={(cardNo) => {
@@ -723,7 +723,7 @@ export function ProfilePage(): ReactNode {
             }}
           />
           <p className="text-center text-[11px] leading-relaxed text-muted">
-            安卓手机可以直接把卡片贴到手机背面用 NFC 读卡，读取卡片名称作为卡号。
+            安卓手机可将卡片贴到手机背面用 NFC 读卡。
           </p>
         </div>
       </Dialog>
@@ -731,7 +731,7 @@ export function ProfilePage(): ReactNode {
       <QrScanner
         open={scannerOpen}
         title="扫描校园卡二维码"
-        hint="将校园卡二维码放入取景框内，或使用 NFC 读卡"
+        hint="对准校园卡二维码，或用 NFC 读卡"
         scanOnly
         nfc
         manualLabel="校园卡卡号"

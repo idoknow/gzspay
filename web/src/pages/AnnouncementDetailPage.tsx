@@ -55,14 +55,14 @@ export function AnnouncementDetailPage(): ReactNode {
         ) : !announcement ? (
           <EmptyState
             title="公告不存在"
-            description="该公告可能已被撤回，或链接已失效"
+            description="可能已被撤回或链接失效"
             action={
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => navigate("/announcements", { replace: true })}
               >
-                返回公告列表
+                返回列表
               </button>
             }
           />

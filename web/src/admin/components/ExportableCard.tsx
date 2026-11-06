@@ -88,10 +88,10 @@ export function ChartExport({ targetRef, filename, csv, json }: ExportMenuProps)
   };
 
   const items: Array<{ format: "png" | "svg" | "csv" | "json"; label: string; hint: string; disabled: boolean }> = [
-    { format: "png", label: "PNG 图片", hint: "2 倍图，适合发群/贴文档", disabled: false },
+    { format: "png", label: "PNG 图片", hint: "2 倍图", disabled: false },
     { format: "svg", label: "SVG 矢量图", hint: "矢量，可无损放大", disabled: false },
     { format: "csv", label: "CSV 表格", hint: "Excel 可直接打开", disabled: !csv },
-    { format: "json", label: "JSON 数据", hint: "原始数据，便于二次处理", disabled: json === undefined },
+    { format: "json", label: "JSON 数据", hint: "原始数据", disabled: json === undefined },
   ];
 
   return (

@@ -28,17 +28,17 @@ const ROLE_OPTIONS: Array<{ value: AdminRole; label: string; description: string
   {
     value: "super",
     label: "超级管理员",
-    description: "全部权限：可管理管理员、系统配置及所有业务操作。",
+    description: "全部权限。",
   },
   {
     value: "ops",
     label: "运营",
-    description: "可处理订单、申诉、用户与公告，可查看日志；不可修改系统配置与管理员。",
+    description: "处理订单、申诉、用户与公告；不可改配置与管理员。",
   },
   {
     value: "auditor",
     label: "只读审计",
-    description: "仅可查看数据、日志与配置，所有写操作均被禁用。",
+    description: "仅可查看，写操作禁用。",
   },
 ];
 
@@ -58,7 +58,7 @@ export function AdminsPage() {
     }
     const confirmed = await feedback.confirm({
       title: "移除管理员",
-      description: `确认移除「${member.displayName}」的管理员权限？移除后该用户将无法登录管理后台。`,
+      description: `移除后「${member.displayName}」无法登录后台。`,
       confirmText: "确认移除",
       danger: true,
     });
@@ -79,7 +79,7 @@ export function AdminsPage() {
     <>
       <PageHeader
         title="管理员管理"
-        description="管理员账号从现有校园墙用户中添加，角色决定其可执行的操作范围。"
+        description="从校园墙用户中添加，角色决定权限。"
         actions={
           <div className="admin-flex" style={{ gap: 8 }}>
             <Button
@@ -120,7 +120,7 @@ export function AdminsPage() {
             </div>
           ) : rows.length === 0 ? (
             <div style={{ padding: 18 }}>
-              <EmptyState title="暂无管理员" description="请添加第一位管理员。" />
+              <EmptyState title="暂无管理员" />
             </div>
           ) : (
             <div className="admin-table-wrap">
@@ -200,7 +200,7 @@ export function AdminsPage() {
             ))}
           </div>
           <p className="admin-readonly-hint" style={{ marginTop: 14 }}>
-            安全要求：管理员权限复用主站登录会话；所有管理员操作会写入不可修改的操作日志。
+            管理员操作会写入不可修改的操作日志。
           </p>
         </Card>
       </div>
@@ -261,7 +261,7 @@ function AddAdminModal({ existingUserIds, onClose, onAdded }: AddAdminModalProps
   return (
     <Modal
       title="添加管理员"
-      description="从现有校园墙用户中搜索并选择，添加后该用户可使用校园墙账号登录后台。"
+      description="选择校园墙用户，添加后可用其账号登录后台。"
       onClose={onClose}
       wide
       footer={
@@ -282,7 +282,7 @@ function AddAdminModal({ existingUserIds, onClose, onAdded }: AddAdminModalProps
       }
     >
       <div className="admin-stack">
-        <Field label="搜索用户" hint="支持姓名、学号、邮箱关键词；最多显示 20 条结果">
+        <Field label="搜索用户" hint="姓名、学号或邮箱">
           <input
             className="admin-input"
             value={keyword}
@@ -306,7 +306,6 @@ function AddAdminModal({ existingUserIds, onClose, onAdded }: AddAdminModalProps
           ) : candidates.length === 0 ? (
             <EmptyState
               title={debouncedKeyword ? "没有匹配的用户" : "请输入关键词搜索用户"}
-              description="只能从已有校园墙用户中添加管理员。"
             />
           ) : (
             candidates.map((user) => {
@@ -365,7 +364,7 @@ function AddAdminModal({ existingUserIds, onClose, onAdded }: AddAdminModalProps
         </div>
 
         <div className="admin-inline-alert is-warning">
-          添加管理员属于敏感操作，将记录操作日志；请遵循最小权限原则分配角色。
+          添加管理员会记入操作日志，请按最小权限分配角色。
         </div>
       </div>
     </Modal>

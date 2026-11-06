@@ -282,7 +282,7 @@ export function MePage(): ReactNode {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-text">隐私模式已开启</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-muted">
-                  个人信息已隐藏，收付款、订单与工单照常可用。
+                  个人信息已隐藏，其余功能正常。
                 </p>
                 <div className="mt-3">
                   <ExitPrivacyButton label="输入密码退出" className="btn btn-primary btn-sm" />
@@ -325,7 +325,7 @@ export function MePage(): ReactNode {
             </div>
             {me.frozen ? (
               <p className="relative mt-4 rounded-xl bg-[color:var(--hero-chip)] px-3 py-2 text-xs leading-relaxed text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)]">
-                账号已被限制，如有疑问请通过「关于」中的联系方式联系我们。
+                账号已被限制，详见「关于」。
               </p>
             ) : null}
           </section>
@@ -378,8 +378,8 @@ export function MePage(): ReactNode {
         title="退出登录"
         description={
           me?.displayName
-            ? `退出后需要重新用校园墙账号登录才能继续使用。当前账号：${me.displayName}。`
-            : "退出后需要重新用校园墙账号登录才能继续使用。"
+            ? `退出后需重新登录：${me.displayName}`
+            : "退出后需重新登录"
         }
         confirmText="退出登录"
         danger

@@ -81,7 +81,7 @@ export function UsersPage() {
   const handleForceLogout = async (user: OnlineUser) => {
     const confirmed = await feedback.confirm({
       title: "强制下线",
-      description: `将立即注销「${user.displayName}」当前所有登录会话，对方需要重新登录。确认操作？`,
+      description: `注销「${user.displayName}」的全部登录会话，需重新登录。`,
       confirmText: "强制下线",
       danger: true,
     });
@@ -103,7 +103,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="用户管理"
-        description="查看校园墙用户资料、交易情况，并处理冻结、重置绑卡等操作。"
+        description="查看资料，处理冻结、重置绑卡。"
         actions={
           <Button
             variant="subtle"
@@ -123,7 +123,7 @@ export function UsersPage() {
 
       <div className="admin-stack">
         <div className="admin-grid-main-aside">
-          <Card title="近 12 个月新增用户" subtitle="按自然月统计注册人数">
+          <Card title="近 12 个月新增用户">
             {growth.error ? (
               <ErrorState
                 message={errorMessage(growth.error)}
@@ -153,25 +153,23 @@ export function UsersPage() {
               <StatCard
                 label="用户总数"
                 value={formatNumber(total)}
-                hint="校园墙注册用户"
                 tone="primary"
               />
               <StatCard
                 label="授权登录成功"
                 value={formatNumber(loginTotal)}
-                hint="至少成功登录过一次"
+                hint="成功登录过"
                 tone="accent"
               />
               <StatCard
                 label="近 12 个月新增"
                 value={formatNumber(newUsers)}
-                hint="按注册时间统计"
                 tone="accent"
               />
               <StatCard
                 label="当前在线"
                 value={formatNumber(onlineUsers.length)}
-                hint={`最近 ${onlineWindow} 分钟内有请求`}
+                hint={`近 ${onlineWindow} 分钟活跃`}
                 tone="success"
               />
             </div>
@@ -180,7 +178,7 @@ export function UsersPage() {
 
         <Card
           title="当前在线"
-          subtitle={`会话未过期且最近 ${onlineWindow} 分钟内有请求的用户，可强制下线`}
+          subtitle={`近 ${onlineWindow} 分钟活跃用户，可强制下线`}
           extra={
             <div className="admin-flex" style={{ gap: 8, alignItems: "center" }}>
               <Badge tone={onlineUsers.length > 0 ? "success" : "neutral"}>
@@ -213,7 +211,6 @@ export function UsersPage() {
             <div style={{ padding: 18 }}>
               <EmptyState
                 title="当前没有在线用户"
-                description={`最近 ${onlineWindow} 分钟内没有用户访问，稍后会自动统计到新的活跃会话。`}
               />
             </div>
           ) : (
@@ -275,7 +272,6 @@ export function UsersPage() {
 
         <Card
           title="最近用户登录"
-          subtitle="最近成功通过校园墙授权登录的用户，按登录时间倒序"
           extra={
             <Button
               variant="ghost"
@@ -301,10 +297,7 @@ export function UsersPage() {
             </div>
           ) : recentLogins.length === 0 ? (
             <div style={{ padding: 18 }}>
-              <EmptyState
-                title="暂无登录记录"
-                description="还没有用户成功通过校园墙授权登录。"
-              />
+              <EmptyState title="暂无登录记录" />
             </div>
           ) : (
             <div className="admin-table-wrap">
@@ -349,7 +342,6 @@ export function UsersPage() {
 
         <Card
           title="用户列表"
-          subtitle="支持姓名、学号、邮箱模糊搜索"
           extra={
             <div className="admin-flex" style={{ gap: 8 }}>
               <input
@@ -388,15 +380,10 @@ export function UsersPage() {
             <div style={{ padding: 18 }}>
               <EmptyState
                 title={debouncedKeyword ? "没有匹配的用户" : "暂无用户"}
-                description={
-                  debouncedKeyword
-                    ? "请尝试其他姓名、学号或邮箱关键词。"
-                    : "校园墙还没有注册用户。"
-                }
                 action={
                   debouncedKeyword ? (
                     <Button variant="subtle" size="sm" onClick={() => changeKeyword("")}>
-                      清空搜索条件
+                      清空搜索
                     </Button>
                   ) : undefined
                 }
@@ -601,7 +588,7 @@ function UserDetailDrawer({ userId, onClose, onChanged }: UserDetailDrawerProps)
                   void runAction(
                     "unfreeze",
                     "解冻用户",
-                    "解冻后该用户可继续登录与交易，确认操作？",
+                    "解冻后可继续登录与交易。",
                     "解冻",
                     false,
                   )
@@ -619,7 +606,7 @@ function UserDetailDrawer({ userId, onClose, onChanged }: UserDetailDrawerProps)
                   void runAction(
                     "freeze",
                     "冻结用户",
-                    "冻结后该用户将无法登录与发起交易，该操作会影响其正常使用；已进行中的订单不受影响。",
+                    "冻结后无法登录与交易；已进行的订单不受影响。",
                     "确认冻结",
                     true,
                   )
@@ -636,7 +623,7 @@ function UserDetailDrawer({ userId, onClose, onChanged }: UserDetailDrawerProps)
                 void runAction(
                   "reset-card",
                   "重置绑卡",
-                  "重置后用户需重新绑定校园卡后才能继续支付，确认操作？",
+                  "重置后需重新绑定校园卡才能支付。",
                   "重置绑卡",
                   false,
                 )
@@ -652,7 +639,7 @@ function UserDetailDrawer({ userId, onClose, onChanged }: UserDetailDrawerProps)
                 void runAction(
                   "force-logout",
                   "强制下线",
-                  "将立即注销该用户当前所有登录会话，确认操作？",
+                  "注销该用户全部登录会话。",
                   "强制下线",
                   true,
                 )
@@ -662,7 +649,7 @@ function UserDetailDrawer({ userId, onClose, onChanged }: UserDetailDrawerProps)
             </Button>
           </div>
         ) : (
-          <span className="admin-text-sm admin-muted">只读账号不可执行写操作</span>
+          <span className="admin-text-sm admin-muted">只读账号不可操作</span>
         )
       }
     >
@@ -676,9 +663,7 @@ function UserDetailDrawer({ userId, onClose, onChanged }: UserDetailDrawerProps)
       ) : user ? (
         <div className="admin-stack">
           {!canWrite ? (
-            <InfoBanner tone="info">
-              当前角色为只读审计，可查看用户资料，但无法执行冻结、重置绑卡等操作。
-            </InfoBanner>
+            <InfoBanner tone="info">只读审计：不能冻结、重置绑卡。</InfoBanner>
           ) : null}
           {user.frozen ? (
             <InfoBanner tone="danger">
@@ -733,7 +718,7 @@ function UserDetailDrawer({ userId, onClose, onChanged }: UserDetailDrawerProps)
 
           <SectionTitle>最近订单</SectionTitle>
           {(detail.data?.recentOrders.length ?? 0) === 0 ? (
-            <EmptyState title="暂无订单" description="该用户还没有交易记录。" />
+            <EmptyState title="暂无订单" />
           ) : (
             <div className="admin-table-wrap">
               <table className="admin-table">

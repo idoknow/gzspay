@@ -107,7 +107,7 @@ export function TrafficPage() {
     <>
       <PageHeader
         title="访问统计"
-        description="请求量、访问设备与地区、扫码次数与安全防护拦截情况，仅管理员可见。"
+        description="请求量、设备、地区与扫码情况。"
         actions={
           <button
             type="button"
@@ -146,30 +146,28 @@ export function TrafficPage() {
             <StatCard
               label="今日请求"
               value={formatNumber(data.requests.today)}
-              hint="按服务器本地时区统计"
               tone="accent"
             />
             <StatCard
               label="日均请求"
               value={formatNumber(data.requests.averagePerDay)}
-              hint={`最近 ${data.days} 天平均`}
+              hint={`近 ${data.days} 天平均`}
             />
             <StatCard
               label="扫码次数"
               value={formatNumber(data.scans.total)}
-              hint="校园卡 + 平台动态码"
+              hint="校园卡 + 动态码"
               tone="success"
             />
             <StatCard
               label="安全防护拦截"
               value={formatNumber(data.security.total)}
-              hint="限流、CSRF、地区、扫描器与越权访问"
             />
           </div>
 
           <ExportableCard
             title="请求量趋势"
-            subtitle="柱状为每日请求数，副轴数据为当日扫码次数；点击柱子查看当天明细"
+            subtitle="柱状为请求数，折线为扫码次数"
             filename="访问统计-请求量趋势"
             csv={{
               headers: ["日期", "请求数", "扫码次数", "安全拦截"],
@@ -192,12 +190,11 @@ export function TrafficPage() {
           </ExportableCard>
 
           <div className="admin-grid-main-aside">
-            <Card title="路由请求排行" subtitle="按接口 / 页面统计的请求次数（前 15）">
+            <Card title="路由请求排行" subtitle="请求次数前 15">
               <ShareList items={data.routes} emptyText="暂无路由请求数据" />
             </Card>
             <ExportableCard
               title="访问设备"
-              subtitle="按 User-Agent 粗分类"
               filename="访问统计-访问设备"
               csv={{
                 headers: ["设备", "请求数", "占比（%）"],
@@ -219,7 +216,6 @@ export function TrafficPage() {
           <div className="admin-grid-2">
             <ExportableCard
               title="HTTP 状态码"
-              subtitle="响应状态分布，关注 4xx / 5xx 占比"
               filename="访问统计-状态码"
               csv={{
                 headers: ["状态码", "请求数", "占比（%）"],
@@ -239,13 +235,13 @@ export function TrafficPage() {
                 ariaLabel="HTTP 状态码分布图"
               />
             </ExportableCard>
-            <Card title="访问地区" subtitle="按 IP 归属地粗分类（不保存具体 IP）">
+            <Card title="访问地区" subtitle="按归属地统计">
               <ShareList items={data.regions} emptyText="暂无地区数据" />
             </Card>
           </div>
 
           <div className="admin-grid-2">
-            <Card title="浏览器与系统" subtitle="访问客户端分布">
+            <Card title="浏览器与系统">
               <ShareList
                 items={[...data.browsers, ...data.systems]}
                 emptyText="暂无客户端数据"
@@ -253,7 +249,6 @@ export function TrafficPage() {
             </Card>
             <ExportableCard
               title="扫码统计"
-              subtitle="校园卡与平台动态码被扫次数"
               filename="访问统计-扫码统计"
               csv={{
                 headers: ["扫码方式", "次数", "占比（%）"],
@@ -275,10 +270,7 @@ export function TrafficPage() {
             </ExportableCard>
           </div>
 
-          <Card
-            title="安全防护"
-            subtitle="限流、CSRF、地区拦截、扫描器路径、后台入口探测与越权访问等拦截次数"
-          >
+          <Card title="安全防护">
             <ShareList items={data.security.items} emptyText="最近没有安全防护拦截" />
           </Card>
         </div>

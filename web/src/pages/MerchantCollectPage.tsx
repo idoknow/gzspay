@@ -103,7 +103,7 @@ export function MerchantCollectPage(): ReactNode {
         .then((next) => {
           setResult((current) => (current ? { ...current, collection: next } : current));
           if (next.status === "used" && next.orderId) {
-            toast.success("对方已付款，正在跳转到订单详情");
+            toast.success("对方已付款");
             navigate(`/orders/${next.orderId}`);
           }
         })
@@ -126,7 +126,7 @@ export function MerchantCollectPage(): ReactNode {
       setResult(created);
       setAmount("");
       setNote("");
-      toast.success("收款单已生成，让对方扫页面上的二维码付款");
+      toast.success("收款单已生成");
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
@@ -165,7 +165,7 @@ export function MerchantCollectPage(): ReactNode {
         <div className="px-4">
           <EmptyState
             title="还不是商家"
-            description="注册商家后就可以创建指定金额的收款单，让对方扫码直接付款。"
+            description="注册后可发起收款单"
             action={
               <button type="button" className="btn btn-primary" onClick={() => navigate("/merchant/register")}>
                 去注册商家
@@ -179,7 +179,7 @@ export function MerchantCollectPage(): ReactNode {
 
   return (
     <div className="min-h-[100dvh] bg-app pb-28">
-      <PageHeader title="发起收款" subtitle="输入金额生成实时二维码，对方扫码即可付款" back />
+      <PageHeader title="发起收款" subtitle="输入金额，对方扫码付款" back />
 
       <div className="space-y-4 px-4">
         {result ? (
@@ -212,9 +212,7 @@ export function MerchantCollectPage(): ReactNode {
                   )}
                 </div>
                 <p className="mt-3 text-xs leading-relaxed text-muted">
-                  让对方扫这个实时二维码付款，金额与备注会自动带过去。
-                  <br />
-                  关闭本页或点「关闭并作废」后二维码立即失效。
+                  让对方扫码付款；关闭本页后立即失效。
                 </p>
                 <p className="mt-2 break-all text-[11px] text-muted">{result.url}</p>
               </>
@@ -231,17 +229,17 @@ export function MerchantCollectPage(): ReactNode {
             <button type="button" className="btn btn-primary btn-block mt-3" onClick={() => void restart()}>
               再发起一笔
             </button>
-            <p className="mt-2 text-[11px] text-muted">收款单只能使用一次，付款成功后自动失效；30 分钟内有效。</p>
+            <p className="mt-2 text-[11px] text-muted">一次性使用，30 分钟内有效。</p>
           </section>
         ) : (
           <>
             <section className="card p-4">
               <AmountInput value={amount} onChange={setAmount} placeholder="0.00" />
-              <p className="mt-2 text-[11px] text-muted">单笔上限与商家订单一致；付款人扫码后会看到金额与备注。</p>
+              <p className="mt-2 text-[11px] text-muted">单笔上限同商家订单；付款人可见金额与备注。</p>
 
               <div className="divider my-4" />
               <label className="label" htmlFor="collectionNote">
-                备注（选填，会展示给付款人）
+                备注（选填）
               </label>
               <textarea
                 id="collectionNote"

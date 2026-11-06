@@ -237,9 +237,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
             </>
           }
         >
-          <div className="admin-text-sm admin-secondary">
-            该操作将立即生效，请确认无误后继续。
-          </div>
+          {null}
         </Modal>
       ) : null}
 
@@ -287,7 +285,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
             )}
           </Field>
           <div className="admin-text-xs admin-muted">
-            说明会写入操作日志，请填写清晰的处理依据。
+            将记入操作日志。
           </div>
         </Modal>
       ) : null}

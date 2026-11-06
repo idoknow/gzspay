@@ -59,7 +59,7 @@ export function CountdownModal({
       }
     >
       <div className="text-sm leading-relaxed text-text">{children}</div>
-      <p className="mt-3 text-xs text-muted">请仔细核对信息，确认后不可撤销。</p>
+      <p className="mt-3 text-xs text-muted">确认后不可撤销。</p>
     </Dialog>
   );
 }

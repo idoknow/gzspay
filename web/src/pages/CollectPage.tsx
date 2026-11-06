@@ -88,7 +88,7 @@ export function CollectPage(): ReactNode {
   if (!data) {
     return (
       <Shell>
-        <EmptyState title="收款单不存在" description="链接可能已失效，请让商家重新发起收款。" />
+        <EmptyState title="收款单不存在" description="链接可能已失效" />
       </Shell>
     );
   }
@@ -96,8 +96,8 @@ export function CollectPage(): ReactNode {
   if (!data.payeable) {
     const failedText =
       data.status === "used"
-        ? "这笔收款单已经被使用过了，请让商家重新发起。"
-        : "收款单已过期或已作废，请让商家重新发起。";
+        ? "请让商家重新发起"
+        : "已过期或作废，请让商家重新发起";
     return (
       <Shell>
         <EmptyState
@@ -177,7 +177,7 @@ export function CollectPage(): ReactNode {
         >
           确认付款
         </button>
-        <p className="mt-2 text-[11px] text-muted">核对商家与金额无误后，输入支付密码完成付款</p>
+        <p className="mt-2 text-[11px] text-muted">请核对收款人与金额</p>
       </section>
 
       <section className="card p-4">
@@ -186,7 +186,7 @@ export function CollectPage(): ReactNode {
           <ChannelBadges channels={data.channels} />
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-muted">
-          付款完成后请在订单详情点「我已支付」，选择你实际使用的收款方式并上传付款截图。
+          付款后在订单详情点「我已支付」并上传截图。
         </p>
       </section>
 

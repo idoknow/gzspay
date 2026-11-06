@@ -70,7 +70,7 @@ function NameStep({ me, onDone }: StepProps): ReactNode {
     const surnameText = surname.trim();
     const givenNameText = givenName.trim();
     if (!surnameText || !givenNameText) {
-      toast.error("请填写真实姓名（姓、名都要填写）");
+      toast.error("请填写姓和名");
       return;
     }
     setBusy(true);
@@ -84,7 +84,7 @@ function NameStep({ me, onDone }: StepProps): ReactNode {
   };
 
   return (
-    <StepShell title={STEP_TITLES.name} description="请填写真实姓名，便于交易双方核对身份。">
+    <StepShell title={STEP_TITLES.name} description="用于交易双方核对身份。">
       <form
         className="space-y-4"
         onSubmit={(event) => {
@@ -139,7 +139,7 @@ function StudentNoStep({ me, onDone }: StepProps): ReactNode {
   const submit = async (): Promise<void> => {
     const value = studentNo.trim();
     if (!isStudentNo(value)) {
-      toast.error("请输入正确的校学号（字母或数字，4-20 位）");
+      toast.error("学号需为 4-20 位字母或数字");
       return;
     }
     setBusy(true);
@@ -153,7 +153,7 @@ function StudentNoStep({ me, onDone }: StepProps): ReactNode {
   };
 
   return (
-    <StepShell title={STEP_TITLES.studentNo} description="校学号唯一，将用于校园卡绑定与支付信息展示。">
+    <StepShell title={STEP_TITLES.studentNo} description="用于绑定校园卡与身份核对。">
       <form
         className="space-y-4"
         onSubmit={(event) => {
@@ -201,7 +201,7 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
   const sendCode = async (): Promise<void> => {
     if (sending) return;
     if (!isQqNumber(email)) {
-      toast.error("请输入 5–12 位数字 QQ 号，@qq.com 会自动补上");
+      toast.error("请输入 5–12 位数字 QQ 号");
       return;
     }
     setSending(true);
@@ -220,7 +220,7 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
 
   const submit = async (): Promise<void> => {
     if (!isQqNumber(email)) {
-      toast.error("请输入 5–12 位数字 QQ 号，@qq.com 会自动补上");
+      toast.error("请输入 5–12 位数字 QQ 号");
       return;
     }
     if (!isSixDigitCode(code)) {
@@ -240,7 +240,7 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
   return (
     <StepShell
       title={STEP_TITLES.email}
-      description="绑定 QQ 邮箱用于找回支付密码和接收交易通知：只需填写 QQ 号，@qq.com 会自动补上。验证码 10 分钟内有效。"
+      description="用于找回支付密码与接收通知，验证码 10 分钟内有效。"
     >
       <form
         className="space-y-4"
@@ -280,7 +280,6 @@ function EmailStep({ me, onDone }: StepProps): ReactNode {
               {countdown.remaining > 0 ? `${countdown.remaining}s 后重发` : sent ? "重新发送" : "发送验证码"}
             </button>
           </div>
-          <p className="mt-1.5 text-xs text-muted">@qq.com 固定，只需填写前面的纯数字 QQ 号</p>
         </div>
         <div>
           <label className="label" htmlFor="emailCode">
@@ -355,7 +354,7 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
           </span>
           <p className="mt-3 text-sm font-semibold text-text">将校园卡二维码放入取景框</p>
           <p className="mt-1 text-xs text-muted">
-            支持摄像头扫码，安卓手机可用「NFC 读卡」直接贴卡；卡号为 8 位数字或字母
+            扫码或 NFC 读卡，卡号 8 位数字或字母
           </p>
           <button
             type="button"
@@ -369,14 +368,14 @@ function CardStep({ me, onDone }: StepProps): ReactNode {
           <NfcCardReader className="mt-2 w-full" disabled={busy} onRead={handleScan} />
         </div>
         <p className="mt-3 text-center text-[11px] leading-relaxed text-muted">
-          相机无法使用？请在系统浏览器（Safari / Chrome）中打开本页，并允许使用摄像头。
+          相机打不开？请用系统浏览器打开本页并允许相机。
         </p>
       </div>
 
       <QrScanner
         open={scannerOpen}
         title="扫描校园卡二维码"
-        hint="将校园卡二维码放入取景框，或使用 NFC 读卡"
+        hint="放入取景框，或用 NFC 读卡"
         scanOnly
         nfc
         manualLabel="校园卡卡号"
@@ -420,12 +419,12 @@ function PasswordStep({ onDone }: StepProps): ReactNode {
     <div className="animate-fade-in">
       <h1 className="text-2xl font-bold text-text">{STEP_TITLES.password}</h1>
       <p className="mt-1.5 text-sm leading-relaxed text-muted">
-        支付密码为 6 位数字，用于确认付款等操作。请勿告诉他人，gzspay 工作人员不会向你索取。
+        6 位数字，用于确认付款，请勿告诉他人。
       </p>
       <div className="mt-6">
         <BuiltInKeypad
-          title={phase === "first" ? "设置支付密码" : "再次输入以确认"}
-          description={phase === "first" ? "请输入 6 位数字支付密码" : "请再次输入相同的 6 位密码"}
+          title={phase === "first" ? "设置支付密码" : "再输入一次"}
+          description={phase === "first" ? "请输入 6 位数字支付密码" : "再次输入 6 位密码"}
           length={6}
           onSubmit={submit}
           footerExtra={
@@ -438,7 +437,7 @@ function PasswordStep({ onDone }: StepProps): ReactNode {
                   setPhase("first");
                 }}
               >
-                重新设置密码
+                重新设置
               </button>
             ) : null
           }
@@ -486,7 +485,7 @@ export function OnboardingPage(): ReactNode {
     (result: OnboardingResponse) => {
       updateMe(result.me);
       if (result.step === "done" || result.me.onboarded) {
-        toast.success("资料已完成，欢迎使用 gzspay");
+        toast.success("资料已完成");
         navigate("/trades", { replace: true });
         return;
       }
@@ -504,7 +503,7 @@ export function OnboardingPage(): ReactNode {
   if (loading && !data) {
     return (
       <div className="bg-app flex min-h-[100dvh] items-center justify-center px-6">
-        <LoadingBlock text="正在读取引导进度…" />
+        <LoadingBlock text="正在加载…" />
       </div>
     );
   }

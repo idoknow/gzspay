@@ -186,7 +186,7 @@ export function ProductsPage(): ReactNode {
             }}
           />
         ) : !merchant ? (
-          <EmptyState title="尚未注册商家" description="请先在「商家」中完成注册，再发布商品。" />
+          <EmptyState title="尚未注册商家" description="请先注册商家" />
         ) : (
           <>
             <section className="card p-4">
@@ -195,12 +195,12 @@ export function ProductsPage(): ReactNode {
                 className="input mt-2 min-h-20 py-3"
                 value={note}
                 maxLength={120}
-                placeholder="付款人创建订单前需要确认的备注要求，留空表示无要求"
+                placeholder="付款人下单前需确认的事项，留空表示无要求"
                 onChange={(event) => setNote(event.target.value)}
               />
               <button type="button" className="btn btn-outline btn-block mt-2" disabled={savingNote} onClick={() => void saveNote()}>
                 {savingNote ? <Spinner size={16} /> : null}
-                保存备注要求
+                保存
               </button>
             </section>
 
@@ -216,7 +216,7 @@ export function ProductsPage(): ReactNode {
                 <EmptyState
                   compact
                   title="还没有商品"
-                  description="发布商品后，付款人扫码时可以直接选择商品并自动计算金额。"
+                  description="发布后付款人可直接选择"
                 />
               ) : (
                 <ul className="mt-2 divide-y divide-line">
@@ -342,7 +342,7 @@ export function ProductsPage(): ReactNode {
             <div className="flex items-center justify-between rounded-2xl bg-surface-2 px-3 py-2.5">
               <div>
                 <p className="text-sm text-text">立即上架</p>
-                <p className="text-[11px] text-muted">下架后付款人不会看到该商品</p>
+                <p className="text-[11px] text-muted">下架后付款人看不到</p>
               </div>
               <Toggle checked={draft.active} onChange={(next) => setDraft({ ...draft, active: next })} label="立即上架" />
             </div>
@@ -353,7 +353,7 @@ export function ProductsPage(): ReactNode {
       <ConfirmDialog
         open={deleting !== null}
         title="删除商品"
-        description={deleting ? `确定删除「${deleting.name}」吗？删除后不可恢复。` : ""}
+        description={deleting ? `「${deleting.name}」删除后不可恢复` : ""}
         confirmText="删除"
         danger
         onConfirm={() => void removeProduct()}
@@ -376,7 +376,7 @@ export function ProductsPage(): ReactNode {
             />
             <div>
               <p className="text-sm font-semibold text-text">{merchant?.name ?? "商家"}</p>
-              <p className="text-[11px] text-muted">扫码后看到的商家信息</p>
+              <p className="text-[11px] text-muted">付款人看到的商家信息</p>
             </div>
           </div>
           {merchant?.noteRequirement ? (
@@ -386,7 +386,7 @@ export function ProductsPage(): ReactNode {
             </div>
           ) : null}
           {products.filter((item) => item.active).length === 0 ? (
-            <p className="rounded-2xl bg-surface-2 px-3 py-3 text-center text-xs text-muted">还没有上架商品，付款人只能自定义金额</p>
+            <p className="rounded-2xl bg-surface-2 px-3 py-3 text-center text-xs text-muted">暂无上架商品，付款人可自定义金额</p>
           ) : (
             <ul className="space-y-2">
               {products
@@ -402,7 +402,7 @@ export function ProductsPage(): ReactNode {
                 ))}
             </ul>
           )}
-          <p className="text-center text-[11px] text-muted">预览仅用于检查展示效果，实际以扫码页面为准</p>
+          <p className="text-center text-[11px] text-muted">仅供预览，以扫码页为准</p>
         </div>
       </Dialog>
     </div>

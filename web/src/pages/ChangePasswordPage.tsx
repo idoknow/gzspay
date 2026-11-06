@@ -157,15 +157,13 @@ export function ChangePasswordPage(): ReactNode {
         {step === "send" && !claiming ? (
           <section className="card space-y-3 p-4">
             <h2 className="text-sm font-semibold text-text">选择验证方式</h2>
-            <p className="text-xs leading-relaxed text-muted">
-              支付密码用于创建订单与确认交易。修改前需要先验证身份，下面两种方式任选一种。
-            </p>
+            <p className="text-xs leading-relaxed text-muted">两种方式任选一种</p>
             <button type="button" className="btn btn-primary btn-block" disabled={sending} onClick={() => void sendCode()}>
               {sending ? <Spinner size={16} /> : null}
               发送邮箱验证码
             </button>
             <p className="text-[11px] leading-relaxed text-muted">
-              验证码会发到 {me?.email || "你的登录邮箱"}，10 分钟内有效。
+              验证码发到 {me?.email || "你的登录邮箱"}，10 分钟内有效。
             </p>
             <div className="flex items-center gap-2 text-[11px] text-muted">
               <span className="h-px flex-1 bg-line" />
@@ -178,12 +176,12 @@ export function ChangePasswordPage(): ReactNode {
                   用校园墙账号验证
                 </a>
                 <p className="text-[11px] leading-relaxed text-muted">
-                  会跳转到校园墙授权页，确认是本人账号后自动回到这里设置新密码。
+                  跳转校园墙授权，返回后设置新密码。
                 </p>
               </>
             ) : (
               <p className="text-[11px] leading-relaxed text-muted">
-                管理员尚未配置校园墙登录，暂时只能使用邮箱验证。
+                校园墙登录未开放，请用邮箱验证。
               </p>
             )}
           </section>
@@ -220,14 +218,14 @@ export function ChangePasswordPage(): ReactNode {
         {step === "password" ? (
           <section className="card p-4">
             <h2 className="text-sm font-semibold text-text">{phase === "first" ? "设置新支付密码" : "再次输入新密码"}</h2>
-            <p className="mt-1 text-[11px] text-muted">6 位数字，仅在本机输入，不会显示明文。</p>
+            <p className="mt-1 text-[11px] text-muted">6 位数字，不会显示明文。</p>
             <div className="mt-3">
               <BuiltInKeypad
                 title={phase === "first" ? "新支付密码" : "确认新支付密码"}
-                description={phase === "first" ? "请输入 6 位数字" : "请再次输入以确认"}
+                description={phase === "first" ? "请输入 6 位数字" : "再输入一次"}
                 onSubmit={submitPassword}
                 footerExtra={
-                  <p className="text-center text-[11px] text-muted">修改成功后动态收付款码会立即失效，并发送邮件提醒。</p>
+                  <p className="text-center text-[11px] text-muted">修改后动态码立即失效。</p>
                 }
               />
             </div>

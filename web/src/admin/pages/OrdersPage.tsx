@@ -113,7 +113,7 @@ export function OrdersPage() {
     <>
       <PageHeader
         title="交易明细"
-        description="查看全校订单流水，支持多维筛选、导出 CSV，并对申诉订单进行处理。"
+        description="订单流水、筛选导出与申诉处理。"
       />
 
       <Tabs
@@ -210,7 +210,7 @@ function OrdersTab({
 
   return (
     <div className="admin-stack">
-      <Card title="筛选条件" subtitle="时间范围按本地时区解释，金额单位为元">
+      <Card title="筛选条件" subtitle="按本地时区，金额单位元">
         <div className="admin-form-grid">
           <Field label="开始日期">
             <input
@@ -269,7 +269,7 @@ function OrdersTab({
               onChange={(event) => update({ maxYuan: event.target.value })}
             />
           </Field>
-          <Field label="商家用户 ID" hint="可选，精确匹配商家">
+          <Field label="商家用户 ID">
             <input
               className="admin-input"
               value={draft.merchantId}
@@ -277,7 +277,7 @@ function OrdersTab({
               onChange={(event) => update({ merchantId: event.target.value })}
             />
           </Field>
-          <Field label="付款人用户 ID" hint="可选，精确匹配付款人">
+          <Field label="付款人用户 ID">
             <input
               className="admin-input"
               value={draft.payerId}
@@ -317,7 +317,7 @@ function OrdersTab({
 
       <Card
         title="订单列表"
-        subtitle={`共 ${total} 条订单${orders.data ? ` · 第 ${orders.data.page} 页` : ""}`}
+        subtitle={`共 ${total} 条${orders.data ? ` · 第 ${orders.data.page} 页` : ""}`}
         flush
       >
         {orders.error && !orders.data ? (
@@ -335,7 +335,7 @@ function OrdersTab({
           <div style={{ padding: 18 }}>
             <EmptyState
               title="没有符合条件的订单"
-              description="调整筛选条件后重试，或清空筛选查看全部订单。"
+              description="换个条件试试。"
               action={
                 <Button variant="subtle" size="sm" onClick={reset}>
                   清空筛选
@@ -421,7 +421,7 @@ function OrdersTab({
       </Card>
 
       <div className="admin-text-xs admin-muted">
-        提示：导出与申诉处理等敏感操作会记录到操作日志，且日志不可修改。
+        导出与申诉处理会记入操作日志。
       </div>
     </div>
   );
@@ -467,8 +467,8 @@ function AppealsTab({
       label: "处理说明",
       placeholder:
         next === "resolved"
-          ? "请填写处理结果，例如：已与商家协商退款/已关闭订单"
-          : "请填写驳回原因，例如：申诉理由不成立",
+          ? "例如：已与商家协商退款"
+          : "例如：申诉理由不成立",
       multiline: true,
       required: true,
       confirmText: next === "resolved" ? "确认已解决" : "确认驳回",
@@ -496,7 +496,7 @@ function AppealsTab({
   return (
     <Card
       title="申诉处理"
-      subtitle="用户对订单发起申诉后在此处理；需填写处理说明，结果对用户可见"
+      subtitle="处理需填说明，结果对用户可见"
       extra={
         <select
           className="admin-select"
@@ -532,7 +532,6 @@ function AppealsTab({
         <div style={{ padding: 18 }}>
           <EmptyState
             title={status === "pending" ? "没有待处理的申诉" : "暂无申诉记录"}
-            description="用户对订单处理有异议时会提交申诉，处理记录会写入操作日志。"
           />
         </div>
       ) : (
@@ -630,7 +629,7 @@ function AppealsTab({
       {!canWrite ? (
         <div style={{ padding: "0 18px 16px" }}>
           <InfoBanner tone="info">
-            当前角色只读，可查看申诉内容但不能执行处理操作。
+            当前角色只读，不能处理申诉。
           </InfoBanner>
         </div>
       ) : null}
@@ -728,9 +727,9 @@ function OrderDetailDrawer({
                 onClick={() =>
                   void run("close", {
                     title: "关闭订单",
-                    description: `关闭订单 ${order.orderNo} 后不可恢复，未支付订单将不能再支付。`,
+                    description: `关闭后不可恢复，未支付订单无法再支付。`,
                     label: "关闭原因",
-                    placeholder: "请填写关闭原因，例如：用户申诉，双方协商关闭",
+                    placeholder: "例如：用户申诉，双方协商关闭",
                     confirmText: "确认关闭",
                     danger: true,
                   })
@@ -747,9 +746,9 @@ function OrderDetailDrawer({
               onClick={() =>
                 void run("flag", {
                   title: "标记异常",
-                  description: "标记后订单会进入风控关注列表，并记录到操作日志。",
+                  description: "标记后进入风控关注列表。",
                   label: "异常说明",
-                  placeholder: "请说明异常原因，例如：金额异常、疑似刷单",
+                  placeholder: "例如：金额异常、疑似刷单",
                   confirmText: "确认标记",
                   danger: true,
                 })
@@ -760,7 +759,7 @@ function OrderDetailDrawer({
           </div>
         ) : (
           <span className="admin-text-sm admin-muted">
-            {canWrite ? "—" : "只读账号不可执行写操作"}
+            {canWrite ? "—" : "只读账号不可操作"}
           </span>
         )
       }
@@ -776,7 +775,7 @@ function OrderDetailDrawer({
         <div className="admin-stack">
           {!canWrite ? (
             <InfoBanner tone="info">
-              当前角色为只读审计，仅可查看订单信息，无法关闭订单或处理申诉。
+              只读审计：不能处理申诉或关闭订单。
             </InfoBanner>
           ) : null}
           {order.flagged ? (
@@ -846,7 +845,7 @@ function OrderDetailDrawer({
 
           <SectionTitle>订单时间线</SectionTitle>
           {order.events.length === 0 ? (
-            <EmptyState title="暂无时间线记录" description="该订单还没有产生事件。" />
+            <EmptyState title="暂无时间线记录" />
           ) : (
             <div className="admin-timeline">
               {order.events.map((event) => (
@@ -889,7 +888,7 @@ function OrderDetailDrawer({
                             title: "标记申诉已解决",
                             description: order.appeal?.reason,
                             label: "处理说明",
-                            placeholder: "请填写处理结果，例如：已协调商家退款/已关闭订单",
+                            placeholder: "例如：已协调商家退款",
                             confirmText: "确认已解决",
                             danger: false,
                           })
@@ -906,7 +905,7 @@ function OrderDetailDrawer({
                             title: "驳回申诉",
                             description: order.appeal?.reason,
                             label: "驳回说明",
-                            placeholder: "请填写驳回原因，例如：申诉理由不成立",
+                            placeholder: "例如：申诉理由不成立",
                             confirmText: "确认驳回",
                             danger: true,
                           })
@@ -922,7 +921,7 @@ function OrderDetailDrawer({
           ) : null}
         </div>
       ) : (
-        <EmptyState title="未找到订单" description="订单可能已被删除。" />
+        <EmptyState title="未找到订单" />
       )}
     </Drawer>
   );

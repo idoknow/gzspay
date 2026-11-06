@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <div className="space-y-1.5">
           <h1 className="text-base font-semibold text-text">页面出了点问题</h1>
           <p className="max-w-[300px] text-sm leading-relaxed text-muted">
-            刷新页面后一般可以恢复；如果一直出现，请稍后再试或联系管理员。
+            刷新通常可以恢复，一直出现请联系管理员。
           </p>
         </div>
         <div className="flex gap-2">

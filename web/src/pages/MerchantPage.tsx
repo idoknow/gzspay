@@ -179,7 +179,7 @@ export function MerchantPage(): ReactNode {
         <main className="page pt-4">
           <EmptyState
             title="你还不是商家"
-            description="注册商家后可以发布商品、展示收款码，让同学扫码付款。"
+            description="注册后可发布商品并展示收款码。"
             action={
               <button type="button" className="btn btn-primary btn-block" onClick={() => navigate("/merchant/register")}>
                 注册成为商家
@@ -248,7 +248,7 @@ export function MerchantPage(): ReactNode {
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold text-text">发起收款</h2>
             <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
-              先填好金额或点选商品，对方扫你的校园卡二维码就能直接付款，不用再扫对方的动态码。
+              填好金额，对方扫你的码付款。
             </p>
           </div>
           <button
@@ -279,7 +279,7 @@ export function MerchantPage(): ReactNode {
           </div>
           <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-text watch:text-[12.5px]">
             {merchant.noteRequirement || (
-              <span className="text-muted">未设置备注要求，付款人可以直接付款。可在这里补充姓名、学号等信息。</span>
+              <span className="text-muted">未设置，付款人可直接付款。</span>
             )}
           </p>
         </section>
@@ -352,7 +352,7 @@ export function MerchantPage(): ReactNode {
             })}
           </div>
           <p className="mt-2.5 text-[11px] leading-relaxed text-muted">
-            未上传收款码的渠道不会出现在付款人的支付选项里；停用后该渠道暂时不可收款。
+            未上传或停用的渠道不会显示给付款人。
           </p>
         </section>
 
@@ -369,7 +369,7 @@ export function MerchantPage(): ReactNode {
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold text-text">商品与发布</span>
               <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">
-                维护商品与价格、编辑备注要求、预览付款人视角
+                商品、价格与备注要求
               </span>
             </span>
             <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted" />
@@ -382,7 +382,7 @@ export function MerchantPage(): ReactNode {
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
         title="商家资料"
-        description="修改后，付款人扫码看到的名称与备注要求会立即更新。"
+        description="保存后对付款人立即生效。"
         footer={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => setProfileOpen(false)}>
@@ -407,7 +407,7 @@ export function MerchantPage(): ReactNode {
               placeholder="例如：三班小卖部"
               onChange={(event) => setProfileName(event.target.value)}
             />
-            <p className="mt-1 text-[11px] text-muted">付款人扫码后会看到这个名称。</p>
+            <p className="mt-1 text-[11px] text-muted">付款人扫码会看到。</p>
           </div>
           <div>
             <label className="label" htmlFor="merchant-note">
@@ -421,7 +421,7 @@ export function MerchantPage(): ReactNode {
               placeholder="例如：请在备注里填写姓名和学号后四位"
               onChange={(event) => setProfileNote(event.target.value)}
             />
-            <p className="mt-1 text-[11px] text-muted">付款人下单时会看到并按要求填写备注。</p>
+            <p className="mt-1 text-[11px] text-muted">付款人下单时会看到。</p>
           </div>
         </div>
       </Dialog>
@@ -430,7 +430,7 @@ export function MerchantPage(): ReactNode {
         open={qrView !== null}
         onClose={() => setQrView(null)}
         title={qrViewLabel ? `${qrViewLabel}收款码` : "收款码"}
-        description="付款人扫码时看到的就是这张码，可以保存到本地张贴或发给对方。"
+        description="可保存后张贴或发给对方。"
         footer={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => setQrView(null)}>
@@ -465,9 +465,6 @@ export function MerchantPage(): ReactNode {
           ) : (
             <QrImage dataUrl={qrViewBlob.url} size={220} alt={`${qrViewLabel}收款码`} />
           )}
-          <p className="text-[11px] leading-relaxed text-muted">
-            二维码由上传时识别出的收款码内容生成，扫码效果与上传的图片一致。
-          </p>
         </div>
       </Dialog>
 
@@ -475,7 +472,7 @@ export function MerchantPage(): ReactNode {
         open={qrEdit !== null}
         onClose={closeQrEdit}
         title={qrEdit ? `更换${merchant.channels.find((item) => item.channel === qrEdit.channel)?.label ?? ""}收款码` : ""}
-        description="上传后由系统识别并校验，失败会提示原因，请重新上传清晰的收款码截图。"
+        description="识别失败会提示原因，请重新上传。"
         footer={
           <>
             <button type="button" className="btn btn-secondary" onClick={closeQrEdit}>
@@ -506,7 +503,7 @@ export function MerchantPage(): ReactNode {
               <span className="mt-1">选择收款码图片</span>
             </>
           )}
-          {qrEdit?.previewUrl ? <span className="mt-1 text-[11px]">点击重新选择</span> : null}
+          {qrEdit?.previewUrl ? <span className="mt-1 text-[11px]">重新选择</span> : null}
         </button>
       </Dialog>
 

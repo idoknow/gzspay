@@ -45,7 +45,7 @@ export function LegalDocLinks({
         if (active) setAbout(data);
       })
       .catch(() => {
-        if (active) setError("协议内容加载失败，请稍后重试");
+        if (active) setError("加载失败，请重试");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -104,7 +104,7 @@ export function LegalDocLinks({
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
             <Spinner size={18} />
-            正在加载协议内容…
+            正在加载…
           </div>
         ) : error ? (
           <div className="space-y-3 py-2">
@@ -122,7 +122,7 @@ export function LegalDocLinks({
           </div>
         ) : (
           <div className="max-h-[60dvh] overflow-y-auto pr-1 text-sm leading-relaxed text-text watch:text-[12px]">
-            <Markdown text={text || "内容暂不可用。"} />
+            <Markdown text={text || "内容不可用。"} />
           </div>
         )}
       </Dialog>

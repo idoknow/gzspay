@@ -90,7 +90,7 @@ export function StatsPage() {
     <>
       <PageHeader
         title="数据统计"
-        description="全校交易趋势、商家表现、支付方式与订单转化分析。"
+        description="交易趋势、商家表现与转化。"
         actions={
           <button
             type="button"
@@ -118,7 +118,7 @@ export function StatsPage() {
 
           <ExportableCard
             title="交易额与订单数趋势"
-            subtitle="柱状为交易额，折线为订单数；点击图例可隐藏系列，点击柱子或圆点查看该点明细"
+            subtitle="柱状为交易额，折线为订单数"
             filename="数据统计-交易趋势"
             csv={{
               headers: ["时间", "交易额（元）", "订单数"],
@@ -147,7 +147,7 @@ export function StatsPage() {
           <div className="admin-grid-3">
             <ExportableCard
               title="金额区间分布"
-              subtitle="按成交订单金额分档汇总，点击区间查看单数与金额"
+              subtitle="按金额分档"
               filename="数据统计-金额区间"
               csv={{
                 headers: ["金额区间", "订单数", "交易额（元）"],
@@ -169,7 +169,7 @@ export function StatsPage() {
 
             <ExportableCard
               title="交易时段分布"
-              subtitle="按小时汇总交易额，点击柱体查看该时段明细"
+              subtitle="按小时汇总交易额"
               filename="数据统计-时段分布"
               csv={{
                 headers: ["时段", "订单数", "交易额（元）"],
@@ -191,7 +191,7 @@ export function StatsPage() {
 
             <ExportableCard
               title="订单状态分布"
-              subtitle="按订单状态统计；点击扇区或图例查看、隐藏状态"
+              subtitle="按订单状态统计"
               filename="数据统计-订单状态"
               csv={{
                 headers: ["订单状态", "订单数"],
@@ -202,7 +202,6 @@ export function StatsPage() {
               {statusCounts.length === 0 || statusTotal === 0 ? (
                 <EmptyState
                   title="暂无状态数据"
-                  description="还没有产生订单记录。"
                 />
               ) : (
                 <div className="admin-donut-wrap">
@@ -247,7 +246,7 @@ export function StatsPage() {
           <div className="admin-grid-2">
             <Card
               title="商家排行"
-              subtitle="按交易额降序，最多展示前 10 名"
+              subtitle="按交易额前 10"
               extra={
                 <Badge tone="neutral">
                   {(data.merchantRanking ?? []).length} 家
@@ -255,7 +254,7 @@ export function StatsPage() {
               }
             >
               {(data.merchantRanking ?? []).length === 0 ? (
-                <EmptyState title="暂无商家数据" description="还没有商家产生交易。" />
+                <EmptyState title="暂无商家数据" />
               ) : (
                 <div className="admin-stack">
                   {data.merchantRanking.slice(0, 10).map((merchant, index) => (
@@ -290,7 +289,7 @@ export function StatsPage() {
 
             <ExportableCard
               title="支付方式占比"
-              subtitle="按订单数统计；点击扇区或图例查看、隐藏支付方式"
+              subtitle="按订单数统计"
               filename="数据统计-支付方式"
               csv={{
                 headers: ["支付方式", "订单数", "交易额（元）"],
@@ -303,7 +302,7 @@ export function StatsPage() {
               json={data.paymentMethods ?? []}
             >
               {(data.paymentMethods ?? []).length === 0 ? (
-                <EmptyState title="暂无支付数据" description="还没有已支付订单。" />
+                <EmptyState title="暂无支付数据" />
               ) : (
                 <div className="admin-donut-wrap">
                   {selectedPayment ? (
@@ -349,7 +348,7 @@ export function StatsPage() {
 
           <Card
             title="订单转化漏斗"
-            subtitle="从创建订单到支付、完成的转化情况"
+            subtitle="创建 → 支付 → 完成"
             extra={
               <span className="admin-text-sm admin-muted">
                 平均确认时长：{formatDuration(data.avgConfirmMinutes)}
@@ -357,7 +356,7 @@ export function StatsPage() {
             }
           >
             {(data.funnel ?? []).length === 0 ? (
-              <EmptyState title="暂无转化数据" description="还没有订单数据。" />
+              <EmptyState title="暂无转化数据" />
             ) : (
               <div className="admin-grid-main-aside">
                 <FunnelBars steps={data.funnel} />
@@ -392,7 +391,7 @@ export function StatsPage() {
                     );
                   })}
                   <p className="admin-readonly-hint">
-                    口径：创建订单 → 已支付 → 已完成；统计周期由后端按最近 12 个月汇总。
+                    口径：创建 → 已支付 → 已完成。
                   </p>
                 </div>
               </div>
@@ -400,7 +399,7 @@ export function StatsPage() {
           </Card>
         </div>
       ) : (
-        <EmptyState title="暂无统计数据" description="后台尚未产生可统计的数据。" />
+        <EmptyState title="暂无统计数据" />
       )}
     </>
   );
@@ -470,7 +469,7 @@ function StatsSummary({ stats }: { stats: AdminStats }) {
       <StatCard
         label="近 12 个月订单数"
         value={formatNumber(totalOrders)}
-        hint="含所有状态订单"
+        hint="含所有状态"
         tone="accent"
       />
       <StatCard
@@ -488,7 +487,7 @@ function StatsSummary({ stats }: { stats: AdminStats }) {
       <StatCard
         label="平均确认时长"
         value={formatDuration(stats.avgConfirmMinutes)}
-        hint="用户支付后商家确认的平均耗时"
+        hint="支付到确认的平均耗时"
         tone="accent"
       />
     </div>

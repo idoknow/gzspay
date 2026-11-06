@@ -109,7 +109,7 @@ export function DynamicCodePage(): ReactNode {
                   <div className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl bg-black/55 text-white">
                     <p className="text-sm font-semibold">二维码已失效</p>
                     <button type="button" className="btn btn-sm btn-accent mt-3" onClick={() => void load()}>
-                      点击刷新
+                      刷新
                     </button>
                   </div>
                 ) : null}
@@ -118,7 +118,7 @@ export function DynamicCodePage(): ReactNode {
 
             <p className="mt-4 text-center text-xs leading-relaxed text-muted">
               {expired
-                ? "正在为你刷新新的二维码…"
+                ? "正在刷新…"
                 : `${formatCountdown(expiresIn)} 后失效 · ${refreshIn > 0 ? `${refreshIn} 秒后自动刷新` : "正在刷新…"}`}
             </p>
 
@@ -130,7 +130,7 @@ export function DynamicCodePage(): ReactNode {
                 onClick={() => void load()}
               >
                 {refreshing ? <Spinner size={14} /> : null}
-                立即刷新
+                刷新
               </button>
             ) : null}
           </div>
@@ -138,10 +138,10 @@ export function DynamicCodePage(): ReactNode {
           <div className="divider my-4" />
           <InlineError message={error} />
           <ul className="space-y-1.5 text-xs leading-relaxed text-muted">
-            <li>· 收款：他人扫此码可向你付款（收款方需已开通商家收款）。</li>
-            <li>· 付款：商家扫此码可向你发起收款，核对金额无误后在你自己的手机上输入支付密码。</li>
-            <li>· 付款人密码只在自己手机上输入，不要把密码告诉任何人。</li>
-            <li>· 资金通过第三方收款码流转，gzspay 不代收代付。</li>
+            <li>· 他人扫此码可向你付款，收款需先开通商家收款。</li>
+            <li>· 商家扫此码可向你发起收款，在你手机上输入密码。</li>
+            <li>· 密码只在自己手机上输入，不要告诉任何人。</li>
+            <li>· 资金通过第三方收款码流转，不代收代付。</li>
           </ul>
         </section>
 
@@ -149,7 +149,7 @@ export function DynamicCodePage(): ReactNode {
           <section className="card overflow-hidden p-0">
             <InlineQrScanner
               active={scannerOpen}
-              hint="将对方的收付款码或校园卡二维码放入框内，识别成功会自动继续"
+              hint="对准对方的收付款码或校园卡二维码"
               onResult={handleScanned}
             />
             <div className="p-4">
@@ -180,7 +180,7 @@ export function DynamicCodePage(): ReactNode {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold text-text">扫一扫</span>
-              <span className="mt-0.5 block text-xs text-muted">扫对方的收付款码或校园卡，直接付款给对方</span>
+              <span className="mt-0.5 block text-xs text-muted">扫收付款码或校园卡付款</span>
             </span>
             <span className="text-muted">›</span>
           </button>

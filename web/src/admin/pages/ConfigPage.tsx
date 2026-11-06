@@ -46,7 +46,6 @@ export function ConfigPage() {
     <>
       <PageHeader
         title="系统配置"
-        description="配置校园墙 OAuth 登录、系统发件邮箱、安全防护、地区访问限制与后台安全入口，保存后立即生效。"
         actions={
           <button
             type="button"
@@ -60,13 +59,9 @@ export function ConfigPage() {
       />
 
       {!canWrite ? (
-        <InfoBanner tone="warning">
-          当前账号为只读审计角色，仅可查看配置，无法修改保存。
-        </InfoBanner>
+        <InfoBanner tone="warning">只读审计：仅可查看，不能保存。</InfoBanner>
       ) : readOnly ? (
-        <InfoBanner tone="info">
-          系统配置保存权限仅限超级管理员，运营角色可查看当前配置但无法修改。
-        </InfoBanner>
+        <InfoBanner tone="info">仅超级管理员可保存，运营可查看。</InfoBanner>
       ) : null}
 
       {error && !data ? (
@@ -81,7 +76,7 @@ export function ConfigPage() {
           onSaved={() => refresh()}
         />
       ) : (
-        <EmptyState title="暂无配置数据" description="未能读取系统配置，请稍后刷新重试。" />
+        <EmptyState title="暂无配置数据" description="请稍后刷新重试。" />
       )}
     </>
   );
@@ -356,7 +351,6 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
     <div className="admin-stack">
       <Card
         title="站点信息"
-        subtitle="站点名称、校名、对外地址与 ICP 备案号"
         extra={
           site.icp.trim() ? (
             <Badge tone="success" dot>
@@ -370,7 +364,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
         }
       >
         <div className="admin-form-grid">
-          <Field label="站点名称" required hint="显示在关于页、登录页与邮件署名中。">
+          <Field label="站点名称" required>
             <input
               className="admin-input"
               placeholder="gzspay 校园服务"
@@ -379,23 +373,17 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               onChange={(event) => setSite({ ...site, siteName: event.target.value })}
             />
           </Field>
-          <Field
-            label="校名"
-            hint="学校简称。填写后登录页、关于页与邮件会显示成「XX校园服务」；留空则只显示「校园服务」，适合开源部署。"
-          >
+          <Field label="校名" hint="留空仅显示「校园服务」">
             <input
               className="admin-input"
-              placeholder="例如：某某（留空则不显示校名）"
+              placeholder="例如：某某"
               maxLength={20}
               value={site.schoolName}
               disabled={readOnly}
               onChange={(event) => setSite({ ...site, schoolName: event.target.value })}
             />
           </Field>
-          <Field
-            label="站点地址"
-            hint="用于生成校园墙登录回调与邮件里的链接，例如 https://pay.idoknow.top。"
-          >
+          <Field label="站点地址" hint="例如 https://pay.idoknow.top">
             <input
               className="admin-input"
               placeholder="https://pay.idoknow.top"
@@ -406,10 +394,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field
-            label="ICP 备案号"
-            hint="例如「桂ICP备2025000000号-1」。填写后会显示在开屏、登录页、全站底部与关于页，留空则不展示。"
-          >
+          <Field label="ICP 备案号" hint="例如 桂ICP备2025000000号-1">
             <input
               className="admin-input"
               placeholder="桂ICP备2025000000号-1"
@@ -418,10 +403,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               onChange={(event) => setSite({ ...site, icp: event.target.value })}
             />
           </Field>
-          <Field
-            label="账单文件保留天数"
-            hint="上传的微信 / 支付宝收款账单原文件，超过这个天数会自动删除（默认 1 天，范围 1–365）。"
-          >
+          <Field label="账单文件保留天数" hint="1–365 天，默认 1">
             <input
               className="admin-input"
               type="number"
@@ -434,10 +416,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field
-            label="付款截图保留天数"
-            hint="订单里的付款截图，超过这个天数会自动从服务器删除（默认 15 天，范围 1–365）。"
-          >
+          <Field label="付款截图保留天数" hint="1–365 天，默认 15">
             <input
               className="admin-input"
               type="number"
@@ -455,7 +434,6 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
 
       <Card
         title="校园墙 OAuth 登录"
-        subtitle="用户使用校园墙账号扫码登录本站，需在校园墙后台登记回调地址"
         extra={
           config.campux.clientSecretConfigured ? (
             <Badge tone="success" dot>
@@ -472,7 +450,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           <Field
             label="校园墙站点地址"
             required
-            hint="例如 https://gz.campux.top，末尾不要带斜杠。"
+            hint="例如 https://gz.campux.top，末尾不带斜杠"
           >
             <input
               className="admin-input"
@@ -499,8 +477,8 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
             label="OAuth Client Secret"
             hint={
               config.campux.clientSecretConfigured
-                ? "已配置密钥；如需更换请输入新值，留空表示保持不变。"
-                : "尚未配置密钥，请填写校园墙应用后台的 Client Secret。"
+                ? "留空表示不修改"
+                : "校园墙后台获取"
             }
           >
             <input
@@ -521,7 +499,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           </Field>
           <Field
             label="授权范围（scope）"
-            hint="默认 profile；如需更多资料请按校园墙文档填写，多个用空格分隔。"
+            hint="默认 profile，多个用空格分隔"
           >
             <input
               className="admin-input"
@@ -535,7 +513,6 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           </Field>
           <Field
             label="回调地址（在校园墙后台登记）"
-            hint="用户登录与后台登录共用同一个回调地址，无需再单独登记管理端回调。"
             className="admin-field-full"
           >
             <input
@@ -552,8 +529,8 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
         title="系统发件邮箱"
         subtitle={
           config.mail.provider === "resend"
-            ? "当前通过 Resend（环境变量 RESEND_API_KEY）发送验证码与通知邮件"
-            : "用于发送验证码、通知邮件的 SMTP 账号"
+            ? "当前使用 Resend 发件"
+            : "用于发送验证码与通知邮件"
         }
         extra={
           config.mail.provider === "resend" ? (
@@ -573,8 +550,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
       >
         {config.mail.provider === "resend" ? (
           <p className="admin-hint admin-field-full">
-            发件地址与发件人名称由环境变量 <code>MAIL_FROM_ADDRESS</code> /{" "}
-            <code>MAIL_FROM_NAME</code> 决定；Resend 生效时下方 SMTP 配置不会使用。
+            Resend 生效时，下方 SMTP 配置不会使用。
           </p>
         ) : null}
         <div className="admin-form-grid">
@@ -637,8 +613,8 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
             label="SMTP 密码 / 授权码"
             hint={
               config.mail.passwordConfigured
-                ? "已配置密码；如需修改请输入新密码，留空则保持不变。"
-                : "尚未配置密码，请填写 SMTP 密码或邮箱授权码。"
+                ? "留空表示不修改"
+                : "邮箱授权码"
             }
           >
             <input
@@ -655,10 +631,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field
-            label="启用 SSL/TLS"
-            hint="端口 465 通常开启，端口 587 通常使用 STARTTLS。"
-          >
+          <Field label="启用 SSL/TLS" hint="465 端口开启">
             <Switch
               checked={mail.secure}
               onChange={(next) => setMail({ ...mail, secure: next })}
@@ -669,9 +642,9 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
         </div>
       </Card>
 
-      <Card title="安全防护设置" subtitle="支付安全策略与登录会话策略">
+      <Card title="安全防护设置">
         <div className="admin-form-grid">
-          <Field label="支付密码最大错误次数" hint="超过次数后账号支付功能将被锁定。">
+          <Field label="支付密码最大错误次数">
             <input
               className="admin-input"
               inputMode="numeric"
@@ -685,7 +658,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field label="锁定分钟数" hint="支付密码错误超限后的锁定时间。">
+          <Field label="锁定分钟数">
             <input
               className="admin-input"
               inputMode="numeric"
@@ -699,7 +672,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field label="单笔支付上限（元）" hint="以元填写，0 表示不限制。">
+          <Field label="单笔支付上限（元）" hint="0 表示不限制">
             <input
               className="admin-input"
               inputMode="decimal"
@@ -713,7 +686,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field label="每日支付上限（元）" hint="以元填写，0 表示不限制。">
+          <Field label="每日支付上限（元）" hint="0 表示不限制">
             <input
               className="admin-input"
               inputMode="decimal"
@@ -729,7 +702,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           </Field>
           <Field
             label="动态码有效期（秒）"
-            hint={`当前：${formatTtlSeconds(Number(security.dynamicCodeTtl) || 0)}。`}
+            hint={`当前 ${formatTtlSeconds(Number(security.dynamicCodeTtl) || 0)}`}
           >
             <input
               className="admin-input"
@@ -746,7 +719,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           </Field>
           <Field
             label="邮箱验证码有效期（秒）"
-            hint={`当前：${formatTtlSeconds(Number(security.emailCodeTtl) || 0)}。`}
+            hint={`当前 ${formatTtlSeconds(Number(security.emailCodeTtl) || 0)}`}
           >
             <input
               className="admin-input"
@@ -761,7 +734,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field label="管理员登录态有效期（天）" hint="超过有效期需重新登录主站。">
+          <Field label="管理员登录态有效期（天）">
             <input
               className="admin-input"
               inputMode="numeric"
@@ -780,7 +753,6 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
 
       <Card
         title="地区访问限制"
-        subtitle="仅允许中国大陆 IP 访问本站，境外请求会被直接拦截"
         extra={
           geo.blockNonChina ? (
             <Badge tone="success" dot>
@@ -797,7 +769,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           <Field
             label="启用地区限制"
             className="admin-field-full"
-            hint="开启后仅放行中国大陆 IP；本机、内网地址、例外路径与白名单始终放行。"
+            hint="本机、内网与白名单始终放行"
           >
             <Switch
               checked={geo.blockNonChina}
@@ -809,7 +781,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           <Field
             label="例外路径"
             className="admin-field-full"
-            hint="逗号或换行分隔，例如 /api/health；以 * 结尾表示前缀匹配。健康检查路径务必保留。"
+            hint="逗号分隔，* 结尾为前缀匹配"
           >
             <textarea
               className="admin-input"
@@ -824,7 +796,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           <Field
             label="IP 白名单"
             className="admin-field-full"
-            hint="支持单个 IP 或 CIDR，例如 1.2.3.4、10.0.0.0/8；白名单内地址始终放行。"
+            hint="单个 IP 或 CIDR，如 10.0.0.0/8"
           >
             <textarea
               className="admin-input"
@@ -837,10 +809,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
               }
             />
           </Field>
-          <Field
-            label="未知归属处理"
-            hint="IP 不在归属数据文件中时采取的策略。"
-          >
+          <Field label="未知归属处理">
             <select
               className="admin-input"
               value={geo.unknownPolicy}
@@ -858,7 +827,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           </Field>
           <Field
             label="CDN 国家码请求头"
-            hint="例如 CF-IPCountry；仅在确认回源请求来自可信 CDN 时填写，否则可被伪造。"
+            hint="例如 CF-IPCountry"
           >
             <input
               className="admin-input"
@@ -872,7 +841,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           </Field>
           <Field
             label="IP 归属数据"
-            hint={`IPv4 ${config.geo.ipv4Count} 段 / IPv6 ${config.geo.ipv6Count} 条，可用 node scripts/geo/build-cn-ranges.mjs 更新。`}
+            hint={`IPv4 ${config.geo.ipv4Count} 段 / IPv6 ${config.geo.ipv6Count} 条`}
           >
             <input
               className="admin-input"
@@ -886,13 +855,13 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           </Field>
         </div>
         <InfoBanner tone="warning">
-          开启前请确认反向代理已设置 TRUST_PROXY，否则所有请求会被识别为同一个 IP；同时注意境外用户将无法访问与登录本站。
+          开启后境外用户将无法访问本站。
         </InfoBanner>
       </Card>
 
       <Card
         title="管理后台安全入口"
-        subtitle="把后台登录入口改成只有管理员知道的路径"
+        subtitle="入口改为只有管理员知道的路径"
         extra={
           entry.entryPath.trim() ? (
             <Badge tone="success" dot>
@@ -909,7 +878,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           <Field
             label="安全入口名"
             className="admin-field-full"
-            hint="4–32 位字母、数字、下划线或短横线；留空表示关闭安全入口，仍可直接访问 /admin。"
+            hint="4–32 位字母、数字、_ 或 -"
           >
             <input
               className="admin-input"
@@ -922,7 +891,7 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
           <Field
             label="当前后台入口"
             className="admin-field-full"
-            hint="仅发给管理员使用，注意不要泄露；访问后会写入 8 小时有效的凭据。"
+            hint="仅发给管理员，不要外传"
           >
             <input
               className="admin-input"
@@ -934,16 +903,14 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
         </div>
         {entry.entryPath.trim() ? (
           <InfoBanner tone="info">
-            启用后直接打开 /admin 会被记录访问信息并返回 404，需要先访问上面的入口地址。
+            直接打开 /admin 会返回 404，需先访问上面的入口地址。
           </InfoBanner>
         ) : (
-          <InfoBanner tone="info">
-            未启用安全入口：任何知道域名的人都能直接打开 /admin 登录页。
-          </InfoBanner>
+          <InfoBanner tone="info">未启用：任何人都能直接打开 /admin。</InfoBanner>
         )}
       </Card>
 
-      <Card title="保存配置" subtitle="修改后点击保存立即生效">
+      <Card title="保存配置">
         {formError ? (
           <div className="admin-inline-alert is-danger" style={{ marginBottom: 14 }}>
             {formError}
@@ -972,11 +939,11 @@ function ConfigForm({ config, readOnly, onSaved }: ConfigFormProps) {
             }}
             disabled={readOnly || submitting}
           >
-            恢复为已保存配置
+            还原
           </Button>
           {readOnly ? (
             <span className="admin-text-sm admin-muted">
-              无保存权限：系统配置仅超级管理员可修改。
+              仅超级管理员可修改
             </span>
           ) : null}
         </div>

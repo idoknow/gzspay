@@ -43,7 +43,7 @@ const ACTIONS: ToolAction[] = [
 export function RichTextEditor({
   value,
   onChange,
-  placeholder = "支持 Markdown：**加粗**、## 标题、- 列表、[链接](https://)、> 引用、`代码`",
+  placeholder = "支持 Markdown 语法",
   rows = 12,
   maxLength = 8000,
 }: RichTextEditorProps) {
@@ -135,7 +135,7 @@ export function RichTextEditor({
           {value.trim() ? (
             <Markdown text={value} />
           ) : (
-            <p className="adm-rte-empty">还没有内容，切回「编辑」写点什么吧。</p>
+            <p className="adm-rte-empty">暂无内容</p>
           )}
         </div>
       ) : (
@@ -151,7 +151,7 @@ export function RichTextEditor({
       )}
 
       <div className="adm-rte-foot">
-        <span>支持 Markdown 语法，用户端会按相同样式渲染。</span>
+        <span>支持 Markdown 语法</span>
         <span className={value.length > maxLength * 0.9 ? "is-warn" : ""}>
           {value.length} / {maxLength}
         </span>

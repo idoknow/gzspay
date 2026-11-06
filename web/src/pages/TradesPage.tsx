@@ -39,10 +39,10 @@ const PAGE_SIZE = 20;
 
 const SCOPE_LABELS: Record<Scope, string> = { pay: "我发起的", receive: "我收到的" };
 /** 「我发起的 / 我收到的」下面分三项，点按钮才展开菜单选择 */
-const STATUS_OPTIONS: { value: StatusFilter; label: string; hint: string }[] = [
-  { value: "all", label: "全部", hint: "所有状态的订单" },
-  { value: "pending", label: "进行中", hint: "还没有完成核对的订单" },
-  { value: "settled", label: "已结束", hint: "已完成或已取消的订单" },
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "全部" },
+  { value: "pending", label: "进行中" },
+  { value: "settled", label: "已结束" },
 ];
 const STATUS_LABELS: Record<StatusFilter, string> = { all: "全部", pending: "进行中", settled: "已结束" };
 const EMPTY_TEXT: Record<Scope, Record<StatusFilter, string>> = {
@@ -129,7 +129,7 @@ export function TradesPage(): ReactNode {
       setBillDetail(detail);
       setBillDetailOpen(true);
       toast.success(
-        `账单已解析：${detail.transactionCount} 笔收款，自动匹配 ${detail.matchedCount} 笔`,
+        `已解析 ${detail.transactionCount} 笔，匹配 ${detail.matchedCount} 笔`,
       );
       setOrders([]);
       setPage(1);
@@ -281,7 +281,7 @@ export function TradesPage(): ReactNode {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索标题、订单号、备注或对方姓名"
+              placeholder="搜索标题、订单号或姓名"
               aria-label="搜索订单"
               className="input h-[34px] w-full rounded-full pr-9 pl-9 text-sm watch:h-[30px] watch:pr-8 watch:pl-8 watch:text-[12px]"
             />
@@ -338,17 +338,7 @@ export function TradesPage(): ReactNode {
                           active ? "bg-surface-2" : "hover:bg-surface-2",
                         )}
                       >
-                        <span>
-                          <span className="block text-sm font-semibold watch:text-[13px]">{option.label}</span>
-                          <span
-                            className={cn(
-                              "block text-[11px] watch:text-[10px]",
-                              active ? "text-text opacity-70" : "text-muted",
-                            )}
-                          >
-                            {option.hint}
-                          </span>
-                        </span>
+                        <span className="block text-sm font-semibold watch:text-[13px]">{option.label}</span>
                         {active ? <CheckIcon className="text-brand" /> : null}
                       </button>
                     );
@@ -409,7 +399,7 @@ export function TradesPage(): ReactNode {
             keyword ? (
               <EmptyState
                 title="没有找到相关订单"
-                description={`没有匹配「${keyword}」的订单，换个关键词试试`}
+                description={`没有匹配「${keyword}」的订单`}
                 action={
                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSearch("")}>
                     清除搜索
@@ -419,7 +409,7 @@ export function TradesPage(): ReactNode {
             ) : (
               <EmptyState
                 title={EMPTY_TEXT[scope][status]}
-                description="扫描对方的校园卡，或让对方扫描你的动态码，订单会出现在这里"
+                description="扫码创建订单后显示在这里"
                 action={
                   <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate("/pay")}>
                     去扫码
@@ -474,7 +464,7 @@ export function TradesPage(): ReactNode {
           if (!exportBusy) setExportOpen(false);
         }}
         title="导出账单"
-        description={`按当前筛选导出：${SCOPE_LABELS[scope]} · ${STATUS_LABELS[status]} · ${exportRangeLabel(exportRange)}${keyword ? ` · 关键词「${keyword}」` : ""}`}
+        description={`${SCOPE_LABELS[scope]} · ${STATUS_LABELS[status]} · ${exportRangeLabel(exportRange)}${keyword ? ` · 「${keyword}」` : ""}`}
       >
         <p className="mb-2 text-xs text-muted">时间范围</p>
         <div className="mb-3 flex flex-wrap gap-2">
@@ -498,9 +488,9 @@ export function TradesPage(): ReactNode {
         <div className="grid grid-cols-2 gap-2">
           {(
             [
-              { format: "csv" as const, label: "CSV 表格", hint: "Excel / WPS 可打开" },
-              { format: "xlsx" as const, label: "Excel 文件", hint: ".xlsx，带表头" },
-              { format: "json" as const, label: "JSON 数据", hint: "给程序或对账用" },
+              { format: "csv" as const, label: "CSV" },
+              { format: "xlsx" as const, label: "Excel" },
+              { format: "json" as const, label: "JSON" },
             ]
           ).map((item) => (
             <button
@@ -513,7 +503,6 @@ export function TradesPage(): ReactNode {
               <span className="text-sm font-semibold text-text">
                 {exportBusy === item.format ? "正在导出…" : item.label}
               </span>
-              <span className="text-[11px] text-muted">{item.hint}</span>
             </button>
           ))}
           <button
@@ -522,8 +511,8 @@ export function TradesPage(): ReactNode {
             disabled={exportBusy !== null}
             onClick={handlePrintPdf}
           >
-            <span className="text-sm font-semibold text-text">PDF（打印）</span>
-            <span className="text-[11px] text-muted">打开打印页另存为 PDF</span>
+            <span className="text-sm font-semibold text-text">PDF</span>
+            <span className="text-[11px] text-muted">打印后另存为 PDF</span>
           </button>
         </div>
       </Dialog>
@@ -537,7 +526,7 @@ export function TradesPage(): ReactNode {
         title="账单对账结果"
         description={
           billDetail
-            ? `${billDetail.providerLabel} · ${billDetail.filename} · 共 ${billDetail.transactionCount} 笔收款，自动匹配 ${billDetail.matchedCount} 笔`
+            ? `${billDetail.providerLabel} · 共 ${billDetail.transactionCount} 笔，匹配 ${billDetail.matchedCount} 笔`
             : ""
         }
       >
@@ -545,12 +534,12 @@ export function TradesPage(): ReactNode {
           <div className="space-y-3">
             {billDetail.transactions.length === 0 ? (
               <p className="rounded-xl border border-line bg-surface-2/60 px-3 py-4 text-center text-sm text-muted">
-                账单里的收款都匹配到了订单，没有未匹配的记录。
+                全部收款已匹配到订单。
               </p>
             ) : (
               <>
                 <p className="text-xs text-muted">
-                  以下 {billDetail.transactions.length} 笔收款没有匹配到订单，请自行核对是否已经在线下确认过。
+                  以下 {billDetail.transactions.length} 笔未匹配到订单，请自行核对。
                 </p>
                 <ul className="max-h-[52vh] space-y-2 overflow-y-auto pr-1">
                   {billDetail.transactions.map((item) => (

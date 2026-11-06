@@ -104,7 +104,7 @@ export function MerchantsPage() {
     <>
       <PageHeader
         title="商家管理"
-        description="查看商家的收款方式、商品与收款情况；可停用单个收款方式，或暂停商家收款。"
+        description="管理收款方式与商家收款状态。"
         actions={
           <Button
             variant="ghost"
@@ -122,30 +122,26 @@ export function MerchantsPage() {
           <StatCard
             label="商家总数"
             value={formatNumber(stats.total)}
-            hint="已开通商家身份的用户"
+            hint="已开通商家"
           />
           <StatCard
             label="可正常收款"
             value={formatNumber(stats.ready)}
-            hint="至少有一个可用收款方式"
             tone="success"
           />
           <StatCard
             label="已暂停收款"
             value={formatNumber(stats.suspended)}
-            hint="所有收款方式均已停用"
             tone="accent"
           />
           <StatCard
             label="本月新增"
             value={formatNumber(stats.newThisMonth)}
-            hint="按商家开通时间统计"
           />
         </div>
 
         <Card
           title="商家列表"
-          subtitle="支持商家名称、负责人、学号模糊搜索"
           extra={
             <div className="admin-flex" style={{ gap: 8 }}>
               <input
@@ -200,11 +196,6 @@ export function MerchantsPage() {
                     ? "没有匹配的商家"
                     : "暂无商家"
                 }
-                description={
-                  debouncedKeyword || stateFilter !== "all"
-                    ? "请尝试其他关键词，或切换到「全部」。"
-                    : "还没有用户开通商家身份。"
-                }
                 action={
                   debouncedKeyword || stateFilter !== "all" ? (
                     <Button
@@ -215,7 +206,7 @@ export function MerchantsPage() {
                         setStateFilter("all");
                       }}
                     >
-                      清空筛选条件
+                      清空筛选
                     </Button>
                   ) : undefined
                 }
@@ -394,7 +385,7 @@ function MerchantDetailDrawer({
     if (!enabling) {
       const confirmed = await feedback.confirm({
         title: `停用${channel.label}`,
-        description: `停用后付款人将无法选择${channel.label}付款，确认停用？`,
+        description: `停用后付款人无法用${channel.label}付款。`,
         confirmText: "停用",
         danger: true,
       });
@@ -419,10 +410,10 @@ function MerchantDetailDrawer({
     const value = await feedback.prompt({
       title: channel.alipayPid ? "修改支付宝收款 PID" : "设置支付宝收款 PID",
       description:
-        "填好商家自己的支付宝 PID（2088 开头）后，付款人可以在订单里一键打开支付宝，金额和备注自动填好。留空保存表示关闭该功能。",
+        "填好后付款人可一键预填金额与备注；留空关闭。",
       label: "支付宝 PID",
       placeholder: "2088xxxxxxxxxxxx",
-      hint: "PID 是商家支付宝账号的唯一标识，在支付宝商家后台可以查到；这里只保存数字，不会展示给付款人。",
+      hint: "2088 开头，支付宝商家后台可查",
       initialValue: channel.alipayPid,
       confirmText: "保存",
     });
@@ -450,8 +441,8 @@ function MerchantDetailDrawer({
     const confirmed = await feedback.confirm({
       title: enabling ? "恢复商家收款" : "暂停商家收款",
       description: enabling
-        ? "恢复后付款人可以继续使用该商家的收款码付款，确认恢复？"
-        : "暂停后该商家的所有收款方式都会被停用，付款人无法再向其付款；已创建未支付的订单不受影响。确认暂停？",
+        ? "恢复后付款人可继续付款。"
+        : "暂停后所有收款方式停用，已创建未支付的订单不受影响。",
       confirmText: enabling ? "恢复收款" : "暂停收款",
       danger: !enabling,
     });
@@ -501,7 +492,7 @@ function MerchantDetailDrawer({
           </div>
         ) : (
           <span className="admin-text-sm admin-muted">
-            {merchant ? "只读账号不可执行写操作" : "加载中…"}
+            {merchant ? "只读账号不可操作" : "加载中…"}
           </span>
         )
       }
@@ -523,19 +514,13 @@ function MerchantDetailDrawer({
       ) : merchant ? (
         <div className="admin-stack">
           {!canWrite ? (
-            <InfoBanner tone="info">
-              当前角色为只读审计，可查看商家资料与收款情况，但无法修改收款方式。
-            </InfoBanner>
+            <InfoBanner tone="info">只读审计：不能修改收款方式。</InfoBanner>
           ) : null}
           {merchant.frozen ? (
-            <InfoBanner tone="danger">
-              该商家账号已被冻结，无法登录与发起交易。
-            </InfoBanner>
+            <InfoBanner tone="danger">账号已冻结，无法登录与交易。</InfoBanner>
           ) : null}
           {merchant.suspended ? (
-            <InfoBanner tone="warning">
-              该商家所有收款方式均已停用，付款人暂时无法向其付款。
-            </InfoBanner>
+            <InfoBanner tone="warning">收款方式均已停用。</InfoBanner>
           ) : null}
 
           <div className="admin-detail-banner">
@@ -628,7 +613,7 @@ function MerchantDetailDrawer({
                       <div className="admin-cell-sub admin-text-xs">
                         {channel.alipayPid
                           ? `一键付款 PID：${channel.alipayPid}`
-                          : "一键付款未开通（未填 PID）"}
+                          : "未开启一键付款"}
                       </div>
                     ) : null}
                   </div>
@@ -665,7 +650,7 @@ function MerchantDetailDrawer({
 
           <SectionTitle>商品</SectionTitle>
           {(detail?.products.length ?? 0) === 0 ? (
-            <EmptyState title="暂无商品" description="该商家还没有发布商品。" />
+            <EmptyState title="暂无商品" />
           ) : (
             <div className="admin-table-wrap">
               <table className="admin-table">
@@ -706,7 +691,7 @@ function MerchantDetailDrawer({
 
           <SectionTitle>最近收款订单</SectionTitle>
           {(detail?.recentOrders.length ?? 0) === 0 ? (
-            <EmptyState title="暂无收款记录" description="该商家还没有收到付款。" />
+            <EmptyState title="暂无收款记录" />
           ) : (
             <div className="admin-table-wrap">
               <table className="admin-table">

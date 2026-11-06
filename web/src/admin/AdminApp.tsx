@@ -26,7 +26,7 @@ import {
 } from "./api";
 import { AdminContext, useAdmin, type AdminContextValue } from "./context";
 import { FeedbackProvider } from "./components/dialogs";
-import { InfoBanner, SkeletonCards, TableSkeleton } from "./components/ui";
+import { SkeletonCards, TableSkeleton } from "./components/ui";
 import { useTheme, type ThemeMode } from "./hooks";
 import { AdminLayout } from "./Layout";
 import { errorMessage } from "../lib/http";
@@ -279,14 +279,7 @@ function AccessDeniedPage() {
     <div className="admin-page-header">
       <div>
         <h1 className="admin-page-title">无权访问</h1>
-        <p className="admin-page-desc">
-          该页面仅对超级管理员开放，当前账号角色不允许查看。
-        </p>
-      </div>
-      <div style={{ marginTop: 16 }}>
-        <InfoBanner tone="warning">
-          如需调整管理员角色，请使用超级管理员账号操作。
-        </InfoBanner>
+        <p className="admin-page-desc">仅超级管理员可访问。</p>
       </div>
       <div style={{ marginTop: 16 }}>
         <a className="admin-btn admin-btn-primary" href="/admin/overview">
@@ -302,7 +295,7 @@ function NotFoundPage() {
     <div className="admin-page-header">
       <div>
         <h1 className="admin-page-title">页面不存在</h1>
-        <p className="admin-page-desc">你访问的后台页面不存在或已被移除。</p>
+        <p className="admin-page-desc">页面不存在或已移除。</p>
       </div>
       <div style={{ marginTop: 16 }}>
         <a className="admin-btn admin-btn-primary" href="/admin/overview">

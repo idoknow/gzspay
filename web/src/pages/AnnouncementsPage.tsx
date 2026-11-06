@@ -165,7 +165,7 @@ export function AnnouncementsPage(): ReactNode {
         ) : error && !data ? (
           <ErrorBlock message={error} onRetry={reload} />
         ) : total === 0 ? (
-          <EmptyState title="暂无公告" description="管理员发布公告后会显示在这里" />
+          <EmptyState title="暂无公告" description="有公告后会显示在这里" />
         ) : (
           <>
             <p className="px-1 text-xs text-muted watch:text-[11px]">

@@ -143,7 +143,7 @@ export function DevicesPage(): ReactNode {
                 {items.length > 0 ? `，${onlineCount} 台在线` : ""}
               </p>
               <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
-                同一账号在不同设备登录都会记录在这里。发现陌生设备时可直接强制退出，退出后对方需要重新登录。
+                发现陌生设备可直接退出。
               </p>
             </div>
           </div>
@@ -156,7 +156,7 @@ export function DevicesPage(): ReactNode {
         ) : items.length === 0 ? (
           <EmptyState
             title="暂无登录设备"
-            description="当前账号还没有可显示的登录记录。"
+            description="尚无登录记录"
           />
         ) : (
           <div className="space-y-3">
@@ -232,8 +232,7 @@ export function DevicesPage(): ReactNode {
         ) : null}
 
         <p className="px-2 text-center text-[10px] leading-relaxed text-muted">
-          「在线」指会话未过期且最近 {devices.data?.onlineWindowMinutes ?? 5} 分钟内有请求；离线设备可以强制退出，
-          也可以等待登录状态自然过期。
+          「在线」指最近 {devices.data?.onlineWindowMinutes ?? 5} 分钟内有活动；离线设备也可强制退出。
         </p>
       </main>
 
@@ -242,9 +241,9 @@ export function DevicesPage(): ReactNode {
         title={pending?.current ? "退出当前设备" : "强制退出该设备"}
         description={
           pending?.current
-            ? "退出后需要重新登录才能继续使用，确认退出？"
+            ? "退出后需重新登录"
             : pending
-              ? `将立即退出「${pending.deviceName}」，该设备需要重新登录。确认操作？`
+              ? `「${pending.deviceName}」需重新登录`
               : undefined
         }
         confirmText={pending?.current ? "退出登录" : "强制退出"}
@@ -261,7 +260,7 @@ export function DevicesPage(): ReactNode {
       <ConfirmDialog
         open={othersOpen}
         title="退出全部其它设备"
-        description={`将立即退出除当前设备外的 ${otherCount} 台设备，它们需要重新登录。确认操作？`}
+        description={`将退出 ${otherCount} 台设备，需重新登录`}
         confirmText="全部退出"
         danger
         loading={working}

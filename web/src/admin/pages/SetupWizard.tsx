@@ -44,9 +44,9 @@ const STEPS: Array<{ key: StepKey; title: string; desc: string }> = [
   {
     key: 1,
     title: "校园墙登录",
-    desc: "配置校园墙 OAuth 应用，主站登录即使用它",
+    desc: "主站登录用到的校园墙应用",
   },
-  { key: 2, title: "发件配置", desc: "配置 SMTP，用于发送通知邮件" },
+  { key: 2, title: "发件配置", desc: "发送通知邮件" },
   { key: 3, title: "站点信息", desc: "站点名称与对外地址" },
   { key: 4, title: "完成初始化", desc: "登录主站账号并成为超级管理员" },
 ];
@@ -250,7 +250,7 @@ export function SetupWizard({
   const handleSave = async () => {
     if (saving || finishing) return;
     if (status?.setupTokenRequired && setupToken.trim() === "") {
-      setFormError("请先填写服务端启动日志里的「初始化令牌」，避免被他人抢先初始化。");
+      setFormError("请先填写启动日志中的初始化令牌。");
       return;
     }
     const validation = validateStep(step);
@@ -289,7 +289,7 @@ export function SetupWizard({
   const handleFinish = async () => {
     if (finishing || saving) return;
     if (!status?.campuxConfigured || !status.mailConfigured) {
-      setFormError("请先完成校园墙登录配置与发件配置。");
+      setFormError("请先完成第 1、2 步。");
       return;
     }
     setFinishing(true);
@@ -338,7 +338,7 @@ export function SetupWizard({
         </div>
         <h1 className="admin-auth-title">初始化向导</h1>
         <p className="admin-auth-sub">
-          系统首次使用前需要完成以下配置；全部完成后，第一个登录的账号将成为超级管理员。
+          完成以下配置后，首个登录账号成为超级管理员。
         </p>
 
         {status?.setupTokenRequired ? (
@@ -347,7 +347,7 @@ export function SetupWizard({
               label="初始化令牌"
               required
               className="admin-field-full"
-              hint="服务端启动日志里会打印「初始化令牌：XXXXXXXX」。只有持有令牌的人才能完成初始化，避免被他人抢先接管。"
+              hint="见服务端启动日志，仅持有者可初始化"
             >
               <input
                 className="admin-input"
@@ -462,9 +462,7 @@ export function SetupWizard({
                   保存并继续
                 </Button>
               ) : (
-                <span className="admin-field-hint">
-                  共 4 步，完成初始化后即可进入管理后台
-                </span>
+                <span className="admin-field-hint">共 4 步</span>
               )}
             </div>
           </>

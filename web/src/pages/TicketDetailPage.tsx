@@ -24,9 +24,9 @@ import { errorMessage } from "../lib/http";
 import type { PartiesReveal, TicketMessage, TicketParty } from "../lib/types";
 
 const CLOSED_REASON_TEXT: Record<string, string> = {
-  user: "双方已经结束沟通，工单已关闭",
-  admin: "平台客服结束了这个工单",
-  timeout: "超过 7 天没有新消息，工单已自动关闭",
+  user: "双方已结束沟通",
+  admin: "平台客服已结束",
+  timeout: "7 天无新消息，已自动关闭",
 };
 
 /** 平台客服留言用站点 logo 代替头像 */
@@ -146,7 +146,7 @@ function PartiesSummary({
           <span className="truncate">{parties.merchant.displayName}</span>
         </span>
         <span className="mt-0.5 block text-[11px] text-muted">
-          {role === "payer" ? "你是付款人" : "你是商家"} · 点开查看双方完整资料
+          {role === "payer" ? "你是付款人" : "你是商家"} · 查看双方资料
         </span>
       </span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-muted">
@@ -179,11 +179,11 @@ function PartiesLocked({
         <p className="text-[13px] font-medium text-text">双方资料未披露</p>
       </div>
       <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
-        姓名、学号、QQ 与邮箱默认隐藏，需要核对身份时可向平台申请，审核通过后双方可见。
+        资料默认隐藏，可向平台申请；审核通过后双方可见。
       </p>
       {pending ? (
         <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-          {reveal.requestedByMe ? "你已提交申请" : "对方已提交申请"}，等待平台审核。
+          {reveal.requestedByMe ? "你已提交申请" : "对方已提交申请"}，等待审核。
         </p>
       ) : null}
       {rejected ? (
@@ -197,9 +197,9 @@ function PartiesLocked({
         disabled={pending || closed || busy}
         onClick={onRequest}
       >
-        {busy ? "提交中…" : pending ? "等待平台审核" : rejected ? "重新申请" : "申请披露双方资料"}
+        {busy ? "提交中…" : pending ? "等待审核" : rejected ? "重新申请" : "申请披露资料"}
       </button>
-      {closed ? <p className="mt-1.5 text-[11px] text-muted">工单已结束，不能再申请。</p> : null}
+      {closed ? <p className="mt-1.5 text-[11px] text-muted">工单已结束，无法申请。</p> : null}
     </div>
   );
 }
@@ -278,7 +278,7 @@ export function TicketDetailPage(): ReactNode {
     try {
       const next = await requestPartiesReveal(data.id);
       ticket.setData(next);
-      toast.success("已提交资料披露申请，请等待平台审核");
+      toast.success("已提交申请");
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
@@ -313,7 +313,7 @@ export function TicketDetailPage(): ReactNode {
       <div className="bg-app min-h-[100dvh]">
         <PageHeader title="工单详情" back />
         <main className="page pt-4">
-          <EmptyState title="工单不存在" description="工单可能已被删除，或者你没有权限查看" />
+          <EmptyState title="工单不存在" description="可能已删除或无权限查看" />
         </main>
       </div>
     );
@@ -350,7 +350,7 @@ export function TicketDetailPage(): ReactNode {
         <span className="min-w-0">
           <span className="block truncate text-[13px] font-medium text-text">{data.orderTitle || "订单"}</span>
           <span className="mt-0.5 block truncate text-[11px] text-muted">
-            订单号 {data.orderNo} · 点击查看订单
+            订单号 {data.orderNo}
           </span>
         </span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-muted">
@@ -386,7 +386,7 @@ export function TicketDetailPage(): ReactNode {
 
         <div className="space-y-3">
           {conversation.length === 0 ? (
-            <p className="text-center text-[11.5px] text-muted">还没有新的消息，直接在下方回复对方吧。</p>
+            <p className="text-center text-[11.5px] text-muted">还没有新消息。</p>
           ) : null}
           {conversation.map((message) => (
             <MessageBubble key={message.id} message={message} mine={message.senderRole === data.role} />
@@ -411,7 +411,7 @@ export function TicketDetailPage(): ReactNode {
               className="input min-h-[42px] max-h-32 flex-1 resize-none py-2.5 text-[13.5px]"
               rows={1}
               maxLength={1000}
-              placeholder="输入消息，和对方沟通…"
+              placeholder="输入消息…"
               value={text}
               onChange={(event) => setText(event.target.value)}
               onKeyDown={(event) => {
@@ -431,7 +431,7 @@ export function TicketDetailPage(): ReactNode {
             </button>
           </div>
           <p className="mx-auto mt-1.5 w-full max-w-[520px] text-[10px] text-muted/80">
-            工单仅订单双方与平台客服可见；超过 7 天没有新消息会自动关闭。
+            仅双方与客服可见，7 天无新消息自动关闭。
           </p>
         </div>
       )}
@@ -440,7 +440,7 @@ export function TicketDetailPage(): ReactNode {
         open={partiesOpen}
         onClose={() => setPartiesOpen(false)}
         title="双方信息"
-        description="仅工单双方与平台客服可见，请勿外传。"
+        description="请勿外传。"
         footer={
           <button type="button" className="btn btn-outline w-full" onClick={() => setPartiesOpen(false)}>
             知道了
@@ -454,14 +454,14 @@ export function TicketDetailPage(): ReactNode {
             <PartyRow party={data.parties.merchant} self={data.role === "merchant"} />
           </div>
         ) : (
-          <p className="text-[12px] leading-relaxed text-muted">双方资料还没有披露，需要先向平台申请。</p>
+          <p className="text-[12px] leading-relaxed text-muted">资料未披露，需先申请。</p>
         )}
       </Dialog>
 
       <ConfirmDialog
         open={closeOpen}
         title="结束工单"
-        description="关闭后双方都不能再在这个工单里发消息。如果还有问题，可以重新发起一个工单。确认结束？"
+        description="关闭后不能再发消息，可重新发起。"
         confirmText="结束工单"
         danger
         loading={closing}

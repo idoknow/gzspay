@@ -33,10 +33,10 @@ export interface QrScannerProps {
 export function QrScanner({
   open,
   title = "扫描二维码",
-  hint = "将二维码放入取景框内，即可自动识别",
+  hint = "将二维码放入框内",
   scanOnly = false,
-  manualLabel = "手动输入二维码内容",
-  manualPlaceholder = "例如 gzspay:card:2023123456",
+  manualLabel = "手动输入",
+  manualPlaceholder = "输入卡号或二维码内容",
   nfc = false,
   onResult,
   onClose,
@@ -130,24 +130,24 @@ export function QrScanner({
 
   const handleFile = async (file: File | null): Promise<void> => {
     if (!file) return;
-    setNotice("正在识别图片…");
+    setNotice("正在识别…");
     try {
       const raw = await decodeQrFromImageFile(file);
       if (!raw) {
-        setNotice("没有识别到二维码，请换一张更清晰的照片重试");
+        setNotice("未识别到二维码，换张照片重试");
         return;
       }
       handledRef.current = true;
       onResult(raw);
     } catch (reason: unknown) {
-      setNotice(errorText(reason, "图片识别失败，请换一张更清晰的照片重试"));
+      setNotice(errorText(reason, "识别失败，换张照片重试"));
     }
   };
 
   const submitManual = (): void => {
     const value = manualValue.trim();
     if (!value) {
-      setNotice("请输入二维码内容或卡号");
+      setNotice("请输入卡号或二维码内容");
       return;
     }
     handledRef.current = true;
@@ -196,9 +196,6 @@ export function QrScanner({
         </div>
 
         <div className="flex flex-1 flex-col justify-center gap-2 px-2.5 pb-[max(env(safe-area-inset-bottom),10px)]">
-          <p className="text-center text-[10px] leading-snug text-white/60">
-            手表上用手动输入更省事；设备有摄像头时也可以扫码
-          </p>
           <label className="text-[11px] text-white/75" htmlFor="qr-manual-input">
             {manualLabel}
           </label>

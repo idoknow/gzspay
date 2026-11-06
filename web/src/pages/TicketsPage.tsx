@@ -91,8 +91,6 @@ export function TicketsPage(): ReactNode {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  const openCount = items.filter((item) => item.status === "open").length;
-
   return (
     <div className="bg-app min-h-[100dvh]">
       <PageHeader title="交易工单" back />
@@ -114,7 +112,6 @@ export function TicketsPage(): ReactNode {
 
         <p className="px-1 text-xs text-muted watch:text-[11px]">
           共 {items.length} 个工单
-          {filter === "open" && openCount > 0 ? " · 点开后会显示完整对话" : ""}
         </p>
 
         {tickets.loading && !tickets.data ? (
@@ -126,8 +123,8 @@ export function TicketsPage(): ReactNode {
             title={filter === "open" ? "暂无进行中的工单" : "暂无已结束的工单"}
             description={
               filter === "open"
-                ? "在待付款、已支付或已完成的订单详情里都可以发起工单，和对方沟通争议"
-                : "工单双方都可以关闭，关闭后会显示在这里"
+                ? "在订单详情里发起工单"
+                : "工单关闭后显示在这里"
             }
           />
         ) : (

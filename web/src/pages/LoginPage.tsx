@@ -99,7 +99,7 @@ export function LoginPage(): ReactNode {
                 role="alert"
                 className="rounded-2xl bg-warning-soft px-4 py-3 text-sm leading-relaxed text-warning animate-fade-in watch:rounded-xl watch:px-3 watch:py-2 watch:text-[11px]"
               >
-                管理员尚未配置校园墙登录，暂时无法登录
+                校园墙登录尚未开放
               </div>
             </>
           ) : (
@@ -110,9 +110,6 @@ export function LoginPage(): ReactNode {
               使用校园墙账号登录
             </a>
           )}
-          <p className="text-center text-xs leading-relaxed text-muted watch:text-[10px]">
-            使用校园墙账号授权登录，无需额外注册
-          </p>
         </div>
       </div>
 

@@ -347,7 +347,7 @@ export function StatsPage(): ReactNode {
           <div className="mt-3 flex items-center justify-between rounded-2xl bg-surface-2 px-3 py-2.5">
             <div>
               <p className="text-[13px] font-medium text-text">含待确认</p>
-              <p className="mt-0.5 text-[11px] text-muted">开启后统计待付款与已支付订单</p>
+              <p className="mt-0.5 text-[11px] text-muted">含待付款与已支付订单</p>
             </div>
             <Toggle checked={includePending} onChange={setIncludePending} label="含待确认" />
           </div>
@@ -401,7 +401,7 @@ export function StatsPage(): ReactNode {
 
             <section className="card p-4">
               <h2 className="text-sm font-semibold text-text">较上一区间</h2>
-              <p className="mt-0.5 text-[11px] text-muted">与等长的上一区间相比</p>
+            <p className="mt-0.5 text-[11px] text-muted">对比上一个等长区间</p>
               <div className="mt-2.5 space-y-2">
                 {(
                   [
@@ -511,7 +511,7 @@ export function StatsPage(): ReactNode {
 
             <section className="card p-4">
               <h2 className="text-sm font-semibold text-text">收款方式</h2>
-              <p className="mt-0.5 text-[11px] text-muted">按已支付订单的金额占比</p>
+              <p className="mt-0.5 text-[11px] text-muted">已支付订单金额占比</p>
               <div className="mt-2">
                 {hasChannelAmount ? (
                   <ChartDonut
@@ -534,7 +534,7 @@ export function StatsPage(): ReactNode {
 
             <section className="card p-4">
               <h2 className="text-sm font-semibold text-text">交易时段</h2>
-              <p className="mt-0.5 text-[11px] text-muted">按小时统计，点按柱子查看该时段金额</p>
+              <p className="mt-0.5 text-[11px] text-muted">按小时统计，点柱子看金额</p>
               <div className="mt-2">
                 <ChartBars
                   labels={hours.map((item) => `${item.hour}时`)}
@@ -560,21 +560,20 @@ export function StatsPage(): ReactNode {
             </section>
 
             {buckets.length === 0 ? (
-              <EmptyState title="该区间暂无交易" description="换个时间范围试试，或先完成一笔交易。" />
+              <EmptyState title="该区间暂无交易" description="换个时间范围试试" />
             ) : null}
 
             <section className="card p-3">
               <div className="flex items-baseline justify-between px-1">
                 <p className="text-[13px] font-medium text-text">导出报表</p>
-                <p className="text-[11px] text-muted">区间与图表一并导出</p>
               </div>
               <div className="mt-2.5 grid grid-cols-2 gap-2">
                 {(
                   [
-                    { kind: "csv", label: "CSV 表格", run: handleExportCsv },
-                    { kind: "xlsx", label: "Excel 表格", run: handleExportXlsx },
-                    { kind: "png", label: "PNG 图片", run: handleExportPng },
-                    { kind: "pdf", label: "PDF 文件", run: handleExportPdf },
+                    { kind: "csv", label: "CSV", run: handleExportCsv },
+                    { kind: "xlsx", label: "Excel", run: handleExportXlsx },
+                    { kind: "png", label: "PNG", run: handleExportPng },
+                    { kind: "pdf", label: "PDF", run: handleExportPdf },
                   ] as const
                 ).map((item) => (
                   <button
@@ -590,9 +589,6 @@ export function StatsPage(): ReactNode {
                 ))}
               </div>
             </section>
-            <p className="text-center text-[11px] text-muted">
-              统计口径：以订单金额为准，含待确认会包含待付款与已支付订单
-            </p>
           </>
         ) : null}
 

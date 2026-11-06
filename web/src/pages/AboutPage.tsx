@@ -123,7 +123,7 @@ export function AboutPage(): ReactNode {
               </span>
             </div>
             <p className="mt-3.5 max-w-[19rem] text-[11px] leading-relaxed text-[color:var(--hero-fg-faint)]">
-              gzspay 提供校园内的收付款记录与沟通工具，资金通过第三方收款码流转，不代收代付。
+              资金通过第三方收款码流转，不代收代付。
             </p>
             <div className="mt-2.5">
               <SiteIcp tone="hero" icp={data?.site?.icp} className="watch:text-[9.5px]" />

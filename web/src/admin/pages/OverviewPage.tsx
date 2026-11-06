@@ -41,7 +41,7 @@ export function OverviewPage() {
     <>
       <PageHeader
         title="总览"
-        description="全校交易与运营概况，数据由后台实时汇总。"
+        description="全校交易与运营概况。"
         actions={
           <Button
             variant="subtle"
@@ -69,31 +69,31 @@ export function OverviewPage() {
             <StatCard
               label="全校总交易额"
               value={formatCents(data.totalAmountCents)}
-              hint="已支付及已完成订单累计"
+              hint="已支付及已完成"
               tone="primary"
             />
             <StatCard
               label="本月交易额"
               value={formatCents(data.monthAmountCents)}
-              hint="本月 1 日 00:00 起"
+              hint="本月 1 日起"
               tone="accent"
             />
             <StatCard
               label="今日订单数"
               value={formatNumber(data.todayOrderCount)}
-              hint="今日 00:00 起创建"
+              hint="今日创建"
               tone="success"
             />
             <StatCard
               label="用户数"
               value={formatNumber(data.userCount)}
-              hint="校园墙注册用户"
+              hint="校园墙注册"
               tone="primary"
             />
             <StatCard
               label="商家数"
               value={formatNumber(data.merchantCount)}
-              hint="已开通收款资格"
+              hint="已开通收款"
               tone="accent"
             />
           </div>
@@ -101,7 +101,7 @@ export function OverviewPage() {
           <div className="admin-grid-main-aside">
             <ExportableCard
               title="近 12 个月交易趋势"
-              subtitle="柱状为交易额，折线为订单数；点击图例可隐藏系列，点击柱子或圆点查看该月明细"
+              subtitle="柱状为交易额，折线为订单数"
               filename="总览-近12个月交易趋势"
               csv={{
                 headers: ["月份", "交易额（元）", "订单数"],
@@ -134,11 +134,10 @@ export function OverviewPage() {
 
             <Card
               title="待处理事项"
-              subtitle="需要关注的运营与风控提醒"
               extra={<Badge tone="warning">{data.todos.length} 项</Badge>}
             >
               {data.todos.length === 0 ? (
-                <EmptyState title="没有待处理事项" description="当前运营状态良好。" />
+                <EmptyState title="没有待处理事项" />
               ) : (
                 <div className="admin-stack">
                   {data.todos.map((todo) => (
@@ -151,16 +150,15 @@ export function OverviewPage() {
 
           <Card
             title="最近订单"
-            subtitle="最新创建的全校订单"
             extra={
               <Link className="admin-btn admin-btn-link admin-btn-sm" to="/admin/orders">
-                查看全部交易
+                查看全部
               </Link>
             }
             flush
           >
             {data.recentOrders.length === 0 ? (
-              <EmptyState title="暂无订单" description="还没有产生交易记录。" />
+              <EmptyState title="暂无订单" />
             ) : (
               <div className="admin-table-wrap">
                 <table className="admin-table">

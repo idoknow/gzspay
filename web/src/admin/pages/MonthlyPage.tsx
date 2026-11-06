@@ -118,7 +118,7 @@ export function MonthlyPage() {
     <>
       <PageHeader
         title="每月交易额"
-        description="按自然月查看全校交易规模，点击柱状图可展开该月每日趋势。"
+        description="按自然月查看交易规模。"
         actions={
           <div className="admin-flex" style={{ gap: 8 }}>
             <select
@@ -155,33 +155,29 @@ export function MonthlyPage() {
           </div>
         </>
       ) : months.length === 0 ? (
-        <EmptyState title="暂无交易数据" description={`${year} 年还没有产生交易记录。`} />
+        <EmptyState title="暂无交易数据" />
       ) : (
         <div className="admin-stack">
           <div className="admin-stat-grid">
             <StatCard
               label={`${year} 年交易额`}
               value={formatCents(summary.amount)}
-              hint="全年已支付及已完成订单"
               tone="primary"
             />
             <StatCard
               label={`${year} 年订单数`}
               value={formatNumber(summary.orders)}
-              hint="全年创建订单总数"
               tone="accent"
             />
             <StatCard
               label="有交易月份"
               value={`${summary.activeMonths} / 12`}
-              hint="产生过交易的月份数"
               tone="success"
             />
           </div>
 
           <ExportableCard
             title={`${year} 年每月交易额`}
-            subtitle="点击柱状图查看该月每日趋势"
             filename={`每月交易额-${year}年`}
             csv={{
               headers: ["月份", "交易额（元）", "订单数"],
@@ -221,7 +217,7 @@ export function MonthlyPage() {
                   ? `${formatMonthLabel(activeMonth.key)}每日交易趋势`
                   : "每日交易趋势"
               }
-              subtitle="柱状为交易额，折线为订单数；点击图例可隐藏系列，点击柱子或圆点查看该日明细"
+              subtitle="柱状为交易额，折线为订单数"
               filename={activeMonth ? `每日交易-${activeMonth.key}` : "每日交易趋势"}
               csv={{
                 headers: ["日期", "交易额（元）", "订单数"],
@@ -303,7 +299,7 @@ export function MonthlyPage() {
                   </div>
                 </div>
               ) : (
-                <EmptyState title="请选择月份" description="点击左侧柱状图查看该月数据。" />
+                <EmptyState title="请选择月份" />
               )}
             </Card>
           </div>

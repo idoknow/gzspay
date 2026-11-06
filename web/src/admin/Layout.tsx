@@ -133,7 +133,7 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
     void (async () => {
       const confirmed = await feedback.confirm({
         title: "退出登录",
-        description: `确定要退出管理后台吗？当前账号：${admin.displayName}`,
+        description: `确定退出？当前账号：${admin.displayName}`,
         confirmText: "退出登录",
         danger: true,
       });
@@ -201,7 +201,7 @@ export function AdminLayout({ themeMode, onThemeChange }: AdminLayoutProps) {
           <div>登录角色：{roleLabel(admin.role)}</div>
           <div>
             {isAuditor
-              ? "只读审计模式：仅可查看数据"
+              ? "只读审计：仅可查看"
               : isSuper
                 ? "超级管理员：全部权限"
                 : "运营：可处理业务，不可改配置"}

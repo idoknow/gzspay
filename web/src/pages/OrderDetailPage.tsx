@@ -63,16 +63,16 @@ function statusText(order: OrderDetail): { title: string; description: string } 
   switch (order.status) {
     case "pending_payment":
       return order.role === "payer"
-        ? { title: "等待付款", description: "请使用下方商家收款码付款，付款后点击「我已支付」" }
-        : { title: "等待付款人付款", description: "对方付款后，你确认收款即可完成交易" };
+        ? { title: "等待付款", description: "扫码付款后点「我已支付」" }
+        : { title: "等待付款人付款", description: "对方付款后确认收款即可" };
     case "paid":
       return order.role === "payer"
-        ? { title: "已标记支付", description: "等待商家确认收款，请保持联系畅通" }
-        : { title: "付款人已标记支付", description: "请核对收款账户余额后确认收款" };
+        ? { title: "已标记支付", description: "等待商家确认收款" }
+        : { title: "付款人已标记支付", description: "核对到账后确认收款" };
     case "completed":
-      return { title: "交易已完成", description: "感谢使用 gzspay" };
+      return { title: "交易已完成", description: "" };
     case "cancelled":
-      return { title: "订单已取消", description: order.cancelReason ? `取消原因：${order.cancelReason}` : "该订单已取消" };
+      return { title: "订单已取消", description: order.cancelReason ? `取消原因：${order.cancelReason}` : "" };
     default:
       return { title: "订单详情", description: "" };
   }
@@ -154,7 +154,7 @@ function OrderQrPanel({
       </div>
       {channels.length === 0 ? (
         <p className="mt-3 rounded-2xl bg-surface-2 px-3 py-3 text-xs leading-relaxed text-muted">
-          商家尚未启用任何收款方式，请与商家联系后再付款。
+          商家未启用收款方式，请联系商家。
         </p>
       ) : (
         <>
@@ -180,7 +180,7 @@ function OrderQrPanel({
               <QrImage dataUrl={dataUrl} size={220} alt={`${channel ? payChannelLabel(channel) : ""}收款码`} />
             )}
             <p className="mt-3 text-center text-xs leading-relaxed text-muted">
-              {hint ?? "请核对收款方信息后再扫码付款，资金直接进入商家账户"}
+              {hint ?? "请核对收款方与金额后再付款"}
             </p>
             <button
               type="button"
@@ -401,7 +401,7 @@ export function OrderDetailPage(): ReactNode {
       return;
     }
     if (!payProofFile && !order.hasPaymentProof) {
-      toast.error("请先上传付款截图，商家确认收款前会核对");
+      toast.error("请上传付款截图");
       return;
     }
     setPayBusy(true);
@@ -468,7 +468,7 @@ export function OrderDetailPage(): ReactNode {
     if (!order) return;
     const description = ticketDescription.trim();
     if (description.length < 5) {
-      toast.error("请简单描述一下争议情况（至少 5 个字）");
+      toast.error("请描述争议情况（至少 5 字）");
       return;
     }
     setTicketBusy(true);
@@ -537,7 +537,7 @@ export function OrderDetailPage(): ReactNode {
         {order.status === "cancelled" ? (
           <div className="rounded-2xl bg-danger-soft px-4 py-3 text-sm leading-relaxed text-danger">
             <p className="font-semibold">订单已取消</p>
-            <p className="mt-0.5 text-xs">{order.cancelReason ? `取消原因：${order.cancelReason}` : "该订单已取消，无需再付款"}</p>
+            <p className="mt-0.5 text-xs">{order.cancelReason ? `取消原因：${order.cancelReason}` : "无需再付款"}</p>
           </div>
         ) : null}
 
@@ -547,7 +547,9 @@ export function OrderDetailPage(): ReactNode {
             <span className="text-[11px] text-muted">{formatFriendlyTime(order.createdAt)}</span>
           </div>
           <h1 className="mt-3 text-lg font-bold text-text">{status.title}</h1>
-          <p className="mt-1 text-sm leading-relaxed text-muted">{status.description}</p>
+          {status.description ? (
+            <p className="mt-1 text-sm leading-relaxed text-muted">{status.description}</p>
+          ) : null}
           <div className="mt-3 flex flex-col items-center rounded-2xl bg-surface-2/60 py-4">
             <MoneyText cents={order.amountCents} size="hero" />
             <button
@@ -666,7 +668,7 @@ export function OrderDetailPage(): ReactNode {
                 {order.actualNote?.trim() ? (
                   <span className="min-w-0 whitespace-pre-wrap break-words text-right text-text">{order.actualNote}</span>
                 ) : (
-                  <span className="text-muted">客户未填写备注</span>
+                  <span className="text-muted">未填写</span>
                 )}
               </div>
             </div>
@@ -690,8 +692,8 @@ export function OrderDetailPage(): ReactNode {
             </div>
             <p className="mt-2 text-xs leading-relaxed text-muted">
               {order.role === "merchant"
-                ? "确认收款前请打开截图，核对收款账户与金额是否与实际到账一致。"
-                : "已上传给商家核对，商家确认收款后交易完成。"}
+                ? "核对无误后再确认收款。"
+                : "商家确认收款后交易完成。"}
             </p>
           </section>
         ) : null}
@@ -700,11 +702,11 @@ export function OrderDetailPage(): ReactNode {
           <section className="card p-4">
             <h2 className="text-sm font-semibold text-text">支付宝一键付款</h2>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
-              金额和备注（订单号）已经填好，打开支付宝确认即可，不用手动输入。
+              金额与备注已填好，确认即可。
             </p>
             {inWechat ? (
               <p className="mt-1.5 text-xs leading-relaxed text-amber-600 dark:text-amber-400">
-                微信里打不开支付宝，请点右上角「···」选择用浏览器打开本页。
+                微信里打不开支付宝，点右上角「···」用浏览器打开本页。
               </p>
             ) : null}
             <div className="mt-3 flex gap-2">
@@ -725,7 +727,7 @@ export function OrderDetailPage(): ReactNode {
               </button>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted">
-              这是支付宝的免签约唤起方式，付款后到账金额仍需商家确认或账单对账。
+              付款后仍需商家确认到账。
             </p>
           </section>
         ) : null}
@@ -748,7 +750,7 @@ export function OrderDetailPage(): ReactNode {
           <section className="card p-4">
             <h2 className="text-sm font-semibold text-text">当面收款</h2>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
-              如果对方当面付款，可出示你的收款码。等对方在订单里点「我已支付」并上传付款截图后，再核对确认收款。
+              对方当面付款时可出示收款码。
             </p>
             <div className="mt-3 flex gap-2">
               <button
@@ -769,7 +771,7 @@ export function OrderDetailPage(): ReactNode {
           <section className="card p-4">
             <h2 className="text-sm font-semibold text-text">订单沟通（工单）</h2>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
-              还没付款也可以先发起工单：金额、收货或退款有争议时，在站内和对方沟通。工单只有订单双方能看到，超过 7 天没有新消息会自动关闭。
+              有争议可在站内沟通；工单仅双方可见，7 天无新消息自动关闭。
             </p>
             {currentTicket ? (
               <button
@@ -843,7 +845,7 @@ export function OrderDetailPage(): ReactNode {
         open={requirementOpen}
         onClose={closeRequirement}
         title="商家备注要求"
-        description="付款时请按商家的要求填写备注，方便对方核对到账。"
+        description="付款时请按商家要求填写备注。"
         footer={
           <button type="button" className="btn btn-primary w-full" onClick={closeRequirement}>
             我已阅读
@@ -860,7 +862,7 @@ export function OrderDetailPage(): ReactNode {
           if (!payBusy) setPayOpen(false);
         }}
         title="我已支付"
-        description="请选择你实际使用的收款方式并上传付款截图，商家会逐一核对后再确认收款。"
+        description="选择实际支付方式并上传付款截图。"
         footer={
           <div className="flex gap-2">
             <button type="button" className="btn btn-outline flex-1" disabled={payBusy} onClick={() => setPayOpen(false)}>
@@ -907,21 +909,21 @@ export function OrderDetailPage(): ReactNode {
               onChange={(event) => setPayProofFile(event.target.files?.[0] ?? null)}
             />
             <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-              支持 PNG / JPG，最大 5MB。商家确认收款前会核对这张截图
-              {order.hasPaymentProof ? "（已上传过，不上传则沿用原截图）" : ""}。
+              支持 PNG / JPG，最大 5MB
+              {order.hasPaymentProof ? "；不上传则沿用原截图。" : "。"}
             </p>
             {payProofFile ? <p className="mt-1 truncate text-[11px] text-brand">已选择：{payProofFile.name}</p> : null}
           </div>
           <div>
             <label className="label" htmlFor="actualNote">
-              实际备注（默认带入预留备注，可修改）
+              实际备注（已带入预留备注）
             </label>
             <textarea
               id="actualNote"
               className="input min-h-[88px] py-3"
               value={payNote}
               maxLength={200}
-              placeholder="可填写转账单号后四位、时间等信息"
+              placeholder="转账单号后四位、时间等"
               onChange={(event) => setPayNote(event.target.value)}
             />
           </div>
@@ -935,11 +937,11 @@ export function OrderDetailPage(): ReactNode {
           if (!cancelBusy) setCancelOpen(false);
         }}
         title="取消订单"
-        description="请选择取消原因，付款人将看到该原因。"
+        description="付款人会看到取消原因。"
         footer={
           <div className="flex gap-2">
             <button type="button" className="btn btn-outline flex-1" disabled={cancelBusy} onClick={() => setCancelOpen(false)}>
-              再想想
+              返回
             </button>
             <button type="button" className="btn btn-danger flex-1" disabled={cancelBusy} onClick={() => void submitCancel()}>
               {cancelBusy ? <Spinner size={16} /> : null}
@@ -975,7 +977,7 @@ export function OrderDetailPage(): ReactNode {
       <ConfirmDialog
         open={confirmOpen}
         title="确认已收到款项？"
-        description={`确认收款 ¥${formatCents(order.amountCents)}，订单将标记为已完成。`}
+        description={`收款 ¥${formatCents(order.amountCents)}，订单将标记为已完成。`}
         confirmText="确认收款"
         loading={confirmBusy}
         onConfirm={() => void submitConfirm()}
@@ -986,7 +988,7 @@ export function OrderDetailPage(): ReactNode {
       <ConfirmDialog
         open={notReceivedOpen}
         title="标记未收到款？"
-        description="订单将退回待付款，并通知付款人重新核对。"
+        description="订单退回待付款，并通知付款人。"
         confirmText="未收到"
         danger
         loading={notReceivedBusy}
@@ -999,7 +1001,7 @@ export function OrderDetailPage(): ReactNode {
         open={proofViewerOpen}
         onClose={() => setProofViewerOpen(false)}
         title="付款截图"
-        description="请核对截图中的收款账户、金额与时间是否与实际到账一致。"
+        description="核对账户、金额与时间。"
       >
         {proof.error ? (
           <p className="py-6 text-center text-xs text-danger">{proof.error}</p>
@@ -1012,7 +1014,7 @@ export function OrderDetailPage(): ReactNode {
             className="max-h-[70vh] w-full rounded-xl border border-line object-contain"
           />
         ) : (
-          <p className="py-6 text-center text-xs text-muted">暂无可查看的截图</p>
+          <p className="py-6 text-center text-xs text-muted">暂无截图</p>
         )}
       </Dialog>
 
@@ -1023,14 +1025,13 @@ export function OrderDetailPage(): ReactNode {
           if (!exportBusy) setExportOpen(false);
         }}
         title="导出账单"
-        description="导出这一笔订单的交易信息，可选表格、文本或 PDF。"
       >
         <div className="grid grid-cols-2 gap-2">
           {(
             [
-              { format: "csv" as const, label: "CSV 表格", hint: "Excel / WPS 可打开" },
-              { format: "xlsx" as const, label: "Excel 文件", hint: ".xlsx，带表头" },
-              { format: "json" as const, label: "JSON 数据", hint: "给程序或对账用" },
+              { format: "csv" as const, label: "CSV" },
+              { format: "xlsx" as const, label: "Excel" },
+              { format: "json" as const, label: "JSON" },
             ]
           ).map((item) => (
             <button
@@ -1043,7 +1044,6 @@ export function OrderDetailPage(): ReactNode {
               <span className="text-sm font-semibold text-text">
                 {exportBusy === item.format ? "正在导出…" : item.label}
               </span>
-              <span className="text-[11px] text-muted">{item.hint}</span>
             </button>
           ))}
           <button
@@ -1052,8 +1052,8 @@ export function OrderDetailPage(): ReactNode {
             disabled={exportBusy !== null}
             onClick={handlePrintPdf}
           >
-            <span className="text-sm font-semibold text-text">PDF（打印）</span>
-            <span className="text-[11px] text-muted">打开打印页另存为 PDF</span>
+            <span className="text-sm font-semibold text-text">PDF</span>
+            <span className="text-[11px] text-muted">打印后另存为 PDF</span>
           </button>
         </div>
       </Dialog>
@@ -1063,7 +1063,7 @@ export function OrderDetailPage(): ReactNode {
         open={qrDialogOpen}
         onClose={() => setQrDialogOpen(false)}
         title="我的收款码"
-        description="请对方扫码付款，确认收到款项后点击下方按钮。"
+        description="请对方扫码付款。"
         footer={
           <div className="space-y-2">
             <button
@@ -1115,7 +1115,7 @@ export function OrderDetailPage(): ReactNode {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-danger">尚未启用收款方式，请先在商家中心上传并启用收款码。</p>
+          <p className="text-sm text-danger">尚未启用收款方式，请先在商家中心上传。</p>
         )}
       </Dialog>
 
@@ -1124,7 +1124,7 @@ export function OrderDetailPage(): ReactNode {
         open={prefillOpen}
         onClose={() => setPrefillOpen(false)}
         title="支付宝扫码付款"
-        description="用手机支付宝「扫一扫」，金额与备注已经自动填好。"
+        description="用支付宝扫码，金额与备注已填好。"
         footer={
           <button type="button" className="btn btn-outline h-10 text-[13px]" onClick={() => setPrefillOpen(false)}>
             关闭
@@ -1145,7 +1145,7 @@ export function OrderDetailPage(): ReactNode {
             <QrImage dataUrl={prefillQr.url} size={220} alt="支付宝一键付款二维码" />
           )}
           <p className="text-center text-[11px] leading-relaxed text-muted">
-            备注是订单号 {order.orderNo}，付款后能自动和订单对上。
+            备注为订单号 {order.orderNo}。
           </p>
         </div>
       </Dialog>
@@ -1157,7 +1157,7 @@ export function OrderDetailPage(): ReactNode {
           if (!ticketBusy) setTicketOpen(false);
         }}
         title="发起工单"
-        description="说明遇到的问题，对方会在工单里回复你。工单只有订单双方可见。"
+        description="说明问题，对方会在此回复。"
         footer={
           <div className="flex gap-2">
             <button

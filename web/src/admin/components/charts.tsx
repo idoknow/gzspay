@@ -1025,7 +1025,7 @@ export function AmountDistributionChart({
       onClearSelect={onClearSelect}
       emptyText={emptyText}
       ariaLabel="金额区间分布"
-      axisNote="柱高为该区间交易额；点击柱体查看该区间的单数与金额"
+      axisNote="柱高为交易额，点击查看明细"
       detail={(point) => {
         const item = itemByKey.get(point.key);
         const count = item?.count ?? point.secondary ?? 0;
@@ -1103,7 +1103,7 @@ export function HourlyChart({
       ariaLabel="0 至 23 时交易时段分布"
       xLabelStep={() => 3}
       showLastLabel={false}
-      axisNote="柱高为该时段交易额 · 横轴每 3 小时标一次"
+      axisNote="柱高为交易额，每 3 小时一刻度"
       detail={(point) => {
         const item = itemByKey.get(point.key);
         const hour = item?.hour ?? Number(point.label);
