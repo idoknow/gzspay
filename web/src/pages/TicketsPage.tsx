@@ -10,6 +10,7 @@ import { getTickets } from "../lib/api";
 import { cn, formatCents, formatFriendlyTime, maskPersonName } from "../lib/format";
 import { useAsync, useInterval, useVisible } from "../lib/hooks";
 import { errorMessage } from "../lib/http";
+import { useTicketEvents } from "../lib/ticket-events";
 import type { TicketSummary } from "../lib/types";
 
 const FILTERS: { value: "open" | "closed"; label: string }[] = [
@@ -75,10 +76,15 @@ export function TicketsPage(): ReactNode {
   const tickets = useAsync(() => getTickets(filter), [filter]);
   const items = useMemo(() => tickets.data?.items ?? [], [tickets.data]);
 
-  // 页面可见时每 8 秒刷新一次未读与列表
+  // 页面可见时每 8 秒刷新一次未读与列表（SSE 断线时的兜底）
   useInterval(() => {
     if (visible) tickets.reload();
   }, 8000);
+
+  // 有新消息 / 工单状态变化时立即刷新列表与未读
+  useTicketEvents(() => {
+    if (visible) tickets.reload();
+  });
 
   useEffect(() => {
     if (visible) tickets.reload();

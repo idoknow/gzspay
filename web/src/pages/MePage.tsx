@@ -14,6 +14,7 @@ import { useToast } from "../components/Toast";
 import { getTicketUnreadCount } from "../lib/api";
 import { formatFriendlyTime } from "../lib/format";
 import { useAsync, useInterval, useVisible, useWatchLayout } from "../lib/hooks";
+import { useTicketEvents } from "../lib/ticket-events";
 import { useAuth } from "../lib/session";
 
 type Tone = "neutral" | "brand" | "accent";
@@ -223,10 +224,15 @@ export function MePage(): ReactNode {
   const ticketUnread = useAsync(() => getTicketUnreadCount(), []);
   const ticketUnreadCount = ticketUnread.data?.count ?? 0;
 
-  // 页面可见时每 15 秒刷新一次工单未读红点
+  // 页面可见时每 15 秒刷新一次工单未读红点（SSE 断线时的兜底）
   useInterval(() => {
     if (visible) ticketUnread.reload();
   }, 15000);
+
+  // 工单有新消息时立即刷新红点
+  useTicketEvents(() => {
+    if (visible) ticketUnread.reload();
+  });
 
   const accountMenu: MenuItem[] = privacy.enabled
     ? [{ label: "修改密码", description: "支付密码与登录安全", path: "/me/password", icon: <LockIcon /> }]

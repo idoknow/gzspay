@@ -19,6 +19,7 @@ import {
 } from "../lib/api";
 import { cn, formatCents, formatDateTime, maskPersonName } from "../lib/format";
 import { useAsync, useInterval, useVisible } from "../lib/hooks";
+import { useTicketEvents } from "../lib/ticket-events";
 import { errorMessage } from "../lib/http";
 import type { PartiesReveal, TicketMessage, TicketParty } from "../lib/types";
 
@@ -227,10 +228,15 @@ export function TicketDetailPage(): ReactNode {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.id, data?.messageCount]);
 
-  // 页面可见时每 5 秒刷新一次对话
+  // 页面可见时每 5 秒刷新一次对话（SSE 断线时的兜底）
   useInterval(() => {
     if (visible && !closing) ticket.reload();
   }, 5000);
+
+  // 对方发消息、平台介入或状态变化时立即刷新，不用等轮询
+  useTicketEvents((payload) => {
+    if (payload.ticketId === id) ticket.reload();
+  });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });

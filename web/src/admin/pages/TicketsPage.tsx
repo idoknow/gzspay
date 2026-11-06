@@ -2,7 +2,7 @@
  * 交易工单：查看订单双方的沟通记录与双方资料。
  * 运营（super / ops）可以「平台客服」身份介入沟通、结束工单；审计员只读。
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   closeAdminTicket,
   getAdminTicket,
@@ -129,6 +129,14 @@ export function AdminTicketsPage() {
 
   const rows = tickets.data?.items ?? [];
   const total = tickets.data?.total ?? 0;
+
+  // 工单随时可能被用户更新：每 15 秒静默刷新列表，避免运营一直点「刷新」
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (!document.hidden) tickets.refresh();
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [tickets.refresh]);
 
   return (
     <>
@@ -264,6 +272,14 @@ function TicketDetailDrawer({
 
   const ticket = detail.data;
   const canReply = Boolean(canWrite && ticket && ticket.status === "open");
+
+  // 抽屉里的对话也定时刷新，运营不用手动点刷新就能看到新消息
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (!document.hidden) detail.refresh();
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [detail.refresh]);
 
   const handleChanged = () => {
     detail.reload();
