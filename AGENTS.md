@@ -12,6 +12,45 @@
 - 金额一律以「分」为单位的整数存取（`amountCents`），展示时再格式化为元。
 - 时间统一存 ISO 8601 字符串（UTC），展示时按本地时区格式化。
 
+## 本地开发
+
+```bash
+npm install
+cp .env.example .env          # 至少填写 SESSION_SECRET
+npm run dev                   # 后端 3000 + 前端 5173
+```
+
+打开 <http://localhost:5173>；第一次使用先打开 <http://localhost:5173/admin> 走初始化向导（校园墙 → 发件 → 站点信息 → 完成），第一个登录的账号会自动成为超级管理员。校园墙与发件配置也可以在向导里填写，会覆盖 `.env` 并存进数据库。
+
+整站容器化、反向代理、备份与升级见 [docs/deploy.md](./docs/deploy.md)（第 6 节 Docker）。所有环境变量及其含义见 [docs/deploy.md](./docs/deploy.md) 第 3 节与 [.env.example](./.env.example)。
+
+**局域网真机调试**：`npm run dev` 的 Vite 监听所有网卡，启动日志会打印 `Network: http://<本机 IP>:5173/`，手机连同一个 Wi-Fi 直接访问即可。用局域网地址访问时要把域名写进 `.env`，否则写请求会被 CSRF 来源校验拒绝：
+
+```bash
+APP_BASE_URL=http://192.168.1.10:5173
+PUBLIC_BASE_URL=http://192.168.1.10:5173
+EXTRA_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173   # 想同时保留 localhost 访问时
+```
+
+两个坑：Windows 首次运行需在防火墙提示里允许 Node.js 入站（或手动放行 TCP 5173）；局域网走 HTTP，浏览器不把非 `localhost` 的 HTTP 视为安全上下文，**扫码（相机）在局域网 HTTP 下不可用**，真机测扫码要用 HTTPS 反代或内网证书。
+
+本地联调没有发件通道（Resend / SMTP）时，可以打开 `EMAIL_CODE_DEV_MODE=1` 让验证码回显到接口响应（仅限本机/内网，公网或不可信 WiFi 下不要开）。开发登录已移除，登录一律走校园墙 OAuth。
+
+## 常用命令
+
+| 命令 | 说明 |
+| --- | --- |
+| `npm run dev` | 同时启动前后端开发服务 |
+| `npm run build` | 构建后端与前端 |
+| `npm run typecheck` | 前后端类型检查 |
+| `npm test` | 后端单元与集成测试 |
+| `npm run verify` | 提交前自检：类型检查 + 测试 + 更新日志校验 |
+| `npm run check:changelog` | 校验 `CHANGELOG.md`「未发布」小节是否随改动更新 |
+| `npm run hooks:install` | 安装本地 git 钩子，提交前自动校验更新日志 |
+| `npm run admin:grant -- --list` | 查看管理员与最近账号；`-- --sub <校园墙 sub> --role super` 授予后台权限 |
+| `npm run smoke` | 端到端冒烟：构建并启动后端，用 `E2E_BASE_URL` 指向该服务（建议用全新数据库） |
+| `npm start` | 运行构建产物（需先 `npm run build`） |
+
 ## 目录与写入边界
 
 - `server/src/routes/*`：HTTP 路由，薄层，只做参数校验 + 调用 service。
@@ -65,7 +104,7 @@ node scripts/bench.mjs        # 可选：并发压测关键只读接口，输出
 - 支付密码校验失败 5 次锁定 30 分钟；锁定期间拒绝任何校验。
 - 写接口需通过 CSRF 校验（SameSite Cookie + Origin 白名单）。
 - 敏感接口必须挂限流（`server/src/lib/rate-limit.ts`）：登录发起、OAuth 回调、下单、转账、扫卡、邮箱验证码、动态码；超限返回 `429 RATE_LIMITED` 并带 `Retry-After`。
-- 商家收款码上传必须先按文件头校验 PNG/JPEG（`server/src/lib/image.ts`），不能只看 Content-Type 或扩展名；用户头像直接使用 QQ 头像地址，服务端不下载、不落盘。
+- 商家收款码上传必须先按文件头校验 PNG/JPEG（`server/src/lib/image.ts`），不能只看 Content-Type 或扩展名；用户头像不直接下发 QQ 头像地址（会泄露 QQ 号），统一走服务端代理 `GET /api/avatar/:userId`。
 - 生产环境启动会做配置自检（SESSION_SECRET 强度、https 站点地址），不合格直接退出；不要把示例密钥带上线。
 - 管理后台接口复用主站会话：账号必须在 `admins` 表内，写操作再按角色（`super`/`ops`/`auditor`）限制；没有独立的管理会话或二次验证。
 - 系统未初始化（无管理员且未标记 `system.initialized`）时，除 `/api/health`、`/api/setup/*`、`/api/auth/*`、`/api/admin/auth/*` 外的接口必须返回 `503`。

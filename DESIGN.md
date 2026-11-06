@@ -325,7 +325,7 @@ logo、当前版本号、更新日志（按版本倒序，未发布的记录按�
 gzspay/
 ├── DESIGN.md                 # 本文档
 ├── CHANGELOG.md              # 更新日志（按版本倒序）
-├── README.md                 # 快速开始
+├── README.md                 # 项目介绍
 ├── AGENTS.md                 # 协作规范（提交、代码、验证）
 ├── package.json              # npm workspaces 根
 ├── scripts/dev.mjs           # 同时启动前后端
