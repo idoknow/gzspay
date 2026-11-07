@@ -8,8 +8,6 @@ import { GUIDE_SECTIONS, GUIDE_UPDATED_AT } from "../content/guide";
 import { Markdown } from "../lib/markdown";
 import { useAuth } from "../lib/session";
 
-const REPO_URL = "https://github.com/idoknow/gzspay";
-
 function ArrowLeftIcon(): ReactNode {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -22,14 +20,6 @@ function ArrowUpIcon(): ReactNode {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 19V5m0 0-6 6m6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function GitHubIcon(): ReactNode {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.49 0-.24-.01-1.05-.01-1.9-2.78.62-3.37-1.2-3.37-1.2-.45-1.18-1.11-1.5-1.11-1.5-.91-.63.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.34 1.12 2.91.86.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.4 9.4 0 0 1 2.5-.34c.85 0 1.7.12 2.5.34 1.9-1.33 2.74-1.05 2.74-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.35 4.8-4.58 5.05.36.32.68.94.68 1.9 0 1.38-.01 2.49-.01 2.83 0 .27.18.6.69.49A10.06 10.06 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z" />
     </svg>
   );
 }
@@ -91,7 +81,7 @@ export function GuidePage(): ReactNode {
               校园收付款使用说明
             </h1>
             <p className="mt-2 text-[13px] leading-relaxed text-[color:var(--hero-fg)]/85 watch:text-xs">
-              从登录到收付款、商家收款的完整说明。
+              给同学和商家的使用说明：怎么付款、怎么收款、遇到问题怎么办。
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)]">
@@ -145,13 +135,9 @@ export function GuidePage(): ReactNode {
         <section className="card mt-6 p-5 text-center watch:mt-5 watch:p-4">
           <p className="text-sm font-semibold text-text">还有问题？</p>
           <p className="mt-1 text-xs leading-relaxed text-muted">
-            对照上方目录查看；仍有问题请联系站点管理员。
+            对照上方目录查看；仍有疑问请联系站点管理员。
           </p>
-          <div className="mt-3 flex flex-col gap-2">
-            <a href={REPO_URL} target="_blank" rel="noreferrer noopener" className="btn btn-outline btn-block gap-2">
-              <GitHubIcon />
-              开源仓库
-            </a>
+          <div className="mt-3">
             <button type="button" className="btn btn-primary btn-block" onClick={() => navigate(home)}>
               {authenticated ? "回到应用" : "去登录"}
             </button>
