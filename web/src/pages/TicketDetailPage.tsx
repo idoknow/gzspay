@@ -180,7 +180,7 @@ function PartiesSummary({
   return (
     <button
       type="button"
-      className="mx-4 mt-3 block w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-line/70 bg-surface text-left transition active:bg-surface-2/70 md:mx-auto md:max-w-[440px]"
+      className="mx-auto mt-3 block w-[calc(100%-2rem)] max-w-[488px] overflow-hidden rounded-2xl border border-line/70 bg-surface text-left transition active:bg-surface-2/70"
       data-menu="ticket.parties"
       data-menu-id="summary"
       onClick={onOpen}
@@ -230,7 +230,7 @@ function PartiesLocked({
   const rejected = reveal.status === "rejected";
   return (
     <div
-      className="mx-4 mt-3 rounded-2xl border border-line/70 bg-surface px-4 py-3.5"
+      className="mx-auto mt-3 w-[calc(100%-2rem)] max-w-[488px] rounded-2xl border border-line/70 bg-surface px-4 py-3.5"
       data-menu="ticket.parties"
       data-menu-id="locked"
     >
@@ -532,7 +532,7 @@ export function TicketDetailPage(): ReactNode {
 
       <button
         type="button"
-        className="mx-4 mt-3 flex items-center justify-between rounded-2xl border border-line/70 bg-surface px-4 py-3 text-left transition active:bg-surface-2"
+        className="mx-auto mt-3 flex w-[calc(100%-2rem)] max-w-[488px] items-center justify-between rounded-2xl border border-line/70 bg-surface px-4 py-3 text-left transition active:bg-surface-2"
         data-menu="ticket.order"
         data-menu-id={data.orderId}
         onClick={() => navigate(`/orders/${data.orderId}`)}
@@ -560,7 +560,7 @@ export function TicketDetailPage(): ReactNode {
       )}
 
       {closed ? (
-        <p className="mx-4 mt-3 rounded-2xl bg-surface-2 px-4 py-3 text-[12px] leading-relaxed text-muted">
+        <p className="mx-auto mt-3 w-[calc(100%-2rem)] max-w-[488px] rounded-2xl bg-surface-2 px-4 py-3 text-[12px] leading-relaxed text-muted">
           {CLOSED_REASON_TEXT[data.closedReason ?? "user"] ?? "工单已关闭"}
           {data.closedAt ? `（${formatDateTime(data.closedAt)}）` : ""}
         </p>
