@@ -55,6 +55,15 @@ keyPassword=<密码>
 - **NFC 卡片**：先在网页「我的」→ 顶部卡片 →「NFC 卡片」开关打开；手机开启 NFC 并点亮屏幕（HCE 只在解锁状态响应），对方手机贴近背面即可读取。没开启时读取会提示卡片不存在。
 - **刷新卡片**：同一张「客户端」卡片里的「刷新 NFC」，用于在网页上更换链接后立刻生效；正常情况每 30 秒也会自动同步。
 
+## 测试
+
+NFC 的 APDU 处理抽在 `NfcApduHandler`（纯 Java，不依赖 Android），带一组单元测试，覆盖「带 Lc / 不带 Lc 选择文件」「读 Capability Container」「读 NDEF 文件」「卡片关闭时读不到」「未知指令」等真机上容易踩的点：
+
+```bash
+cd android
+./gradlew :app:testReleaseUnitTest
+```
+
 ## 排障
 
 ```bash
