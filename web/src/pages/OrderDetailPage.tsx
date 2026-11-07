@@ -770,9 +770,6 @@ export function OrderDetailPage(): ReactNode {
         {ticketEligible ? (
           <section className="card p-4">
             <h2 className="text-sm font-semibold text-text">订单沟通（工单）</h2>
-            <p className="mt-1.5 text-xs leading-relaxed text-muted">
-              有争议可在站内沟通；工单仅双方可见，7 天无新消息自动关闭。
-            </p>
             {currentTicket ? (
               <button
                 type="button"

@@ -48,7 +48,7 @@ function MessageBubble({ message, mine }: { message: TicketMessage; mine: boolea
   if (message.senderRole === "system") {
     return (
       <div className="flex w-full justify-center">
-        <p className="max-w-[86%] whitespace-pre-wrap break-words rounded-full bg-surface-2/80 px-3.5 py-1.5 text-center text-[11.5px] leading-relaxed text-muted md:max-w-[70%]">
+        <p className="max-w-[86%] whitespace-pre-wrap break-words rounded-full bg-surface-2/80 px-3.5 py-1.5 text-center text-[11.5px] leading-relaxed text-muted">
           {message.body}
         </p>
       </div>
@@ -63,7 +63,7 @@ function MessageBubble({ message, mine }: { message: TicketMessage; mine: boolea
           <Avatar name={message.senderName} avatarUrl={message.senderAvatarUrl} size={28} rounded />
         )
       ) : null}
-      <div className={cn("max-w-[78%] min-w-0 md:max-w-[64%]", mine && "items-end")}>
+      <div className={cn("max-w-[78%] min-w-0", mine && "items-end")}>
         {!mine ? (
           <p className="mb-1 text-[10.5px] text-muted">
             {isAdmin ? "平台客服" : message.senderName}
@@ -125,33 +125,42 @@ function PartiesSummary({
   role: "payer" | "merchant";
   onOpen: () => void;
 }): ReactNode {
-  const rows: { party: TicketParty }[] = [{ party: parties.payer }, { party: parties.merchant }];
+  const rows: { party: TicketParty; label: string }[] = [
+    { party: parties.payer, label: "付款人" },
+    { party: parties.merchant, label: "商家" },
+  ];
+  const meId = role === "payer" ? parties.payer.id : parties.merchant.id;
   return (
     <button
       type="button"
-      className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center gap-3 rounded-xl border border-line/70 bg-surface px-3.5 py-3 text-left transition active:bg-surface-2 md:mx-auto md:max-w-[688px]"
+      className="mx-4 mt-3 block w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-line/70 bg-surface text-left transition active:bg-surface-2/70"
       onClick={onOpen}
     >
-      <div className="flex shrink-0 items-center -space-x-2">
-        {rows.map(({ party }) => (
-          <span key={party.id} className="rounded-full ring-2 ring-surface">
-            <Avatar name={party.displayName} avatarUrl={party.avatarUrl} size={30} />
-          </span>
-        ))}
-      </div>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-[13px] font-medium text-text">
-          <span className="truncate">{parties.payer.displayName}</span>
-          <span className="text-[11px] text-muted">与</span>
-          <span className="truncate">{parties.merchant.displayName}</span>
-        </span>
-        <span className="mt-0.5 block text-[11px] text-muted">
-          {role === "payer" ? "你是付款人" : "你是商家"} · 查看双方资料
+      <span className="flex items-center justify-between px-4 pt-3">
+        <span className="text-[11px] font-medium text-muted">双方信息</span>
+        <span className="flex items-center gap-0.5 text-[11px] font-medium text-brand">
+          查看完整资料
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </span>
       </span>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-muted">
-        <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <span className="mt-2 grid grid-cols-2 divide-x divide-line/60 border-t border-line/50">
+        {rows.map(({ party, label }) => (
+          <span key={party.id} className="flex min-w-0 items-center gap-2.5 px-4 py-3">
+            <Avatar name={party.displayName} avatarUrl={party.avatarUrl} size={32} />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1">
+                <span className="truncate text-[12.5px] font-medium text-text">{party.displayName}</span>
+                {party.id === meId ? (
+                  <span className="shrink-0 rounded bg-surface-2 px-1 py-0.5 text-[9.5px] text-muted">我</span>
+                ) : null}
+              </span>
+              <span className="mt-0.5 block text-[10.5px] text-muted">{label}</span>
+            </span>
+          </span>
+        ))}
+      </span>
     </button>
   );
 }
@@ -171,7 +180,7 @@ function PartiesLocked({
   const pending = reveal.status === "pending";
   const rejected = reveal.status === "rejected";
   return (
-    <div className="mx-4 mt-3 rounded-2xl border border-line/70 bg-surface px-4 py-3.5 md:mx-auto md:max-w-[688px]">
+    <div className="mx-4 mt-3 rounded-2xl border border-line/70 bg-surface px-4 py-3.5">
       <div className="flex items-center gap-2">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-2 text-muted">
           <EyeIcon off size={14} />
@@ -329,7 +338,6 @@ export function TicketDetailPage(): ReactNode {
         title={`与 ${counterpart} 的工单`}
         subtitle={`${data.categoryLabel} · ¥${formatCents(data.amountCents)} · ${data.orderTitle}`}
         back
-        containerClassName="md:max-w-[720px]"
         right={
           closed ? null : (
             <button
@@ -345,7 +353,7 @@ export function TicketDetailPage(): ReactNode {
 
       <button
         type="button"
-        className="mx-4 mt-3 flex items-center justify-between rounded-xl border border-line/70 bg-surface px-3.5 py-2.5 text-left md:mx-auto md:max-w-[688px]"
+        className="mx-4 mt-3 flex items-center justify-between rounded-2xl border border-line/70 bg-surface px-4 py-3 text-left transition active:bg-surface-2"
         onClick={() => navigate(`/orders/${data.orderId}`)}
       >
         <span className="min-w-0">
@@ -371,13 +379,13 @@ export function TicketDetailPage(): ReactNode {
       )}
 
       {closed ? (
-        <p className="mx-4 mt-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted md:mx-auto md:max-w-[688px]">
+        <p className="mx-4 mt-3 rounded-2xl bg-surface-2 px-4 py-3 text-[12px] leading-relaxed text-muted">
           {CLOSED_REASON_TEXT[data.closedReason ?? "user"] ?? "工单已关闭"}
           {data.closedAt ? `（${formatDateTime(data.closedAt)}）` : ""}
         </p>
       ) : null}
 
-      <main className={cn("page flex-1 space-y-4 pt-4 md:max-w-[720px]", closed ? "pb-10" : "pb-[132px]")}>
+      <main className={cn("page flex-1 space-y-4 pt-4", closed ? "pb-10" : "pb-[132px]")}>
         <div className="rounded-2xl border border-brand/30 bg-brand-soft/70 px-4 py-3.5 shadow-[0_12px_26px_-20px_rgba(0,0,0,0.5)]">
           <p className="text-[11px] font-medium text-brand">问题描述</p>
           <p className="mt-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-text">
@@ -407,7 +415,7 @@ export function TicketDetailPage(): ReactNode {
 
       {closed ? null : (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-app/95 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-[520px] items-end gap-2 md:max-w-[640px]">
+          <div className="mx-auto flex w-full max-w-[520px] items-end gap-2">
             <textarea
               className="input min-h-[42px] max-h-32 flex-1 resize-none py-2.5 text-[13.5px]"
               rows={1}
@@ -431,9 +439,6 @@ export function TicketDetailPage(): ReactNode {
               {sending ? "发送中" : "发送"}
             </button>
           </div>
-          <p className="mx-auto mt-1.5 w-full max-w-[520px] text-[10px] text-muted/80 md:max-w-[640px]">
-            仅双方与客服可见，7 天无新消息自动关闭。
-          </p>
         </div>
       )}
 

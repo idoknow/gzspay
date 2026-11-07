@@ -93,16 +93,16 @@ export function TicketsPage(): ReactNode {
 
   return (
     <div className="bg-app min-h-[100dvh]">
-      <PageHeader title="交易工单" back containerClassName="md:max-w-[860px]" />
+      <PageHeader title="交易工单" back containerClassName="md:max-w-[524px]" />
 
-      <main className="page page-with-nav space-y-4 pt-4 watch:space-y-3 watch:pt-3 md:max-w-[860px]">
-        <div className="chip-group flex w-full gap-1.5 md:w-auto md:gap-2">
+      <main className="page page-with-nav space-y-4 pt-4 watch:space-y-3 watch:pt-3 md:max-w-[524px]">
+        <div className="chip-group flex w-full gap-1.5 md:gap-2">
           {FILTERS.map((option) => (
             <button
               key={option.value}
               type="button"
               aria-pressed={filter === option.value}
-              className={cn("chip flex-1 md:flex-none md:px-6", filter === option.value && "chip-active")}
+              className={cn("chip flex-1 md:px-6", filter === option.value && "chip-active")}
               onClick={() => setFilter(option.value)}
             >
               {option.label}
@@ -128,7 +128,7 @@ export function TicketsPage(): ReactNode {
             }
           />
         ) : (
-          <div className="space-y-2.5 watch:space-y-2 md:grid md:grid-cols-2 md:gap-2.5 md:space-y-0 xl:grid-cols-3">
+          <div className="space-y-2.5 watch:space-y-2">
             {items.map((item) => (
               <TicketCard key={item.id} item={item} onOpen={() => navigate(`/tickets/${item.id}`)} />
             ))}
