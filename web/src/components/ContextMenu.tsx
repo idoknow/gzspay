@@ -117,10 +117,19 @@ export function ContextMenuProvider({ children }: { children: ReactNode }): Reac
     let startX = 0;
     let startY = 0;
     let pressed: HTMLElement | null = null;
+    // 长按弹出菜单后，手指抬起时的 click 会被丢掉，否则会顺带触发卡片自身的跳转
+    let suppressClickUntil = 0;
 
     const cancel = () => {
       window.clearTimeout(timer);
       pressed = null;
+    };
+
+    const onClickCapture = (event: MouseEvent) => {
+      if (Date.now() >= suppressClickUntil) return;
+      suppressClickUntil = 0;
+      event.preventDefault();
+      event.stopPropagation();
     };
 
     const onTouchStart = (event: TouchEvent) => {
@@ -137,7 +146,7 @@ export function ContextMenuProvider({ children }: { children: ReactNode }): Reac
         const target = pressed;
         pressed = null;
         if (navigator.vibrate) navigator.vibrate(8);
-        openAt(target, startX, startY);
+        if (openAt(target, startX, startY)) suppressClickUntil = Date.now() + 800;
       }, LONG_PRESS_MS);
     };
 
@@ -152,12 +161,14 @@ export function ContextMenuProvider({ children }: { children: ReactNode }): Reac
     document.addEventListener("touchmove", onTouchMove, { passive: true });
     document.addEventListener("touchend", cancel, { passive: true });
     document.addEventListener("touchcancel", cancel, { passive: true });
+    document.addEventListener("click", onClickCapture, true);
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", cancel);
       document.removeEventListener("touchcancel", cancel);
+      document.removeEventListener("click", onClickCapture, true);
     };
   }, [openAt]);
 
