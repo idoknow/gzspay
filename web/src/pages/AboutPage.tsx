@@ -10,6 +10,7 @@ import { getAbout } from "../lib/api";
 import { campusPaymentLabel, cn } from "../lib/format";
 import { useAsync } from "../lib/hooks";
 import { Markdown } from "../lib/markdown";
+import { DATA_COLLECTION_COUNT, DATA_COLLECTION_GROUPS } from "../content/dataCollection";
 
 type DocKey = "privacy" | "terms" | null;
 
@@ -74,6 +75,7 @@ function ChevronIcon({ open }: { open: boolean }): ReactNode {
 export function AboutPage(): ReactNode {
   const { data, loading, error, reload } = useAsync(() => getAbout(), []);
   const [doc, setDoc] = useState<DocKey>(null);
+  const [collectionOpen, setCollectionOpen] = useState(false);
   const [openEntries, setOpenEntries] = useState<string[]>([]);
 
   const version = data?.version ?? "";
@@ -260,6 +262,17 @@ export function AboutPage(): ReactNode {
         </section>
 
         <section className="card divide-y divide-line p-0">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+            onClick={() => setCollectionOpen(true)}
+          >
+            <span className="text-sm text-text">个人信息收集清单</span>
+            <span className="flex items-center gap-2 text-[11px] text-muted">
+              {DATA_COLLECTION_COUNT} 项
+              <span className="text-muted">›</span>
+            </span>
+          </button>
           <button type="button" className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left" onClick={() => setDoc("privacy")}>
             <span className="text-sm text-text">隐私协议</span>
             <span className="flex items-center gap-2 text-[11px] text-muted">
@@ -291,6 +304,72 @@ export function AboutPage(): ReactNode {
           className="max-h-[60vh] overflow-y-auto pr-1"
           text={(doc === "privacy" ? data?.privacy : data?.terms) || "内容加载中或暂不可用。"}
         />
+      </Dialog>
+
+      <Dialog
+        open={collectionOpen}
+        onClose={() => setCollectionOpen(false)}
+        title="个人信息收集清单"
+        description="只收集完成校园收付款所必需的信息；标「可选」的留空或关闭后不影响付款与收款。"
+        footer={
+          <button type="button" className="btn btn-secondary btn-block" onClick={() => setCollectionOpen(false)}>
+            关闭
+          </button>
+        }
+      >
+        <div className="max-h-[60dvh] space-y-3.5 overflow-y-auto pr-1">
+          {DATA_COLLECTION_GROUPS.map((group) => (
+            <section key={group.title}>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[12.5px] font-semibold text-text">{group.title}</h3>
+                <span className="text-[11px] text-muted">{group.items.length} 项</span>
+              </div>
+              {group.note ? (
+                <p className="mt-1 text-[11px] leading-relaxed text-muted">{group.note}</p>
+              ) : null}
+              <ul className="mt-1.5 space-y-1.5">
+                {group.items.map((item) => (
+                  <li
+                    key={item.name}
+                    className="rounded-2xl border border-line/70 bg-surface-2/60 px-3 py-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[12.5px] font-medium text-text">{item.name}</p>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-1.5 py-0.5 text-[10px]",
+                          item.required
+                            ? "bg-brand-soft text-brand"
+                            : "bg-surface text-muted ring-1 ring-line",
+                        )}
+                      >
+                        {item.required ? "必需" : "可选"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11.5px] leading-relaxed text-text">{item.purpose}</p>
+                    <dl className="mt-1.5 space-y-0.5 text-[11px] leading-relaxed text-muted">
+                      <div>
+                        <dt className="inline">来源：</dt>
+                        <dd className="inline">{item.source}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline">可见：</dt>
+                        <dd className="inline">{item.visibleTo}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline">保存：</dt>
+                        <dd className="inline">{item.retention}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+          <p className="text-[11px] leading-relaxed text-muted">
+            这份清单和《隐私协议》一起说明我们收集什么、怎么用、给谁看、存多久。需要删除或导出自己的信息，请联系平台管理员。
+          </p>
+        </div>
       </Dialog>
     </div>
   );
