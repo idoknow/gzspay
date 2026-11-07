@@ -40,6 +40,7 @@ const DevicesPage = lazyPage(() => import("./pages/DevicesPage"), "DevicesPage")
 const DynamicCodePage = lazyPage(() => import("./pages/DynamicCodePage"), "DynamicCodePage");
 const GuidePage = lazyPage(() => import("./pages/GuidePage"), "GuidePage");
 const MePage = lazyPage(() => import("./pages/MePage"), "MePage");
+const MemberCardPage = lazyPage(() => import("./pages/MemberCardPage"), "MemberCardPage");
 const MerchantPage = lazyPage(() => import("./pages/MerchantPage"), "MerchantPage");
 const MerchantCollectPage = lazyPage(() => import("./pages/MerchantCollectPage"), "MerchantCollectPage");
 const MerchantRegisterPage = lazyPage(() => import("./pages/MerchantRegisterPage"), "MerchantRegisterPage");
@@ -187,6 +188,7 @@ const router = createBrowserRouter([
       { path: "/me", element: <MePage /> },
       { path: "/me/stats", element: <StatsPage /> },
       { path: "/me/profile", element: <PrivacyGuard title="个人信息"><ProfilePage /></PrivacyGuard> },
+      { path: "/me/card", element: <PrivacyGuard title="我的卡片" description="隐私模式下不展示个人信息卡片。"><MemberCardPage /></PrivacyGuard> },
       { path: "/me/password", element: <ChangePasswordPage /> },
       { path: "/me/settings", element: <SettingsPage /> },
       { path: "/me/devices", element: <PrivacyGuard title="登录设备管理" description="隐私模式下不展示登录设备。"><DevicesPage /></PrivacyGuard> },

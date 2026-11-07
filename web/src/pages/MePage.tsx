@@ -290,7 +290,12 @@ export function MePage(): ReactNode {
               </div>
             </section>
           ) : (
-          <section className="hero-gradient relative overflow-hidden rounded-3xl p-5 watch:rounded-2xl watch:p-3.5">
+          <button
+            type="button"
+            onClick={() => navigate("/me/card")}
+            aria-label="查看我的卡片"
+            className="hero-gradient relative block w-full overflow-hidden rounded-3xl p-5 text-left transition active:scale-[0.99] watch:rounded-2xl watch:p-3.5"
+          >
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-white/45 blur-2xl"
@@ -299,6 +304,10 @@ export function MePage(): ReactNode {
               aria-hidden="true"
               className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/25 blur-2xl"
             />
+            <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-[color:var(--hero-chip)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--hero-fg)] ring-1 ring-[color:var(--hero-ring)] watch:right-3 watch:top-3 watch:px-2 watch:py-0.5 watch:text-[10px]">
+              查看卡片
+              <ChevronRightIcon />
+            </span>
             <div className="relative flex items-center gap-4 watch:gap-2.5">
               <Avatar
                 name={me.displayName}
@@ -328,7 +337,7 @@ export function MePage(): ReactNode {
                 账号已被限制，详见「关于」。
               </p>
             ) : null}
-          </section>
+          </button>
           )
         ) : null}
 
