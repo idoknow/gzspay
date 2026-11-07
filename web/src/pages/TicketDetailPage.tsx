@@ -25,7 +25,7 @@ import {
   requestPartiesReveal,
   sendTicketMessage,
 } from "../lib/api";
-import { cn, formatCents, formatDateTime, maskPersonName } from "../lib/format";
+import { cn, formatCents, formatDateTime } from "../lib/format";
 import { useAsync, useInterval, useVisible } from "../lib/hooks";
 import { useTicketEvents } from "../lib/ticket-events";
 import { errorMessage } from "../lib/http";
@@ -473,7 +473,7 @@ export function TicketDetailPage(): ReactNode {
 
   const closed = data.status === "closed";
   const conversation = data.messages.slice(1);
-  const counterpart = maskPersonName(data.counterparty.displayName) || "对方";
+  const counterpart = data.counterparty.displayName || "对方";
 
   return (
     <div className="bg-app min-h-[100dvh] flex flex-col">

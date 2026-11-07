@@ -9,7 +9,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { getTickets } from "../lib/api";
-import { cn, formatCents, formatFriendlyTime, maskPersonName } from "../lib/format";
+import { cn, formatCents, formatFriendlyTime } from "../lib/format";
 import { useAsync, useInterval, useVisible } from "../lib/hooks";
 import { errorMessage } from "../lib/http";
 import { useTicketEvents } from "../lib/ticket-events";
@@ -60,7 +60,7 @@ function TicketCard({ item, onOpen }: { item: TicketSummary; onOpen: () => void 
           <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted">
             <span>{item.categoryLabel}</span>
             <span>¥{formatCents(item.amountCents)}</span>
-            <span>与 {maskPersonName(item.counterparty.displayName)}</span>
+            <span>与 {item.counterparty.displayName || "对方"}</span>
             <span>单号 {item.orderNo}</span>
           </span>
           <span className="mt-1 flex items-center justify-between text-[11px] text-muted/85">
