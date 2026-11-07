@@ -101,27 +101,62 @@ function MessageBubble({ message, mine }: { message: TicketMessage; mine: boolea
   );
 }
 
-function PartyRow({ party, self }: { party: TicketParty; self: boolean }): ReactNode {
+/** 完整资料卡：头像 + 姓名身份 + 学号 / QQ / 邮箱（点任意一项复制） */
+function PartyProfile({ party, self }: { party: TicketParty; self: boolean }): ReactNode {
+  const copy = useCopy();
+  const fields: { label: string; value: string | null; wide?: boolean; mono?: boolean }[] = [
+    { label: "学号", value: party.studentNo, mono: true },
+    { label: "QQ", value: party.qq, mono: true },
+    { label: "邮箱", value: party.email, wide: true },
+  ];
   return (
-    <div className="flex items-start gap-3">
-      <Avatar name={party.displayName} avatarUrl={party.avatarUrl} size={38} />
-      <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-[13px] font-medium text-text">
-          <span className="truncate">{party.displayName}</span>
-          <span
-            className={cn(
-              "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium",
-              party.role === "merchant" ? "bg-brand-soft text-brand" : "bg-surface-2 text-muted",
-            )}
-          >
-            {party.role === "merchant" ? "商家" : "付款人"}
-          </span>
-          {self ? <span className="text-[10px] text-muted">（我）</span> : null}
-        </p>
-        <p className="mt-1 text-[11.5px] text-muted">学号 {party.studentNo ?? "未填写"}</p>
-        <p className="text-[11.5px] text-muted">
-          QQ {party.qq ?? "未填写"} · 邮箱 {party.email ?? "未填写"}
-        </p>
+    <div className="overflow-hidden rounded-2xl border border-line/70 bg-surface">
+      <div className="flex items-center gap-3 px-4 pb-3 pt-4">
+        <Avatar name={party.displayName} avatarUrl={party.avatarUrl} size={42} />
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5">
+            <span className="truncate text-[14px] font-semibold text-text">{party.displayName}</span>
+            <span
+              className={cn(
+                "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+                party.role === "merchant" ? "bg-brand-soft text-brand" : "bg-surface-2 text-muted",
+              )}
+            >
+              {party.role === "merchant" ? "商家" : "付款人"}
+            </span>
+            {self ? (
+              <span className="shrink-0 rounded bg-surface-2 px-1 py-0.5 text-[9.5px] text-muted">我</span>
+            ) : null}
+          </p>
+          <p className="mt-1 text-[10.5px] text-muted">{party.role === "merchant" ? "收款方" : "付款方"}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-px border-t border-line/60 bg-line/40">
+        {fields.map((field) => {
+          const value = field.value?.trim() ?? "";
+          return (
+            <button
+              key={field.label}
+              type="button"
+              onClick={() => void copy(value, field.label)}
+              className={cn(
+                "bg-surface px-3.5 py-2.5 text-left transition active:bg-surface-2/70",
+                field.wide ? "col-span-2" : undefined,
+              )}
+            >
+              <span className="block text-[10px] text-muted">{field.label}</span>
+              <span
+                className={cn(
+                  "mt-0.5 block truncate text-[12px]",
+                  value ? "text-text" : "text-muted",
+                  field.mono ? "font-mono" : undefined,
+                )}
+              >
+                {value || "未填写"}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -145,7 +180,7 @@ function PartiesSummary({
   return (
     <button
       type="button"
-      className="mx-4 mt-3 block w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-line/70 bg-surface text-left transition active:bg-surface-2/70"
+      className="mx-4 mt-3 block w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-line/70 bg-surface text-left transition active:bg-surface-2/70 md:mx-auto md:max-w-[440px]"
       data-menu="ticket.parties"
       data-menu-id="summary"
       onClick={onOpen}
@@ -593,7 +628,8 @@ export function TicketDetailPage(): ReactNode {
         open={partiesOpen}
         onClose={() => setPartiesOpen(false)}
         title="双方信息"
-        description="请勿外传。"
+        description="提交披露申请后由平台审核，仅工单双方与平台客服可见。"
+        className="max-w-[400px]"
         footer={
           <button type="button" className="btn btn-outline w-full" onClick={() => setPartiesOpen(false)}>
             知道了
@@ -601,10 +637,10 @@ export function TicketDetailPage(): ReactNode {
         }
       >
         {data.parties ? (
-          <div className="space-y-4">
-            <PartyRow party={data.parties.payer} self={data.role === "payer"} />
-            <div className="h-px bg-line/60" />
-            <PartyRow party={data.parties.merchant} self={data.role === "merchant"} />
+          <div className="space-y-3">
+            <PartyProfile party={data.parties.payer} self={data.role === "payer"} />
+            <PartyProfile party={data.parties.merchant} self={data.role === "merchant"} />
+            <p className="text-center text-[10.5px] text-muted">点学号、QQ 或邮箱可复制</p>
           </div>
         ) : (
           <p className="text-[12px] leading-relaxed text-muted">资料未披露，需先申请。</p>
