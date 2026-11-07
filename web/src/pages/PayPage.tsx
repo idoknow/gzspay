@@ -7,6 +7,8 @@ import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { BuiltInKeypad } from "../components/BuiltInKeypad";
 import { ChannelBadges } from "../components/ChannelBadges";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import { ArrowRightIcon, CheckIcon, CopyIcon } from "../components/ContextMenuIcons";
 import { CountdownModal } from "../components/CountdownModal";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, PageLoading, Spinner } from "../components/Loading";
@@ -92,6 +94,8 @@ export function PayPage(): ReactNode {
   const navigate = useNavigate();
   const toast = useToast();
   const { me } = useAuth();
+  /** 右键 / 长按菜单复制时统一用 ContextMenu 的 useCopy（带 toast 反馈） */
+  const copy = useCopy();
 
   const [mode, setMode] = useState<Mode>("pay");
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -807,6 +811,137 @@ export function PayPage(): ReactNode {
     );
   };
 
+  /** 已选商品的文字明细，供右键菜单复制 */
+  const payItemsText = (): string =>
+    payItems
+      .map((item) => {
+        const product = merchant?.products.find((entry) => entry.id === item.productId);
+        return `${product?.name ?? "商品"} ×${item.quantity} ¥${formatCents((product?.priceCents ?? 0) * item.quantity)}`;
+      })
+      .join("\n");
+
+  /** 右键 / 长按菜单：只接管带 data-menu 的元素 */
+  const menus = {
+    // 付款第一步：商家信息卡
+    "pay.counterparty": (): ContextMenuItem[] | null => {
+      if (!merchant) return null;
+      const items: ContextMenuItem[] = [
+        {
+          label: "复制收款人姓名",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(merchant.merchantName, "收款人姓名"),
+        },
+        {
+          label: "复制支付金额",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(`¥${formatCents(payAmountCents)}`, "金额"),
+        },
+      ];
+      if (merchant.user.studentNoMasked) {
+        items.push({
+          label: "复制学号",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(merchant.user.studentNoMasked ?? "", "学号"),
+        });
+      }
+      if (merchant.noteRequirement.trim()) {
+        items.push({
+          label: "复制备注要求",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(merchant.noteRequirement, "备注要求"),
+        });
+      }
+      return items;
+    },
+    // 付款确认卡
+    "pay.summary": (): ContextMenuItem[] | null => {
+      if (!merchant) return null;
+      const items: ContextMenuItem[] = [
+        {
+          label: "复制收款人姓名",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(merchant.merchantName, "收款人姓名"),
+        },
+        {
+          label: "复制支付金额",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(`¥${formatCents(payAmountCents)}`, "金额"),
+        },
+      ];
+      if (payItems.length > 0) {
+        items.push({ label: "复制商品明细", icon: <CopyIcon />, onSelect: () => void copy(payItemsText(), "商品明细") });
+      }
+      if (reservedNote.trim()) {
+        items.push({ label: "复制预留备注", icon: <CopyIcon />, onSelect: () => void copy(reservedNote, "预留备注") });
+      }
+      return items;
+    },
+    // 「下一步」按钮（付款）
+    "pay.next": (): ContextMenuItem[] | null => {
+      if (!merchant) return null;
+      return [
+        { label: "下一步", icon: <ArrowRightIcon />, onSelect: goPayConfirm },
+        {
+          label: "复制支付金额",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(`¥${formatCents(payAmountCents)}`, "金额"),
+        },
+      ];
+    },
+    // 「确认并输入密码」按钮
+    "pay.submit": (): ContextMenuItem[] | null => {
+      if (!merchant) return null;
+      return [
+        { label: "确认并输入密码", icon: <CheckIcon />, onSelect: () => setPasswordOpen(true) },
+        {
+          label: "复制支付金额",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(`¥${formatCents(payAmountCents)}`, "金额"),
+        },
+        { type: "separator" },
+        { label: "返回上一步修改", icon: <ArrowRightIcon />, onSelect: () => setStep("merchant") },
+      ];
+    },
+    // 收款：付款人信息卡
+    "collect.customer": (): ContextMenuItem[] | null => {
+      if (!customer) return null;
+      const items: ContextMenuItem[] = [
+        {
+          label: "复制付款人姓名",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(customer.displayName, "姓名"),
+        },
+        {
+          label: "复制收款金额",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(`¥${formatCents(collectAmountCents)}`, "金额"),
+        },
+      ];
+      if (customer.studentNoMasked) {
+        items.push({
+          label: "复制学号",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(customer.studentNoMasked ?? "", "学号"),
+        });
+      }
+      return items;
+    },
+    // 「下一步」按钮（收款）
+    "collect.next": (): ContextMenuItem[] | null => {
+      if (!customer) return null;
+      return [
+        { label: "下一步", icon: <ArrowRightIcon />, onSelect: goCollectHandoff },
+        {
+          label: "复制收款金额",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(`¥${formatCents(collectAmountCents)}`, "金额"),
+        },
+      ];
+    },
+  };
+
+  useContextMenus(menus);
+
   return (
     <div className="bg-app min-h-[100dvh]">
       {header}
@@ -820,7 +955,7 @@ export function PayPage(): ReactNode {
 
             {step === "merchant" && merchant ? (
               <>
-                <section className="card p-4">
+                <section className="card p-4" data-menu="pay.counterparty">
                   <div className="flex items-center gap-3">
                     <Avatar name={merchant.user.displayName} avatarUrl={merchant.user.avatarUrl} size={48} />
                     <div className="min-w-0 flex-1">
@@ -900,7 +1035,12 @@ export function PayPage(): ReactNode {
                   <MoneyText cents={payAmountCents} size="lg" />
                 </div>
 
-                <button type="button" className="btn btn-primary btn-block" onClick={goPayConfirm}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-block"
+                  data-menu="pay.next"
+                  onClick={goPayConfirm}
+                >
                   下一步
                 </button>
               </>
@@ -908,7 +1048,7 @@ export function PayPage(): ReactNode {
 
             {step === "confirm" && merchant ? (
               <>
-                <section className="card p-4">
+                <section className="card p-4" data-menu="pay.summary">
                   <h2 className="text-sm font-semibold text-text">确认付款信息</h2>
                   <div className="mt-3 flex items-center gap-3">
                     <Avatar name={merchant.merchantName} avatarUrl={merchant.user.avatarUrl} size={42} />
@@ -965,7 +1105,12 @@ export function PayPage(): ReactNode {
                   请核对收款方；资金不经过 gzspay。
                 </p>
 
-                <button type="button" className="btn btn-primary btn-block" onClick={() => setPasswordOpen(true)}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-block"
+                  data-menu="pay.submit"
+                  onClick={() => setPasswordOpen(true)}
+                >
                   确认并输入密码
                 </button>
                 <button type="button" className="btn btn-ghost btn-block" onClick={() => setStep("merchant")}>
@@ -996,7 +1141,7 @@ export function PayPage(): ReactNode {
 
             {collectStep === "amount" && customer ? (
               <>
-                <section className="card p-4">
+                <section className="card p-4" data-menu="collect.customer">
                   <div className="flex items-center gap-3">
                     <Avatar name={customer.displayName} avatarUrl={customer.avatarUrl} size={46} />
                     <div className="min-w-0 flex-1">
@@ -1063,7 +1208,12 @@ export function PayPage(): ReactNode {
                   <MoneyText cents={collectAmountCents} size="lg" />
                 </div>
 
-                <button type="button" className="btn btn-primary btn-block" onClick={goCollectHandoff}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-block"
+                  data-menu="collect.next"
+                  onClick={goCollectHandoff}
+                >
                   下一步
                 </button>
               </>

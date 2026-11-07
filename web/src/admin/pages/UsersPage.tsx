@@ -41,6 +41,8 @@ import {
   formatRelative,
 } from "../format";
 import { useAsync, useDebounced } from "../hooks";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../../components/ContextMenu";
+import { CopyIcon, EyeOffSafeIcon, OpenIcon } from "../../components/ContextMenuIcons";
 import { errorMessage } from "../../lib/http";
 import type { AdminUser, OnlineUser, TrendBucket, UserDetailPayload } from "../types";
 
@@ -98,6 +100,74 @@ export function UsersPage() {
       setBusyUserId(null);
     }
   };
+
+  /** 列表行直接冻结：确认流程与详情抽屉保持一致 */
+  const handleFreeze = async (user: AdminUser) => {
+    const confirmed = await feedback.confirm({
+      title: "冻结用户",
+      description: "冻结后无法登录与交易；已进行的订单不受影响。",
+      confirmText: "确认冻结",
+      danger: true,
+    });
+    if (!confirmed) return;
+    setBusyUserId(user.id);
+    try {
+      await freezeUser(user.id);
+      feedback.success("已冻结该用户");
+      users.refresh();
+    } catch (error) {
+      feedback.error(errorMessage(error));
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const copy = useCopy();
+
+  // 右键 / 长按菜单：用户列表行操作按钮
+  useContextMenus({
+    "admin.users.row": (element) => {
+      const user = rows.find((item) => item.id === element.dataset.menuId);
+      if (!user) return null;
+      const studentNo = user.studentNo || user.studentNoMasked || "";
+      const email = user.email || user.emailMasked || "";
+      const items: ContextMenuItem[] = [
+        {
+          label: "查看用户详情",
+          icon: <OpenIcon />,
+          onSelect: () => setDetailUserId(user.id),
+        },
+        { type: "separator" },
+        {
+          label: "复制学号",
+          icon: <CopyIcon />,
+          disabled: !studentNo,
+          onSelect: () => void copy(studentNo, "学号"),
+        },
+        {
+          label: "复制邮箱",
+          icon: <CopyIcon />,
+          disabled: !email,
+          onSelect: () => void copy(email, "邮箱"),
+        },
+        {
+          label: "复制用户 ID",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(user.id, "用户 ID"),
+        },
+        { type: "separator" },
+        {
+          label: "冻结账号",
+          icon: <EyeOffSafeIcon />,
+          hint: user.frozen ? "已冻结" : undefined,
+          danger: true,
+          disabled: user.frozen || !canWrite || busyUserId !== null,
+          onSelect: () => void handleFreeze(user),
+        },
+      ];
+      return items;
+    },
+  });
 
   return (
     <>
@@ -497,7 +567,11 @@ function UserRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {
         {formatDateTime(user.createdAt)}
       </td>
       <td>
-        <div className="admin-cell-actions">
+        <div
+          className="admin-cell-actions"
+          data-menu="admin.users.row"
+          data-menu-id={user.id}
+        >
           <Button variant="link" size="sm" onClick={onOpen}>
             详情
           </Button>

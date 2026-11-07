@@ -39,6 +39,13 @@ import {
   formatRelative,
 } from "../format";
 import { useAsync, useDebounced } from "../hooks";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../../components/ContextMenu";
+import {
+  CheckIcon,
+  CopyIcon,
+  EyeOffSafeIcon,
+  OpenIcon,
+} from "../../components/ContextMenuIcons";
 import { errorMessage } from "../../lib/http";
 import type {
   AdminMerchant,
@@ -99,6 +106,74 @@ export function MerchantsPage() {
     list.refresh();
     summary.refresh();
   };
+
+  const feedback = useFeedback();
+  const { canWrite } = useAdmin();
+  const copy = useCopy();
+
+  /** 列表行暂停 / 恢复接单：确认文案与详情抽屉保持一致 */
+  const toggleReceiving = async (merchant: AdminMerchant) => {
+    const enabling = merchant.suspended;
+    const confirmed = await feedback.confirm({
+      title: enabling ? "恢复商家收款" : "暂停商家收款",
+      description: enabling
+        ? "恢复后付款人可继续付款。"
+        : "暂停后所有收款方式停用，已创建未支付的订单不受影响。",
+      confirmText: enabling ? "恢复收款" : "暂停收款",
+      danger: !enabling,
+    });
+    if (!confirmed) return;
+    try {
+      await setMerchantReceiving(merchant.userId, enabling);
+      feedback.success(enabling ? "已恢复商家收款" : "已暂停商家收款");
+      refreshAll();
+    } catch (caught) {
+      feedback.error(errorMessage(caught));
+    }
+  };
+
+  // 右键 / 长按菜单：商家列表行操作按钮
+  useContextMenus({
+    "admin.merchants.row": (element) => {
+      const merchant = rows.find((item) => item.userId === element.dataset.menuId);
+      if (!merchant) return null;
+      const pid =
+        merchant.channels.find((channel) => channel.channel === "alipay")
+          ?.alipayPid ?? "";
+      const items: ContextMenuItem[] = [
+        {
+          label: "查看商家详情",
+          icon: <OpenIcon />,
+          onSelect: () => setDetailUserId(merchant.userId),
+        },
+        { type: "separator" },
+        {
+          label: "复制商家 ID",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(merchant.userId, "商家 ID"),
+        },
+      ];
+      if (pid) {
+        items.push({
+          label: "复制支付宝 PID",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(pid, "支付宝 PID"),
+        });
+      }
+      items.push(
+        { type: "separator" },
+        {
+          label: merchant.suspended ? "恢复接单" : "暂停接单",
+          icon: merchant.suspended ? <CheckIcon /> : <EyeOffSafeIcon />,
+          hint: merchant.suspended ? "当前已暂停" : undefined,
+          danger: true,
+          disabled: !canWrite,
+          onSelect: () => void toggleReceiving(merchant),
+        },
+      );
+      return items;
+    },
+  });
 
   return (
     <>
@@ -327,7 +402,11 @@ function MerchantRow({
         {merchant.lastOrderAt ? formatRelative(merchant.lastOrderAt) : "—"}
       </td>
       <td>
-        <div className="admin-cell-actions">
+        <div
+          className="admin-cell-actions"
+          data-menu="admin.merchants.row"
+          data-menu-id={merchant.userId}
+        >
           <Button variant="link" size="sm" onClick={onOpen}>
             详情
           </Button>

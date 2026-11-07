@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import { CopyIcon, OpenIcon, TicketIcon } from "../components/ContextMenuIcons";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
@@ -32,6 +34,8 @@ function TicketCard({ item, onOpen }: { item: TicketSummary; onOpen: () => void 
     <button
       type="button"
       onClick={onOpen}
+      data-menu="tickets.card"
+      data-menu-id={item.id}
       className="card card-interactive block w-full px-4 py-3.5 text-left watch:rounded-2xl watch:px-3 watch:py-2.5 md:px-4 md:py-4 md:hover:-translate-y-px md:hover:shadow-[0_18px_36px_-28px_rgba(0,0,0,0.65)]"
     >
       <div className="flex items-start gap-2.5">
@@ -75,6 +79,34 @@ export function TicketsPage(): ReactNode {
   const visible = useVisible();
   const tickets = useAsync(() => getTickets(filter), [filter]);
   const items = useMemo(() => tickets.data?.items ?? [], [tickets.data]);
+
+  const copy = useCopy();
+
+  // 右键 / 长按菜单：工单卡片
+  useContextMenus({
+    "tickets.card": (element) => {
+      const ticket = items.find((item) => item.id === element.dataset.menuId);
+      if (!ticket) return null;
+      const title = ticket.orderTitle || "订单";
+      const menuItems: ContextMenuItem[] = [
+        {
+          label: "打开工单",
+          icon: <TicketIcon />,
+          hint: ticket.status === "open" ? "进行中" : "已结束",
+          onSelect: () => navigate(`/tickets/${ticket.id}`),
+        },
+        {
+          label: "打开订单详情",
+          icon: <OpenIcon />,
+          onSelect: () => navigate(`/orders/${ticket.orderId}`),
+        },
+        { type: "separator" },
+        { label: "复制订单号", icon: <CopyIcon />, onSelect: () => void copy(ticket.orderNo, "订单号") },
+        { label: "复制标题", icon: <CopyIcon />, onSelect: () => void copy(title, "标题") },
+      ];
+      return menuItems;
+    },
+  });
 
   // 页面可见时每 8 秒刷新一次未读与列表（SSE 断线时的兜底）
   useInterval(() => {

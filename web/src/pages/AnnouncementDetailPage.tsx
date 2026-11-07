@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnnouncementTags } from "../components/AnnouncementTags";
+import { ArrowRightIcon, CopyIcon } from "../components/ContextMenuIcons";
+import { useContextMenus, useCopy, type ContextMenuItem } from "../components/ContextMenu";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
@@ -43,9 +45,32 @@ export function AnnouncementDetailPage(): ReactNode {
     });
   }, [announcement]);
 
+  const copy = useCopy();
+
+  useContextMenus({
+    "announcement.article": (element: HTMLElement): ContextMenuItem[] | null => {
+      if (!announcement) return null;
+      if (element.dataset.menuId !== announcement.id) return null;
+      return [
+        { label: "复制标题", icon: <CopyIcon />, onSelect: () => void copy(announcement.title, "公告标题") },
+        {
+          label: "复制正文",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(announcement.content, "公告正文"),
+        },
+        {
+          label: "复制发布时间",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(formatDateTime(announcement.publishedAt), "发布时间"),
+        },
+        { type: "separator" },
+        { label: "返回公告列表", icon: <ArrowRightIcon />, onSelect: () => navigate("/announcements") },
+      ];
+    },
+  });
+
   return (
-    <div className="bg-app min-h-[100dvh]">
-      <PageHeader title="公告详情" back />
+    <div className="bg-app min-h-[100dvh]">      <PageHeader title="公告详情" back />
 
       <main className="page pt-4 pb-10 watch:pt-3 watch:pb-6">
         {loading && !data ? (
@@ -67,7 +92,7 @@ export function AnnouncementDetailPage(): ReactNode {
             }
           />
         ) : (
-          <article className="card p-5 watch:rounded-2xl watch:p-3.5">
+          <article className="card p-5 watch:rounded-2xl watch:p-3.5" data-menu="announcement.article" data-menu-id={announcement.id}>
             <AnnouncementTags pinned={announcement.pinned} level={announcement.level} className="mb-2" />
             <h1 className="text-[19px] font-bold leading-snug text-text watch:text-[16px]">{announcement.title}</h1>
             <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted watch:text-[10.5px]">

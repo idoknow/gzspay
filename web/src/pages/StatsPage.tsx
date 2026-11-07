@@ -8,6 +8,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { ChartBars } from "../components/ChartBars";
 import { ChartCumulative } from "../components/ChartCumulative";
 import { ChartDonut } from "../components/ChartDonut";
+import { useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import { ArrowRightIcon, CheckIcon, DownloadIcon, PrintIcon } from "../components/ContextMenuIcons";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock, Spinner } from "../components/Loading";
 import { MoneyText } from "../components/MoneyText";
@@ -298,6 +300,39 @@ export function StatsPage(): ReactNode {
     });
   };
 
+  // 右键 / 长按菜单：区间胶囊、导出按钮
+  useContextMenus({
+    "stats.range": (element) => {
+      const clicked = PRESETS.find((each) => each.key === element.dataset.menuId);
+      // 被右键的区间排在第一项，其余区间跟在其后
+      const ordered = clicked ? [clicked, ...PRESETS.filter((each) => each.key !== clicked.key)] : PRESETS;
+      return ordered.map<ContextMenuItem>((each) => ({
+        label: `切换到${each.label}`,
+        icon: preset === each.key ? <CheckIcon /> : <ArrowRightIcon />,
+        hint: preset === each.key ? "当前" : undefined,
+        disabled: preset === each.key,
+        onSelect: () => setPreset(each.key),
+      }));
+    },
+    "stats.export": () => {
+      const menuItems: ContextMenuItem[] = [
+        {
+          label: "下载图片（PNG）",
+          icon: <DownloadIcon />,
+          disabled: exporting !== null,
+          onSelect: handleExportPng,
+        },
+        {
+          label: "打印 / 另存 PDF",
+          icon: <PrintIcon />,
+          disabled: exporting !== null,
+          onSelect: handleExportPdf,
+        },
+      ];
+      return menuItems;
+    },
+  });
+
   const buckets: StatsBucket[] = data?.timeseries.buckets ?? [];
   const bucketLabels = buckets.map((bucket) => bucket.key);
   const summary = data?.summary;
@@ -328,6 +363,8 @@ export function StatsPage(): ReactNode {
                 key={item.key}
                 type="button"
                 role="tab"
+                data-menu="stats.range"
+                data-menu-id={item.key}
                 aria-selected={preset === item.key}
                 className={cn(
                   "segmented-item text-[12.5px] watch:text-[11px]",
@@ -567,7 +604,7 @@ export function StatsPage(): ReactNode {
               <div className="flex items-baseline justify-between px-1">
                 <p className="text-[13px] font-medium text-text">导出报表</p>
               </div>
-              <div className="mt-2.5 grid grid-cols-2 gap-2">
+              <div className="mt-2.5 grid grid-cols-2 gap-2" data-menu="stats.export">
                 {(
                   [
                     { kind: "csv", label: "CSV", run: handleExportCsv },

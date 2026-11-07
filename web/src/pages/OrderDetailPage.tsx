@@ -5,6 +5,17 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { ChannelIcon } from "../components/ChannelIcon";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  CopyIcon,
+  DownloadIcon,
+  EyeOffSafeIcon,
+  MenuIcon,
+  OpenIcon,
+  TicketIcon,
+} from "../components/ContextMenuIcons";
 import { Dialog } from "../components/Dialog";
 import { ErrorBlock, PageLoading, Spinner } from "../components/Loading";
 import { MoneyText } from "../components/MoneyText";
@@ -86,6 +97,16 @@ function eventDetail(event: { type: string; detail: string | null }): string | n
   return cleaned || "账单自动对账确认收款";
 }
 
+/** 对方姓名一律脱敏展示，不提供展开开关（右键菜单复制出去的也是脱敏后的名字） */
+function counterpartyNameOf(order: OrderDetail): string {
+  const full =
+    order.counterparty?.displayName ||
+    (order.role === "payer" ? order.merchantName : order.payerNameSnapshot) ||
+    "";
+  if (full) return maskPersonName(full);
+  return order.role === "payer" ? "商家" : "付款人";
+}
+
 function Timeline({ order }: { order: OrderDetail }): ReactNode {
   if (order.events.length === 0) return null;
   return (
@@ -95,7 +116,12 @@ function Timeline({ order }: { order: OrderDetail }): ReactNode {
         {order.events.map((event, index) => {
           const detail = eventDetail(event);
           return (
-            <li key={event.id} className="flex gap-3">
+            <li
+              key={event.id}
+              className="flex gap-3"
+              data-menu="order.timeline"
+              data-menu-id={String(index)}
+            >
               <div className="flex flex-col items-center">
                 <span
                   className={cn(
@@ -202,6 +228,8 @@ export function OrderDetailPage(): ReactNode {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
+  /** 右键菜单里的复制统一走 ContextMenu 的 useCopy（带 toast 反馈） */
+  const copy = useCopy();
   const { data: order, loading, error, reload } = useAsync<OrderDetail>(
     () => (id ? getOrder(id) : Promise.reject(new Error("订单不存在"))),
     [id],
@@ -360,6 +388,20 @@ export function OrderDetailPage(): ReactNode {
     }
   };
 
+  /** 复制支付宝支付链接：与「打开支付宝」共用同一份预填参数，只是不跳转 */
+  const copyAlipayLink = async (): Promise<void> => {
+    if (!order) return;
+    setPrefillBusy(true);
+    try {
+      const prefill = await getAlipayPrefill(order.id);
+      await copy(prefill.scheme, "支付链接");
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setPrefillBusy(false);
+    }
+  };
+
   const handleExport = async (format: "csv" | "xlsx" | "json"): Promise<void> => {
     if (!order) return;
     setExportBusy(format);
@@ -485,6 +527,111 @@ export function OrderDetailPage(): ReactNode {
     }
   };
 
+  /** 右键 / 长按菜单：只接管带 data-menu 的元素，复制类操作放在前面，危险操作放最后 */
+  const menus = {
+    "order.summary": (): ContextMenuItem[] | null => {
+      if (!order) return null;
+      const items: ContextMenuItem[] = [
+        { label: "复制订单号", icon: <CopyIcon />, onSelect: () => void copy(order.orderNo, "订单号") },
+        {
+          label: "复制金额",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(`¥${formatCents(order.amountCents)}`, "金额"),
+        },
+      ];
+      if (order.noteRequirement.trim()) {
+        items.push({
+          label: "复制商家备注",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(order.noteRequirement, "商家备注"),
+        });
+      }
+      items.push({
+        label: "复制对方姓名",
+        icon: <CopyIcon />,
+        onSelect: () => void copy(counterpartyNameOf(order), "姓名"),
+      });
+      items.push({ type: "separator" });
+      items.push({ label: "导出账单", icon: <MenuIcon />, onSelect: () => setExportOpen(true) });
+      return items;
+    },
+    "order.alipay": (): ContextMenuItem[] | null => {
+      if (!order) return null;
+      return [
+        { label: "打开支付宝", icon: <OpenIcon />, disabled: prefillBusy, onSelect: () => void openAlipay() },
+        { label: "显示二维码", icon: <ArrowRightIcon />, onSelect: () => setPrefillOpen(true) },
+        { label: "复制支付链接", icon: <CopyIcon />, onSelect: () => void copyAlipayLink() },
+      ];
+    },
+    "order.payButton": (): ContextMenuItem[] | null => {
+      if (!order) return null;
+      return [
+        { label: "上传付款截图", icon: <DownloadIcon />, onSelect: openPayDialog },
+        {
+          label: "查看已上传截图",
+          icon: <EyeOffSafeIcon />,
+          disabled: !order.hasPaymentProof,
+          hint: order.hasPaymentProof ? undefined : "暂无",
+          onSelect: () => {
+            setProofChecked(true);
+            setProofViewerOpen(true);
+          },
+        },
+      ];
+    },
+    "order.confirmButton": (): ContextMenuItem[] | null => {
+      if (!order) return null;
+      return [
+        {
+          label: "确认收款",
+          icon: <CheckIcon />,
+          disabled: !proofChecked,
+          hint: proofChecked ? undefined : "先看截图",
+          onSelect: () => setConfirmOpen(true),
+        },
+        { label: "复制订单号", icon: <CopyIcon />, onSelect: () => void copy(order.orderNo, "订单号") },
+      ];
+    },
+    "order.ticket": (): ContextMenuItem[] | null => {
+      if (!order) return null;
+      return [
+        {
+          label: "发起工单",
+          icon: <TicketIcon />,
+          disabled: currentTicket !== null,
+          hint: currentTicket ? "已有工单" : undefined,
+          onSelect: () => setTicketOpen(true),
+        },
+        {
+          label: "查看工单",
+          icon: <ArrowRightIcon />,
+          disabled: currentTicket === null,
+          onSelect: () => {
+            if (currentTicket) navigate(`/tickets/${currentTicket.id}`);
+          },
+        },
+      ];
+    },
+    // 时间线：data-menu-id 是事件下标，复制该条记录的文字
+    "order.timeline": (element: HTMLElement): ContextMenuItem[] | null => {
+      if (!order) return null;
+      const index = Number(element.dataset.menuId ?? "");
+      if (!Number.isInteger(index)) return null;
+      const event = order.events[index];
+      if (!event) return null;
+      const label = EVENT_LABELS[event.type] ?? "订单状态更新";
+      const detail = eventDetail(event);
+      const time = formatDateTime(event.createdAt);
+      const text = [label, detail, time].filter(Boolean).join(" ");
+      return [
+        { label: "复制这条记录", icon: <CopyIcon />, onSelect: () => void copy(text, "记录") },
+        { label: "复制时间", icon: <CopyIcon />, onSelect: () => void copy(time, "时间") },
+      ];
+    },
+  };
+
+  useContextMenus(menus);
+
   if (!id) {
     return (
       <div className="bg-app min-h-[100dvh]">
@@ -517,16 +664,7 @@ export function OrderDetailPage(): ReactNode {
   }
 
   const status = statusText(order);
-  const counterpartyFullName =
-    order.counterparty?.displayName ||
-    (order.role === "payer" ? order.merchantName : order.payerNameSnapshot) ||
-    "";
-  // 对方姓名一律脱敏展示，不提供展开开关
-  const counterpartyName = counterpartyFullName
-    ? maskPersonName(counterpartyFullName)
-    : order.role === "payer"
-      ? "商家"
-      : "付款人";
+  const counterpartyName = counterpartyNameOf(order);
   const showActions = order.status === "pending_payment" || order.status === "paid";
 
   return (
@@ -541,7 +679,7 @@ export function OrderDetailPage(): ReactNode {
           </div>
         ) : null}
 
-        <section className="card p-5">
+        <section className="card p-5" data-menu="order.summary">
           <div className="flex items-center justify-between">
             <StatusBadge status={order.status} />
             <span className="text-[11px] text-muted">{formatFriendlyTime(order.createdAt)}</span>
@@ -699,7 +837,7 @@ export function OrderDetailPage(): ReactNode {
         ) : null}
 
         {order.role === "payer" && order.status === "pending_payment" && order.alipayPrefillEnabled ? (
-          <section className="card p-4">
+          <section className="card p-4" data-menu="order.alipay">
             <h2 className="text-sm font-semibold text-text">支付宝一键付款</h2>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
               金额与备注已填好，确认即可。
@@ -768,7 +906,7 @@ export function OrderDetailPage(): ReactNode {
         ) : null}
 
         {ticketEligible ? (
-          <section className="card p-4">
+          <section className="card p-4" data-menu="order.ticket">
             <h2 className="text-sm font-semibold text-text">订单沟通（工单）</h2>
             {currentTicket ? (
               <button
@@ -794,7 +932,12 @@ export function OrderDetailPage(): ReactNode {
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line glass safe-bottom">
           <div className="page flex gap-2 py-3">
             {order.role === "payer" && order.status === "pending_payment" ? (
-              <button type="button" className="btn btn-primary btn-block" onClick={openPayDialog}>
+              <button
+                type="button"
+                className="btn btn-primary btn-block"
+                data-menu="order.payButton"
+                onClick={openPayDialog}
+              >
                 我已支付
               </button>
             ) : null}
@@ -818,15 +961,18 @@ export function OrderDetailPage(): ReactNode {
                 <button type="button" className="btn btn-outline flex-1" onClick={() => setNotReceivedOpen(true)}>
                   未收到
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-primary flex-1"
-                  disabled={!proofChecked}
-                  title={proofChecked ? undefined : "请先查看付款截图"}
-                  onClick={() => setConfirmOpen(true)}
-                >
-                  确认收款
-                </button>
+                {/* 按钮在未核对截图时是禁用态（禁用控件不派发右键事件），菜单挂在包裹层上 */}
+                <span className="flex flex-1" data-menu="order.confirmButton">
+                  <button
+                    type="button"
+                    className="btn btn-primary w-full"
+                    disabled={!proofChecked}
+                    title={proofChecked ? undefined : "请先查看付款截图"}
+                    onClick={() => setConfirmOpen(true)}
+                  >
+                    确认收款
+                  </button>
+                </span>
               </>
             ) : null}
 

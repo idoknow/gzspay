@@ -14,6 +14,8 @@ import {
   type ReactNode,
 } from "react";
 import { Avatar } from "../components/Avatar";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import { CopyIcon } from "../components/ContextMenuIcons";
 import { LogoMark } from "../components/Logo";
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../lib/session";
@@ -122,6 +124,25 @@ export function MemberCardPage(): ReactNode {
 
   const name = me?.displayName ?? "同学";
 
+  const copy = useCopy();
+
+  // 右键 / 长按菜单：卡面信息
+  useContextMenus({
+    "me.card": () => {
+      if (!me) return null;
+      const menuItems: ContextMenuItem[] = [
+        {
+          label: "复制校园卡号",
+          icon: <CopyIcon />,
+          onSelect: () => void copy((me.cardNo ?? "").replace(/\s+/g, ""), "校园卡号"),
+        },
+        { label: "复制学号", icon: <CopyIcon />, onSelect: () => void copy(me.studentNo ?? "", "学号") },
+        { label: "复制姓名", icon: <CopyIcon />, onSelect: () => void copy(me.displayName, "姓名") },
+      ];
+      return menuItems;
+    },
+  });
+
   return (
     <div className="bg-app min-h-[100dvh]">
       <PageHeader title="我的卡片" back />
@@ -133,6 +154,7 @@ export function MemberCardPage(): ReactNode {
             role="group"
             aria-label="我的身份卡，可用左右方向键倾斜"
             tabIndex={0}
+            data-menu="me.card"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={endDrag}

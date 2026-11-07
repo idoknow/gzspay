@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import { CopyIcon, DownloadIcon, OpenIcon, PrintIcon } from "../components/ContextMenuIcons";
 import { Dialog } from "../components/Dialog";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock, Spinner } from "../components/Loading";
@@ -175,6 +177,58 @@ export function TradesPage(): ReactNode {
     if (range.to) params.set("to", range.to);
     navigate(`/orders/print?${params.toString()}`);
   };
+
+  const copy = useCopy();
+
+  // 右键 / 长按菜单：订单卡片、导出按钮、对账上传卡
+  useContextMenus({
+    "trades.order": (element) => {
+      const order = orders.find((item) => item.id === element.dataset.menuId);
+      if (!order) return null;
+      const name =
+        order.counterparty?.displayName ||
+        (order.role === "payer" ? order.merchantName : order.payerNameSnapshot) ||
+        "对方";
+      const items: ContextMenuItem[] = [
+        { label: "查看订单详情", icon: <OpenIcon />, onSelect: () => navigate(`/orders/${order.id}`) },
+        { type: "separator" },
+        { label: "复制订单号", icon: <CopyIcon />, onSelect: () => void copy(order.orderNo, "订单号") },
+        {
+          label: "复制金额",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(`¥${formatCents(order.amountCents)}`, "金额"),
+        },
+        { label: "复制对方姓名", icon: <CopyIcon />, onSelect: () => void copy(name, "姓名") },
+      ];
+      if (order.reservedNote) {
+        items.push({
+          label: "复制商家备注",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(order.reservedNote ?? "", "备注"),
+        });
+      }
+      return items;
+    },
+    "trades.export": () => [
+      { label: "导出 CSV", icon: <DownloadIcon />, hint: exportRangeLabel(exportRange), onSelect: () => void handleExport("csv") },
+      { label: "导出 Excel", icon: <DownloadIcon />, onSelect: () => void handleExport("xlsx") },
+      { label: "导出 JSON", icon: <DownloadIcon />, onSelect: () => void handleExport("json") },
+      { type: "separator" },
+      { label: "打印为 PDF", icon: <PrintIcon />, onSelect: handlePrintPdf },
+    ],
+    "trades.bill": () => [
+      { label: "上传账单对账", icon: <DownloadIcon />, onSelect: () => billInputRef.current?.click() },
+      ...(billDetail
+        ? [
+            {
+              label: "查看本次对账结果",
+              icon: <OpenIcon />,
+              onSelect: () => setBillDetailOpen(true),
+            } satisfies ContextMenuItem,
+          ]
+        : []),
+    ],
+  });
 
   useEffect(() => {
     let active = true;
@@ -350,6 +404,7 @@ export function TradesPage(): ReactNode {
           <button
             type="button"
             onClick={() => setExportOpen(true)}
+            data-menu="trades.export"
             className="inline-flex min-h-[34px] shrink-0 items-center rounded-full border border-line bg-surface px-3.5 text-sm font-medium text-text shadow-[var(--shadow-xs)] transition watch:min-h-[30px] watch:px-2.5 watch:text-[12px]"
           >
             导出
@@ -363,6 +418,7 @@ export function TradesPage(): ReactNode {
               type="button"
               disabled={billUploading}
               onClick={() => billInputRef.current?.click()}
+              data-menu="trades.bill"
               className="btn btn-secondary btn-sm shrink-0"
             >
               {billUploading ? "正在解析…" : "上传账单"}
@@ -425,7 +481,11 @@ export function TradesPage(): ReactNode {
                   className="animate-slide-up"
                   style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
                 >
-                  <OrderCard order={order} onClick={() => navigate(`/orders/${order.id}`)} />
+                  <OrderCard
+                    order={order}
+                    menuKey="trades.order"
+                    onClick={() => navigate(`/orders/${order.id}`)}
+                  />
                 </div>
               ))}
               {hasMore ? (

@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { useContextMenus, useCopy, type ContextMenuItem } from "../components/ContextMenu";
+import { CopyIcon, OpenIcon } from "../components/ContextMenuIcons";
 import { Dialog } from "../components/Dialog";
 import { PageHeader } from "../components/PageHeader";
 import { NfcCardReader } from "../components/NfcCardReader";
@@ -127,10 +129,13 @@ interface InfoRowProps {
   onClick?: () => void;
   trailing?: ReactNode;
   divider?: boolean;
+  /** 右键菜单标识：交给页面统一注册的 profile.row 菜单 */
+  menuId?: string;
 }
 
 /** 一行资料：只显示当前值，需要修改时点击整行进入编辑。 */
-function InfoRow({ label, value, hint, icon, tone = "neutral", onClick, trailing, divider }: InfoRowProps): ReactNode {
+function InfoRow({ label, value, hint, icon, tone = "neutral", onClick, trailing, divider, menuId }: InfoRowProps): ReactNode {
+  const menuProps = menuId ? { "data-menu": "profile.row", "data-menu-id": menuId } : {};
   const body = (
     <>
       <RowIcon tone={tone}>{icon}</RowIcon>
@@ -150,7 +155,11 @@ function InfoRow({ label, value, hint, icon, tone = "neutral", onClick, trailing
   const base = cn("flex w-full items-center gap-3 px-4 py-3.5 watch:gap-2.5 watch:px-3.5 watch:py-3", divider ? "border-t border-line/60" : "");
 
   if (!onClick) {
-    return <div className={base}>{body}</div>;
+    return (
+      <div className={base} {...menuProps}>
+        {body}
+      </div>
+    );
   }
 
   return (
@@ -159,6 +168,7 @@ function InfoRow({ label, value, hint, icon, tone = "neutral", onClick, trailing
       className={cn(base, "text-left transition hover:bg-surface-2 active:bg-surface-2")}
       onClick={onClick}
       aria-label={`修改${label}`}
+      {...menuProps}
     >
       {body}
     </button>
@@ -193,6 +203,58 @@ export function ProfilePage(): ReactNode {
   const countdown = useCountdown(60);
 
   const [scannerOpen, setScannerOpen] = useState(false);
+
+  const copy = useCopy();
+
+  /** 资料行：复制当前值 / 打开对应编辑弹窗 */
+  const rowMenu = (element: HTMLElement): ContextMenuItem[] | null => {
+    if (!me) return null;
+    const copyItem = (label: string, hint: string, text: string): ContextMenuItem => ({
+      label,
+      hint: hint || "未填写",
+      icon: <CopyIcon />,
+      disabled: !text,
+      onSelect: () => void copy(text, hint || label),
+    });
+    switch (element.dataset.menuId) {
+      case "name":
+        return [
+          copyItem("复制姓名", "姓名", me.displayName),
+          { label: "编辑姓名", icon: <OpenIcon />, onSelect: openNameEditor },
+        ];
+      case "studentNo":
+        return [
+          copyItem("复制学号", "学号", me.studentNo ?? ""),
+          {
+            label: me.studentNo ? "编辑学号" : "填写学号",
+            icon: <OpenIcon />,
+            onSelect: openStudentNoEditor,
+          },
+        ];
+      case "email":
+        return [
+          copyItem("复制邮箱", "邮箱", me.email ?? ""),
+          {
+            label: me.email ? "更换邮箱" : "绑定邮箱",
+            icon: <OpenIcon />,
+            onSelect: openEmailEditor,
+          },
+        ];
+      case "card":
+        return [
+          copyItem("复制校园卡号", "校园卡号", me.cardNo ?? ""),
+          {
+            label: me.cardNo ? "换绑校园卡" : "绑定校园卡",
+            icon: <OpenIcon />,
+            onSelect: () => setCardOpen(true),
+          },
+        ];
+      default:
+        return null;
+    }
+  };
+
+  useContextMenus({ "profile.row": rowMenu });
 
   if (!me) return null;
 
@@ -411,6 +473,7 @@ export function ProfilePage(): ReactNode {
             hint="修改需支付密码"
             icon={<UserIcon />}
             tone="brand"
+            menuId="name"
             onClick={openNameEditor}
           />
           <InfoRow
@@ -420,6 +483,7 @@ export function ProfilePage(): ReactNode {
             icon={<IdIcon />}
             tone="accent"
             divider
+            menuId="studentNo"
             onClick={openStudentNoEditor}
           />
           <InfoRow
@@ -428,6 +492,7 @@ export function ProfilePage(): ReactNode {
             hint="更换需支付密码"
             icon={<MailIcon />}
             divider
+            menuId="email"
             onClick={openEmailEditor}
           />
         </section>
@@ -454,6 +519,7 @@ export function ProfilePage(): ReactNode {
             hint={cardHint}
             icon={<CardIcon />}
             tone="brand"
+            menuId="card"
             trailing={
               <button
                 type="button"

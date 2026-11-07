@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import { CheckIcon as MenuCheckIcon, EyeOffSafeIcon } from "../components/ContextMenuIcons";
 import { PageHeader } from "../components/PageHeader";
 import { Toggle } from "../components/Toggle";
 import { ExitPrivacyButton } from "../components/PrivacyMode";
@@ -157,8 +159,6 @@ export function SettingsPage(): ReactNode {
     },
   );
 
-  if (!me) return null;
-
   const toggleSetting = async (key: keyof NotificationSettings, next: boolean): Promise<void> => {
     const previous = settings;
     setSettings({ ...settings, [key]: next });
@@ -173,6 +173,81 @@ export function SettingsPage(): ReactNode {
       setSaving(null);
     }
   };
+
+  /** 通知开关行：打开 / 关闭该通知（沿用已有 toggle 逻辑） */
+  const notifyMenu = (element: HTMLElement): ContextMenuItem[] | null => {
+    const key = element.dataset.menuId as keyof NotificationSettings | undefined;
+    if (!key) return null;
+    const row = NOTIFY_ROWS.find((entry) => entry.key === key);
+    if (!row) return null;
+    const savingRow = saving === key;
+    return [
+      {
+        label: "打开该通知",
+        hint: row.title,
+        icon: <MenuCheckIcon />,
+        disabled: savingRow || settings[key],
+        onSelect: () => void toggleSetting(key, true),
+      },
+      {
+        label: "关闭该通知",
+        hint: row.title,
+        icon: <EyeOffSafeIcon />,
+        danger: true,
+        disabled: savingRow || !settings[key],
+        onSelect: () => void toggleSetting(key, false),
+      },
+    ];
+  };
+
+  /** 公共设备隐私模式：开启 / 输入密码退出（点击已有 ExitPrivacyButton 走原流程） */
+  const privacyMenu = (element: HTMLElement): ContextMenuItem[] | null => {
+    if (privacy.enabled) {
+      return [
+        {
+          label: "输入密码退出隐私模式",
+          icon: <EyeOffSafeIcon />,
+          danger: true,
+          onSelect: () => {
+            const button = Array.from(element.querySelectorAll<HTMLButtonElement>("button")).find(
+              (node) => node.textContent?.includes("退出隐私模式") ?? false,
+            );
+            if (button) button.click();
+            else toast.error("请点击页面上的「退出隐私模式」按钮");
+          },
+        },
+        {
+          label: "隐私模式已开启",
+          hint: "退出需支付密码",
+          icon: <ShieldIcon />,
+          disabled: true,
+          onSelect: () => undefined,
+        },
+      ];
+    }
+    return [
+      {
+        label: "开启隐私模式",
+        hint: "公共设备建议开启",
+        icon: <EyeOffSafeIcon />,
+        onSelect: () => {
+          enablePrivacyMode();
+          toast.success("已开启隐私模式");
+        },
+      },
+      {
+        label: "隐私模式未开启",
+        hint: "个人信息可见",
+        icon: <ShieldIcon />,
+        disabled: true,
+        onSelect: () => undefined,
+      },
+    ];
+  };
+
+  useContextMenus({ "settings.notify": notifyMenu, "settings.privacy": privacyMenu });
+
+  if (!me) return null;
 
   return (
     <div className="bg-app min-h-[100dvh]">
@@ -231,7 +306,7 @@ export function SettingsPage(): ReactNode {
           </div>
         </section>
 
-        <section className="card p-4">
+        <section className="card p-4" data-menu="settings.privacy">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-text">公共设备隐私模式</h2>
             <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-muted">
@@ -297,7 +372,12 @@ export function SettingsPage(): ReactNode {
           <p className="mt-1 text-[11px] text-muted">关闭后不再发送该类邮件。</p>
           <div className="mt-2 divide-y divide-line">
             {NOTIFY_ROWS.map((row) => (
-              <div key={row.key} className="flex items-center gap-3 py-3">
+              <div
+                key={row.key}
+                className="flex items-center gap-3 py-3"
+                data-menu="settings.notify"
+                data-menu-id={row.key}
+              >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-text">{row.title}</p>
                   <p className="mt-0.5 text-[11px] text-muted">{row.description}</p>

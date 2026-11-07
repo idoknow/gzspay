@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useContextMenus, useCopy, type ContextMenuItem } from "../components/ContextMenu";
+import { CopyIcon, TrashIcon } from "../components/ContextMenuIcons";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, PageLoading } from "../components/Loading";
@@ -82,6 +84,13 @@ function StatusBadge({
       {statusText(device, onlineWindowMinutes)}
     </span>
   );
+}
+
+/** 复制用的设备信息摘要 */
+function deviceInfoText(device: LoginDevice): string {
+  return [device.deviceName, device.os, device.browser, device.ip ? `IP ${device.ip}` : ""]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function DevicesPage(): ReactNode {
@@ -178,6 +187,58 @@ export function DevicesPage(): ReactNode {
     }
   };
 
+  const copy = useCopy();
+
+  /** 设备卡片：复制设备信息 / 退出该设备（沿用原有确认弹窗） */
+  const deviceMenu = (element: HTMLElement): ContextMenuItem[] | null => {
+    const device = items.find((entry) => entry.id === element.dataset.menuId);
+    if (!device) return null;
+    return [
+      {
+        label: "复制设备信息",
+        hint: device.deviceName,
+        icon: <CopyIcon />,
+        onSelect: () => void copy(deviceInfoText(device), "设备信息"),
+      },
+      {
+        label: device.current ? "退出当前设备" : "退出该设备",
+        hint: "需重新登录",
+        icon: <TrashIcon />,
+        danger: true,
+        disabled: working,
+        onSelect: () => setPending(device),
+      },
+    ];
+  };
+
+  /** 登录记录行：复制 IP 与时间 */
+  const loginMenu = (element: HTMLElement): ContextMenuItem[] | null => {
+    const device = items.find((entry) => entry.id === element.dataset.menuId);
+    if (!device) return null;
+    return [
+      {
+        label: "复制 IP",
+        hint: device.ip || "未知",
+        icon: <CopyIcon />,
+        onSelect: () => void copy(device.ip ?? "", "IP 地址"),
+      },
+      {
+        label: "复制登录时间",
+        hint: formatDateTime(device.createdAt),
+        icon: <CopyIcon />,
+        onSelect: () => void copy(formatDateTime(device.createdAt), "登录时间"),
+      },
+      { type: "separator" },
+      {
+        label: "复制最近活跃时间",
+        icon: <CopyIcon />,
+        onSelect: () => void copy(formatDateTime(device.lastSeenAt), "最近活跃时间"),
+      },
+    ];
+  };
+
+  useContextMenus({ "device.item": deviceMenu, "device.login": loginMenu });
+
   return (
     <div className="bg-app min-h-[100dvh]">
       <PageHeader title="登录设备管理" back />
@@ -226,7 +287,7 @@ export function DevicesPage(): ReactNode {
         ) : (
           <div className="space-y-3">
             {items.map((device) => (
-              <div key={device.id} className="card p-4">
+              <div key={device.id} className="card p-4" data-menu="device.item" data-menu-id={device.id}>
                 <div className="flex items-start gap-3">
                   <span
                     className={cn(
@@ -253,7 +314,11 @@ export function DevicesPage(): ReactNode {
                     <p className="mt-0.5 text-[11px] text-muted">
                       {device.os} · {device.browser}
                     </p>
-                    <dl className="mt-2 space-y-1 text-[11px] text-muted">
+                    <dl
+                      className="mt-2 space-y-1 text-[11px] text-muted"
+                      data-menu="device.login"
+                      data-menu-id={device.id}
+                    >
                       <div className="flex gap-2">
                         <dt className="shrink-0">IP</dt>
                         <dd className="min-w-0 truncate font-mono">{device.ip || "未知"}</dd>

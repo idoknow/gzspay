@@ -3,6 +3,8 @@
 import { useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnnouncementTags, PinIcon } from "../components/AnnouncementTags";
+import { CopyIcon, OpenIcon } from "../components/ContextMenuIcons";
+import { useContextMenus, useCopy, type ContextMenuItem } from "../components/ContextMenu";
 import { BottomNav } from "../components/BottomNav";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
@@ -62,6 +64,8 @@ function AnnouncementCard({
     <button
       type="button"
       onClick={onClick}
+      data-menu="announcement.card"
+      data-menu-id={item.id}
       className={cn(
         "card card-interactive block w-full px-4 py-3.5 text-left watch:rounded-2xl watch:px-3 watch:py-2.5",
         item.pinned && "card-pinned",
@@ -154,6 +158,25 @@ export function AnnouncementsPage(): ReactNode {
   const openDetail = (id: string): void => {
     navigate(`/announcements/${id}`);
   };
+
+  const copy = useCopy();
+
+  useContextMenus({
+    "announcement.card": (element: HTMLElement): ContextMenuItem[] | null => {
+      const id = element.dataset.menuId;
+      const item = id ? data?.items.find((entry) => entry.id === id) : undefined;
+      if (!item) return null;
+      return [
+        { label: "打开公告", icon: <OpenIcon />, hint: item.read ? "已读" : "未读", onSelect: () => openDetail(item.id) },
+        { label: "复制标题", icon: <CopyIcon />, onSelect: () => void copy(item.title, "公告标题") },
+        {
+          label: "复制发布时间",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(formatDateTime(item.publishedAt), "发布时间"),
+        },
+      ];
+    },
+  });
 
   return (
     <div className="bg-app min-h-[100dvh]">

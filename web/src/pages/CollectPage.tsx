@@ -7,6 +7,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { ChannelBadges } from "../components/ChannelBadges";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import { CopyIcon, RefreshIcon } from "../components/ContextMenuIcons";
 import { CountdownModal } from "../components/CountdownModal";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
@@ -20,7 +22,7 @@ import {
   previewPaymentCollection,
   previewPaymentCollectionById,
 } from "../lib/api";
-import { formatCountdown } from "../lib/format";
+import { formatCents, formatCountdown } from "../lib/format";
 import { useAsync } from "../lib/hooks";
 import type { PaymentCollectionPreview } from "../lib/types";
 
@@ -43,6 +45,8 @@ export function CollectPage(): ReactNode {
   const { token = "", id = "" } = useParams<{ token?: string; id?: string }>();
   const toast = useToast();
   const navigate = useNavigate();
+  /** 右键 / 长按菜单复制时统一用 ContextMenu 的 useCopy（带 toast 反馈） */
+  const copy = useCopy();
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [requirementOpen, setRequirementOpen] = useState(false);
   const [remaining, setRemaining] = useState(0);
@@ -68,6 +72,33 @@ export function CollectPage(): ReactNode {
     toast.success("付款成功");
     navigate(`/orders/${result.order.id}`);
   };
+
+  /** 右键 / 长按菜单：收款单卡片上复制核对信息，或重新拉取最新状态 */
+  const menus = {
+    "collect.card": (): ContextMenuItem[] | null => {
+      if (!data) return null;
+      const merchantName = data.merchantName || data.merchant.displayName;
+      const amountText = `¥${formatCents(data.amountCents)}`;
+      const summary = [
+        `收款人：${merchantName}`,
+        `金额：${amountText}`,
+        data.title ? `事由：${data.title}` : "",
+        data.reservedNote ? `备注：${data.reservedNote}` : "",
+        data.noteRequirement.trim() ? `商家要求：${data.noteRequirement}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      return [
+        { label: "复制收款信息", icon: <CopyIcon />, onSelect: () => void copy(summary, "收款信息") },
+        { label: "复制金额", icon: <CopyIcon />, onSelect: () => void copy(amountText, "金额") },
+        { label: "复制收款人姓名", icon: <CopyIcon />, onSelect: () => void copy(merchantName, "收款人姓名") },
+        { type: "separator" },
+        { label: "刷新收款单", icon: <RefreshIcon />, onSelect: reload },
+      ];
+    },
+  };
+
+  useContextMenus(menus);
 
   if (loading) {
     return (
@@ -124,7 +155,7 @@ export function CollectPage(): ReactNode {
 
   return (
     <Shell>
-      <section className="card p-5 text-center">
+      <section className="card p-5 text-center" data-menu="collect.card">
         <div className="flex flex-col items-center gap-2">
           <Avatar name={data.merchantName || data.merchant.displayName} avatarUrl={data.merchant.avatarUrl} size={56} />
           <div>

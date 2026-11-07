@@ -15,6 +15,8 @@ import { useFeedback } from "../components/dialogs";
 import { useAdmin } from "../context";
 import { formatCents, formatDateTime, formatRelative } from "../format";
 import { useAsync, useDebounced } from "../hooks";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../../components/ContextMenu";
+import { CheckIcon, CloseIcon, CopyIcon, OpenIcon } from "../../components/ContextMenuIcons";
 import type {
   AdminPartiesRevealStatus,
   AdminTicket,
@@ -130,6 +132,35 @@ export function AdminTicketsPage() {
   const rows = tickets.data?.items ?? [];
   const total = tickets.data?.total ?? 0;
 
+  const copy = useCopy();
+
+  // 右键 / 长按菜单：工单列表行
+  useContextMenus({
+    "admin.tickets.row": (element) => {
+      const ticket = rows.find((item) => item.id === element.dataset.menuId);
+      if (!ticket) return null;
+      const items: ContextMenuItem[] = [
+        {
+          label: "打开工单详情",
+          icon: <OpenIcon />,
+          onSelect: () => setDetailId(ticket.id),
+        },
+        { type: "separator" },
+        {
+          label: "复制订单号",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(ticket.orderNo, "订单号"),
+        },
+        {
+          label: "复制工单 ID",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(ticket.id, "工单 ID"),
+        },
+      ];
+      return items;
+    },
+  });
+
   // 工单随时可能被用户更新：每 15 秒静默刷新列表，避免运营一直点「刷新」
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -201,7 +232,13 @@ export function AdminTicketsPage() {
                 </thead>
                 <tbody>
                   {rows.map((ticket) => (
-                    <tr key={ticket.id} onClick={() => setDetailId(ticket.id)} style={{ cursor: "pointer" }}>
+                    <tr
+                      key={ticket.id}
+                      onClick={() => setDetailId(ticket.id)}
+                      style={{ cursor: "pointer" }}
+                      data-menu="admin.tickets.row"
+                      data-menu-id={ticket.id}
+                    >
                       <td>
                         <div style={{ fontWeight: 500 }}>{ticket.orderTitle}</div>
                         <div className="admin-muted admin-mono" style={{ fontSize: 12 }}>
@@ -423,6 +460,29 @@ function TicketDetailBody({
     }
   };
 
+  // 右键 / 长按菜单：披露审批按钮，沿用原确认 / 驳回说明流程
+  useContextMenus({
+    "admin.tickets.reveal": (element) => {
+      if (element.dataset.menuId !== ticket.id) return null;
+      const items: ContextMenuItem[] = [
+        {
+          label: "批准披露资料",
+          icon: <CheckIcon />,
+          disabled: reviewing,
+          onSelect: () => void review("approve"),
+        },
+        {
+          label: "驳回披露申请",
+          icon: <CloseIcon />,
+          danger: true,
+          disabled: reviewing,
+          onSelect: () => void review("reject"),
+        },
+      ];
+      return items;
+    },
+  });
+
   const send = async () => {
     const body = reply.trim();
     if (!body) return;
@@ -478,7 +538,12 @@ function TicketDetailBody({
         <PartyBlock party={ticket.parties.payer} tone="payer" />
         <PartyBlock party={ticket.parties.merchant} tone="merchant" />
         {reveal.status === "pending" ? (
-          <div className="admin-flex admin-flex-wrap" style={{ gap: 8, alignItems: "center" }}>
+          <div
+            className="admin-flex admin-flex-wrap"
+            style={{ gap: 8, alignItems: "center" }}
+            data-menu={canReview ? "admin.tickets.reveal" : undefined}
+            data-menu-id={canReview ? ticket.id : undefined}
+          >
             <span className="admin-muted" style={{ fontSize: 12 }}>
               申请时间 {reveal.requestedAt ? formatDateTime(reveal.requestedAt) : "未知"}
             </span>

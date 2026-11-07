@@ -42,6 +42,13 @@ import {
   payChannelLabel,
 } from "../format";
 import { useAsync } from "../hooks";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../../components/ContextMenu";
+import {
+  CopyIcon,
+  DownloadIcon,
+  OpenIcon,
+  RefreshIcon,
+} from "../../components/ContextMenuIcons";
 import { errorMessage } from "../../lib/http";
 import type {
   AdminAppeal,
@@ -208,6 +215,56 @@ function OrdersTab({
     }
   };
 
+  const copy = useCopy();
+
+  // 右键 / 长按菜单：行操作按钮、导出按钮
+  useContextMenus({
+    "admin.orders.row": (element) => {
+      const order = rows.find((item) => item.id === element.dataset.menuId);
+      if (!order) return null;
+      const items: ContextMenuItem[] = [
+        {
+          label: "打开订单详情",
+          icon: <OpenIcon />,
+          onSelect: () => onOpenDetail(order.id),
+        },
+        { type: "separator" },
+        {
+          label: "复制订单号",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(order.orderNo, "订单号"),
+        },
+        {
+          label: "复制用户 ID",
+          icon: <CopyIcon />,
+          hint: order.payerUserId ? "付款人" : "无",
+          disabled: !order.payerUserId,
+          onSelect: () => void copy(order.payerUserId ?? "", "用户 ID"),
+        },
+        {
+          label: "复制金额",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(formatCents(order.amountCents), "金额"),
+        },
+      ];
+      return items;
+    },
+    "admin.orders.export": () => [
+      {
+        label: "导出 CSV",
+        icon: <DownloadIcon />,
+        hint: "Excel 可打开",
+        disabled: exporting,
+        onSelect: () => void exportCsv(),
+      },
+      {
+        label: "刷新列表",
+        icon: <RefreshIcon />,
+        onSelect: () => orders.refresh(),
+      },
+    ],
+  });
+
   return (
     <div className="admin-stack">
       <Card title="筛选条件" subtitle="按本地时区，金额单位元">
@@ -295,15 +352,20 @@ function OrdersTab({
             重置筛选
           </Button>
           <span className="admin-spacer" />
-          <Button
-            variant="subtle"
-            size="sm"
-            loading={exporting}
-            disabled={exporting}
-            onClick={() => void exportCsv()}
+          <span
+            data-menu="admin.orders.export"
+            style={{ display: "inline-flex" }}
           >
-            导出 CSV
-          </Button>
+            <Button
+              variant="subtle"
+              size="sm"
+              loading={exporting}
+              disabled={exporting}
+              onClick={() => void exportCsv()}
+            >
+              导出 CSV
+            </Button>
+          </span>
           <Button
             variant="ghost"
             size="sm"
@@ -386,7 +448,11 @@ function OrdersTab({
                       {formatDateTime(order.createdAt)}
                     </td>
                     <td>
-                      <div className="admin-cell-actions">
+                      <div
+                        className="admin-cell-actions"
+                        data-menu="admin.orders.row"
+                        data-menu-id={order.id}
+                      >
                         <Button
                           variant="link"
                           size="sm"

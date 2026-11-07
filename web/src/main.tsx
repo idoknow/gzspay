@@ -4,6 +4,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { App } from "./App";
+import { ContextMenuProvider } from "./components/ContextMenu";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ToastProvider } from "./components/Toast";
 import { initTheme } from "./lib/theme";
@@ -26,7 +27,9 @@ createRoot(container).render(
   <StrictMode>
     <ErrorBoundary>
       <ToastProvider>
-        <App />
+        <ContextMenuProvider>
+          <App />
+        </ContextMenuProvider>
       </ToastProvider>
     </ErrorBoundary>
   </StrictMode>,

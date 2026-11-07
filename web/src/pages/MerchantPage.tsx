@@ -4,6 +4,15 @@ import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "r
 import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { ChannelIcon } from "../components/ChannelIcon";
+import { useContextMenus, useCopy, type ContextMenuItem } from "../components/ContextMenu";
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  CopyIcon,
+  EyeOffSafeIcon,
+  OpenIcon,
+  RefreshIcon as MenuRefreshIcon,
+} from "../components/ContextMenuIcons";
 import { Dialog } from "../components/Dialog";
 import { EmptyState } from "../components/EmptyState";
 import { EyeIcon } from "../components/EyeIcon";
@@ -223,6 +232,95 @@ export function MerchantPage(): ReactNode {
     }
   };
 
+  const copy = useCopy();
+
+  /** 收款方式图标按钮组：查看 / 更换 / 上传收款码 */
+  const channelMenu = (element: HTMLElement): ContextMenuItem[] | null => {
+    const channel = element.dataset.menuId as PayChannel | undefined;
+    const item = merchant?.channels.find((entry) => entry.channel === channel);
+    if (!item) return null;
+    if (!item.hasQr) {
+      return [
+        {
+          label: "上传收款码",
+          hint: item.label,
+          icon: <ArrowRightIcon />,
+          onSelect: () => openQrEdit(item.channel),
+        },
+        {
+          label: "查看收款码",
+          hint: "未上传",
+          icon: <OpenIcon />,
+          disabled: true,
+          onSelect: () => setQrView(item.channel),
+        },
+      ];
+    }
+    return [
+      {
+        label: "查看收款码",
+        hint: item.label,
+        icon: <OpenIcon />,
+        onSelect: () => setQrView(item.channel),
+      },
+      {
+        label: "更换收款码",
+        hint: item.label,
+        icon: <MenuRefreshIcon />,
+        onSelect: () => openQrEdit(item.channel),
+      },
+    ];
+  };
+
+  /** 收款方式开关：启用 / 停用该渠道（停用沿用原有校验，至少保留一个） */
+  const switchMenu = (element: HTMLElement): ContextMenuItem[] | null => {
+    const channel = element.dataset.menuId as PayChannel | undefined;
+    const item = merchant?.channels.find((entry) => entry.channel === channel);
+    if (!item) return null;
+    const busy = busyChannel === item.channel;
+    return [
+      {
+        label: "启用该渠道",
+        hint: item.hasQr ? item.label : "需先上传收款码",
+        icon: <CheckIcon />,
+        disabled: busy || item.enabled || !item.hasQr,
+        onSelect: () => void handleToggle(item, true),
+      },
+      {
+        label: "停用该渠道",
+        hint: enabledCount <= 1 ? "至少保留一个" : item.label,
+        icon: <EyeOffSafeIcon />,
+        danger: true,
+        disabled: busy || !item.enabled || enabledCount <= 1,
+        onSelect: () => void handleToggle(item, false),
+      },
+    ];
+  };
+
+  /** 商品与发布入口：打开商品管理 / 复制商家名称 */
+  const productsMenu = (): ContextMenuItem[] | null => {
+    if (!merchant) return null;
+    return [
+      {
+        label: "打开商品管理",
+        icon: <OpenIcon />,
+        onSelect: () => navigate("/merchant/products"),
+      },
+      {
+        label: "复制商家名称",
+        hint: merchant.name,
+        icon: <CopyIcon />,
+        onSelect: () => void copy(merchant.name, "商家名称"),
+      },
+    ];
+  };
+
+  useContextMenus({
+    "merchant.channel": channelMenu,
+    "merchant.switch": switchMenu,
+    "merchant.products": productsMenu,
+  });
+
   if (loading) {
     return (
       <div className="bg-app min-h-[100dvh]">
@@ -364,6 +462,8 @@ export function MerchantPage(): ReactNode {
               return (
                 <div
                   key={item.channel}
+                  data-menu="merchant.channel"
+                  data-menu-id={item.channel}
                   className="flex items-center gap-2.5 rounded-2xl bg-surface-2 px-3 py-2.5 watch:px-2.5 watch:py-2"
                 >
                   <ChannelIcon
@@ -399,12 +499,18 @@ export function MerchantPage(): ReactNode {
                         <UploadIcon />
                       </IconButton>
                     )}
-                    <Toggle
-                      checked={item.enabled}
-                      disabled={busyChannel === item.channel}
-                      onChange={(next) => void handleToggle(item, next)}
-                      label={`${item.label}收款开关`}
-                    />
+                    <span
+                      data-menu="merchant.switch"
+                      data-menu-id={item.channel}
+                      className="flex shrink-0 items-center"
+                    >
+                      <Toggle
+                        checked={item.enabled}
+                        disabled={busyChannel === item.channel}
+                        onChange={(next) => void handleToggle(item, next)}
+                        label={`${item.label}收款开关`}
+                      />
+                    </span>
                   </div>
                 </div>
               );
@@ -419,6 +525,7 @@ export function MerchantPage(): ReactNode {
         <section className="card p-4 watch:rounded-2xl watch:p-3.5">
           <button
             type="button"
+            data-menu="merchant.products"
             onClick={() => navigate("/merchant/products")}
             className="flex w-full items-center gap-3 text-left transition active:opacity-80"
           >

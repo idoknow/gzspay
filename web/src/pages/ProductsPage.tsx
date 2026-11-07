@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Avatar } from "../components/Avatar";
+import { CopyIcon, OpenIcon, TrashIcon } from "../components/ContextMenuIcons";
+import { useContextMenus, useCopy, type ContextMenuItem } from "../components/ContextMenu";
 import { PageHeader } from "../components/PageHeader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Dialog } from "../components/Dialog";
@@ -60,6 +62,33 @@ export function ProductsPage(): ReactNode {
 
   const merchant: MerchantInfo | null = merchantQuery.data?.registered ? merchantQuery.data.merchant : null;
   const products = productsQuery.data ?? [];
+
+  const copy = useCopy();
+
+  useContextMenus({
+    "products.row": (element: HTMLElement): ContextMenuItem[] | null => {
+      const id = element.dataset.menuId;
+      const product = id ? products.find((item) => item.id === id) : undefined;
+      if (!product) return null;
+      return [
+        { label: "编辑商品", icon: <OpenIcon />, onSelect: () => setDraft(draftFromProduct(product)) },
+        { label: "复制商品名称", icon: <CopyIcon />, onSelect: () => void copy(product.name, "商品名称") },
+        {
+          label: product.active ? "下架商品" : "上架商品",
+          disabled: busyId !== null,
+          onSelect: () => void toggleActive(product, !product.active),
+        },
+        { type: "separator" },
+        {
+          label: "删除商品",
+          icon: <TrashIcon />,
+          danger: true,
+          disabled: busyId !== null,
+          onSelect: () => setDeleting(product),
+        },
+      ];
+    },
+  });
 
   useEffect(() => {
     if (merchant) setNote(merchant.noteRequirement);
@@ -221,7 +250,7 @@ export function ProductsPage(): ReactNode {
               ) : (
                 <ul className="mt-2 divide-y divide-line">
                   {products.map((product, index) => (
-                    <li key={product.id} className="flex items-start gap-2 py-3">
+                    <li key={product.id} data-menu="products.row" data-menu-id={product.id} className="flex items-start gap-2 py-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className={cn("truncate text-sm font-medium", product.active ? "text-text" : "text-muted line-through")}>

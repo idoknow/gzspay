@@ -11,9 +11,11 @@ import { StatusBadge } from "./StatusBadge";
 export interface OrderCardProps {
   order: Order;
   onClick?: () => void;
+  /** 右键菜单：声明 data-menu / data-menu-id，由所在页面注册对应菜单项 */
+  menuKey?: string;
 }
 
-export function OrderCard({ order, onClick }: OrderCardProps): ReactNode {
+export function OrderCard({ order, onClick, menuKey }: OrderCardProps): ReactNode {
   const watch = useWatchLayout();
   const rawName =
     order.counterparty?.displayName ||
@@ -29,6 +31,8 @@ export function OrderCard({ order, onClick }: OrderCardProps): ReactNode {
     <button
       type="button"
       onClick={onClick}
+      data-menu={menuKey}
+      data-menu-id={menuKey ? order.id : undefined}
       className="card card-interactive w-full p-4 text-left watch:p-3"
     >
       {/* 第一行：对方 + 金额 */}

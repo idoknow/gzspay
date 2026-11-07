@@ -4,6 +4,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import {
+  ArrowRightIcon,
+  CopyIcon,
+  EyeOffSafeIcon,
+  OpenIcon,
+  TrashIcon,
+} from "../components/ContextMenuIcons";
 import { Dialog } from "../components/Dialog";
 import { EmptyState } from "../components/EmptyState";
 import { EyeIcon } from "../components/EyeIcon";
@@ -47,7 +55,7 @@ function MessageBubble({ message, mine }: { message: TicketMessage; mine: boolea
   // 平台系统提示（如资料披露审核结果）居中显示，不算任何一方的气泡
   if (message.senderRole === "system") {
     return (
-      <div className="flex w-full justify-center">
+      <div className="flex w-full justify-center" data-menu="ticket.message" data-menu-id={message.id}>
         <p className="max-w-[86%] whitespace-pre-wrap break-words rounded-full bg-surface-2/80 px-3.5 py-1.5 text-center text-[11.5px] leading-relaxed text-muted">
           {message.body}
         </p>
@@ -55,7 +63,11 @@ function MessageBubble({ message, mine }: { message: TicketMessage; mine: boolea
     );
   }
   return (
-    <div className={cn("flex w-full gap-2", mine ? "justify-end" : "justify-start")}>
+    <div
+      className={cn("flex w-full gap-2", mine ? "justify-end" : "justify-start")}
+      data-menu="ticket.message"
+      data-menu-id={message.id}
+    >
       {!mine ? (
         isAdmin ? (
           <PlatformLogo />
@@ -134,6 +146,8 @@ function PartiesSummary({
     <button
       type="button"
       className="mx-4 mt-3 block w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-line/70 bg-surface text-left transition active:bg-surface-2/70"
+      data-menu="ticket.parties"
+      data-menu-id="summary"
       onClick={onOpen}
     >
       <span className="flex items-center justify-between px-4 pt-3">
@@ -180,7 +194,11 @@ function PartiesLocked({
   const pending = reveal.status === "pending";
   const rejected = reveal.status === "rejected";
   return (
-    <div className="mx-4 mt-3 rounded-2xl border border-line/70 bg-surface px-4 py-3.5">
+    <div
+      className="mx-4 mt-3 rounded-2xl border border-line/70 bg-surface px-4 py-3.5"
+      data-menu="ticket.parties"
+      data-menu-id="locked"
+    >
       <div className="flex items-center gap-2">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-2 text-muted">
           <EyeIcon off size={14} />
@@ -295,6 +313,131 @@ export function TicketDetailPage(): ReactNode {
     }
   };
 
+  const copy = useCopy();
+
+  // 右键 / 长按菜单：消息气泡、订单卡、双方信息卡、结束工单、发送
+  useContextMenus({
+    "ticket.message": (element) => {
+      const message = data?.messages.find((item) => item.id === element.dataset.menuId);
+      if (!message) return null;
+      const menuItems: ContextMenuItem[] = [
+        {
+          label: "复制消息内容",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(message.body, "消息内容"),
+        },
+      ];
+      if (message.senderRole === "payer" || message.senderRole === "merchant") {
+        menuItems.push({
+          label: "复制发送者姓名",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(message.senderName, "姓名"),
+        });
+      }
+      menuItems.push({ type: "separator" });
+      menuItems.push({
+        label: "复制发送时间",
+        icon: <CopyIcon />,
+        onSelect: () => void copy(formatDateTime(message.createdAt), "时间"),
+      });
+      return menuItems;
+    },
+    "ticket.order": () => {
+      if (!data) return null;
+      const menuItems: ContextMenuItem[] = [
+        {
+          label: "打开订单详情",
+          icon: <OpenIcon />,
+          onSelect: () => navigate(`/orders/${data.orderId}`),
+        },
+        { type: "separator" },
+        { label: "复制订单号", icon: <CopyIcon />, onSelect: () => void copy(data.orderNo, "订单号") },
+        {
+          label: "复制订单标题",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(data.orderTitle || "订单", "标题"),
+        },
+      ];
+      return menuItems;
+    },
+    "ticket.parties": (element) => {
+      if (!data) return null;
+      // 「未披露」卡片：只能申请披露，申请中 / 已结束 / 提交中时禁用
+      if (element.dataset.menuId === "locked") {
+        const pending = data.partiesReveal.status === "pending";
+        const menuItems: ContextMenuItem[] = [
+          {
+            label: pending ? "已提交申请，等待审核" : "申请披露资料",
+            icon: <EyeOffSafeIcon />,
+            disabled: pending || data.status === "closed" || revealing,
+            onSelect: () => void requestReveal(),
+          },
+          { type: "separator" },
+          { label: "复制订单号", icon: <CopyIcon />, onSelect: () => void copy(data.orderNo, "订单号") },
+          {
+            label: "复制订单标题",
+            icon: <CopyIcon />,
+            onSelect: () => void copy(data.orderTitle || "订单", "标题"),
+          },
+        ];
+        return menuItems;
+      }
+      const parties = data.parties;
+      if (!parties) return null;
+      const menuItems: ContextMenuItem[] = [
+        { label: "查看完整资料", icon: <OpenIcon />, onSelect: () => setPartiesOpen(true) },
+        { type: "separator" },
+        {
+          label: "复制付款人姓名",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(parties.payer.displayName, "姓名"),
+        },
+        {
+          label: "复制商家姓名",
+          icon: <CopyIcon />,
+          onSelect: () => void copy(parties.merchant.displayName, "姓名"),
+        },
+      ];
+      return menuItems;
+    },
+    "ticket.close": () => {
+      if (!data || data.status === "closed") return null;
+      const menuItems: ContextMenuItem[] = [
+        { label: "复制订单号", icon: <CopyIcon />, onSelect: () => void copy(data.orderNo, "订单号") },
+        { type: "separator" },
+        {
+          label: "结束工单",
+          icon: <TrashIcon />,
+          danger: true,
+          disabled: closing,
+          onSelect: () => setCloseOpen(true),
+        },
+      ];
+      return menuItems;
+    },
+    "ticket.send": () => {
+      if (!data || data.status === "closed") return null;
+      const body = text.trim();
+      const menuItems: ContextMenuItem[] = [
+        {
+          label: "发送消息",
+          icon: <ArrowRightIcon />,
+          hint: `${text.length}/1000`,
+          disabled: sending || body.length === 0,
+          onSelect: () => void submit(),
+        },
+        { type: "separator" },
+        {
+          label: "复制已输入内容",
+          icon: <CopyIcon />,
+          disabled: body.length === 0,
+          onSelect: () => void copy(body, "消息内容"),
+        },
+      ];
+      return menuItems;
+    },
+  });
+
   if (ticket.loading && !data) {
     return (
       <div className="bg-app min-h-[100dvh]">
@@ -343,6 +486,7 @@ export function TicketDetailPage(): ReactNode {
             <button
               type="button"
               className="rounded-full px-2.5 py-1 text-[11px] font-medium text-muted transition active:bg-surface-2"
+              data-menu="ticket.close"
               onClick={() => setCloseOpen(true)}
             >
               结束工单
@@ -354,6 +498,8 @@ export function TicketDetailPage(): ReactNode {
       <button
         type="button"
         className="mx-4 mt-3 flex items-center justify-between rounded-2xl border border-line/70 bg-surface px-4 py-3 text-left transition active:bg-surface-2"
+        data-menu="ticket.order"
+        data-menu-id={data.orderId}
         onClick={() => navigate(`/orders/${data.orderId}`)}
       >
         <span className="min-w-0">
@@ -433,6 +579,7 @@ export function TicketDetailPage(): ReactNode {
             <button
               type="button"
               className="btn btn-primary btn-sm h-[42px] shrink-0 px-4"
+              data-menu="ticket.send"
               disabled={sending || text.trim().length === 0}
               onClick={() => void submit()}
             >

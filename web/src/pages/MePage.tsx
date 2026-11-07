@@ -6,6 +6,8 @@ import { AnnouncementBell } from "../components/AnnouncementBell";
 import { Avatar } from "../components/Avatar";
 import { BottomNav } from "../components/BottomNav";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useCopy, useContextMenus, type ContextMenuItem } from "../components/ContextMenu";
+import { ArrowRightIcon, CopyIcon, OpenIcon, RefreshIcon } from "../components/ContextMenuIcons";
 import { EyeIcon } from "../components/EyeIcon";
 import { PageHeader } from "../components/PageHeader";
 import { ExitPrivacyButton } from "../components/PrivacyMode";
@@ -190,6 +192,8 @@ function MenuRow({ item, divider }: { item: MenuItem; divider: boolean }): React
   return (
     <button
       type="button"
+      data-menu="me.row"
+      data-menu-id={item.path}
       className={`group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-2 active:bg-surface-2 watch:gap-2.5 watch:px-3 watch:py-3 ${
         divider ? "border-t border-line/60" : ""
       }`}
@@ -223,6 +227,7 @@ export function MePage(): ReactNode {
   const visible = useVisible();
   const ticketUnread = useAsync(() => getTicketUnreadCount(), []);
   const ticketUnreadCount = ticketUnread.data?.count ?? 0;
+  const copy = useCopy();
 
   // 页面可见时每 15 秒刷新一次工单未读红点（SSE 断线时的兜底）
   useInterval(() => {
@@ -254,6 +259,9 @@ export function MePage(): ReactNode {
     { label: "关于", description: "版本、更新日志与协议", path: "/me/about", icon: <InfoIcon /> },
   ];
 
+  /** 菜单分组：右键某一行时，把同组里的其它入口也一并列出 */
+  const rowGroups: { items: MenuItem[] }[] = [{ items: accountMenu }, { items: appMenu }];
+
   const handleLogout = async (): Promise<void> => {
     setLoggingOut(true);
     try {
@@ -265,6 +273,80 @@ export function MePage(): ReactNode {
     }
   };
 
+  // 右键 / 长按菜单：顶部信息卡、功能行、退出登录
+  useContextMenus({
+    "me.hero": (element) => {
+      if (!me) return null;
+      const openCard: ContextMenuItem = {
+        label: "打开我的卡片",
+        icon: <OpenIcon />,
+        onSelect: () => navigate("/me/card"),
+      };
+      // 隐私模式下卡片上不显示个人信息，菜单里也不提供复制
+      if (element.dataset.menuId === "privacy" || privacy.enabled) {
+        return [
+          openCard,
+          { type: "separator" },
+          {
+            label: "复制姓名",
+            icon: <CopyIcon />,
+            hint: "隐私模式",
+            disabled: true,
+            onSelect: () => void copy(me.displayName, "姓名"),
+          },
+          {
+            label: "复制学号",
+            icon: <CopyIcon />,
+            hint: "隐私模式",
+            disabled: true,
+            onSelect: () => void copy(me.studentNo ?? "", "学号"),
+          },
+        ];
+      }
+      return [
+        openCard,
+        { type: "separator" },
+        { label: "复制姓名", icon: <CopyIcon />, onSelect: () => void copy(me.displayName, "姓名") },
+        { label: "复制学号", icon: <CopyIcon />, onSelect: () => void copy(me.studentNo ?? "", "学号") },
+      ];
+    },
+    "me.row": (element) => {
+      const path = element.dataset.menuId ?? "";
+      const group = rowGroups.find((entry) => entry.items.some((each) => each.path === path));
+      const item = group?.items.find((each) => each.path === path);
+      if (!group || !item) return null;
+      const menuItems: ContextMenuItem[] = [
+        { label: `打开${item.label}`, icon: <ArrowRightIcon />, onSelect: () => navigate(item.path) },
+      ];
+      const siblings = group.items.filter((each) => each.path !== path);
+      if (siblings.length > 0) menuItems.push({ type: "separator" });
+      for (const sibling of siblings) {
+        menuItems.push({
+          label: `打开${sibling.label}`,
+          icon: <ArrowRightIcon />,
+          onSelect: () => navigate(sibling.path),
+        });
+      }
+      return menuItems;
+    },
+    "me.logout": () => [
+      {
+        label: "刷新工单未读",
+        icon: <RefreshIcon />,
+        hint: ticketUnreadCount > 0 ? `${ticketUnreadCount} 条未读` : "无未读",
+        onSelect: () => ticketUnread.reload(),
+      },
+      { type: "separator" },
+      {
+        label: "退出登录",
+        icon: <ArrowRightIcon />,
+        danger: true,
+        disabled: loggingOut,
+        onSelect: () => setLogoutOpen(true),
+      },
+    ],
+  });
+
   return (
     <div className="bg-app min-h-[100dvh]">
       <PageHeader
@@ -275,7 +357,7 @@ export function MePage(): ReactNode {
       <main className="page page-with-nav space-y-4 pt-4 watch:space-y-3">
         {me ? (
           privacy.enabled ? (
-            <section className="card flex items-start gap-3 p-4">
+            <section className="card flex items-start gap-3 p-4" data-menu="me.hero" data-menu-id="privacy">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-muted ring-1 ring-line">
                 <EyeIcon off size={16} />
               </span>
@@ -294,6 +376,8 @@ export function MePage(): ReactNode {
             type="button"
             onClick={() => navigate("/me/card")}
             aria-label="查看我的卡片"
+            data-menu="me.hero"
+            data-menu-id="card"
             className="hero-gradient relative block w-full overflow-hidden rounded-3xl p-5 text-left transition active:scale-[0.99] watch:rounded-2xl watch:p-3.5"
           >
             <div
@@ -372,6 +456,7 @@ export function MePage(): ReactNode {
 
         <button
           type="button"
+          data-menu="me.logout"
           className="card-interactive flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3.5 text-sm font-semibold text-danger shadow-[var(--shadow-xs)] active:bg-danger/5 watch:rounded-xl watch:py-3"
           onClick={() => setLogoutOpen(true)}
         >
