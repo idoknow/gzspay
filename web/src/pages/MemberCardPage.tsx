@@ -9,6 +9,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -18,6 +19,11 @@ import { useCopy, useContextMenus, type ContextMenuItem } from "../components/Co
 import { CopyIcon } from "../components/ContextMenuIcons";
 import { LogoMark } from "../components/Logo";
 import { PageHeader } from "../components/PageHeader";
+import { useToast } from "../components/Toast";
+import { Toggle } from "../components/Toggle";
+import { disableNfcCard, enableNfcCard, getNfcCard } from "../lib/api";
+import { errorMessage } from "../lib/http";
+import type { NfcCardState } from "../lib/types";
 import { useAuth } from "../lib/session";
 
 /** 最大转动角度（度）：左右 ±22°、上下 ±10° */
@@ -52,6 +58,72 @@ function ContactlessIcon(): ReactNode {
       <path d="M10.9 6.5a9.2 9.2 0 0 1 0 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       <path d="M14.2 4.4a12.8 12.8 0 0 1 0 15.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/** NFC 卡片：开启后别人贴一贴手机就能读到卡面上的脱敏信息 */
+function NfcPanel(): ReactNode {
+  const toast = useToast();
+  const copy = useCopy();
+  const [state, setState] = useState<NfcCardState | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void getNfcCard()
+      .then((next) => {
+        if (alive) setState(next);
+      })
+      .catch(() => {
+        if (alive) setState(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const enabled = state?.enabled ?? false;
+  const url = state?.url ?? "";
+
+  const toggle = async (next: boolean): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = next ? await enableNfcCard() : await disableNfcCard();
+      setState(result);
+      toast.success(next ? "NFC 卡片已开启" : "NFC 卡片已关闭");
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mx-auto w-full max-w-[400px] rounded-2xl border border-line/70 bg-surface px-4 py-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13.5px] font-medium">NFC 卡片</p>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
+            {enabled ? "别人用手机贴一贴这台手机，就能读到卡面上的脱敏信息。" : "开启后，别人用手机贴一贴这台手机就能读到这张卡片。"}
+          </p>
+        </div>
+        <Toggle checked={enabled} disabled={busy} label="开启 NFC 卡片" onChange={(next) => void toggle(next)} />
+      </div>
+      {enabled && url ? (
+        <div className="mt-3 space-y-2 border-t border-line/60 pt-3">
+          <p className="break-all font-mono text-[11px] leading-relaxed text-muted">{url}</p>
+          <div className="flex gap-2">
+            <button type="button" className="btn btn-outline h-9 flex-1 text-[12.5px]" onClick={() => void copy(url, "卡片链接")}>
+              复制链接
+            </button>
+            <button type="button" className="btn btn-outline h-9 flex-1 text-[12.5px]" disabled={busy} onClick={() => void toggle(true)}>
+              更换链接
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -265,6 +337,8 @@ export function MemberCardPage(): ReactNode {
             className="mx-auto mt-4 h-7 w-[74%] rounded-[50%] bg-black/20 blur-2xl"
           />
         </div>
+
+        <NfcPanel />
       </main>
     </div>
   );

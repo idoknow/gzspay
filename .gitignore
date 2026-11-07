@@ -26,6 +26,17 @@ logs/
 *.log
 npm-debug.log*
 
+# 安卓客户端构建产物（源码在 android/，只忽略产物与本机配置）
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/.cxx/
+*.apk
+*.aab
+*.jks
+*.keystore
+
 # 编辑器与系统
 .DS_Store
 Thumbs.db
