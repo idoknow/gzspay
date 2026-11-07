@@ -4,6 +4,7 @@ import { asyncHandler, attachAdmin, requireAdmin } from "../lib/http.js";
 import { listAdminEntryVisits, normalizeEntryPath } from "../lib/admin-entry.js";
 import { parseCidr } from "../lib/geo.js";
 import { isSystemReady } from "../lib/runtime-config.js";
+import { fillIpLocations, getCachedIpLocation } from "../lib/ip-location.js";
 import { errors } from "../lib/errors.js";
 import {
   clearSessionCookie,
@@ -619,13 +620,22 @@ function logOptions(req: { query: Record<string, unknown> }) {
 adminRouter.get(
   "/logs",
   requireAdmin(),
-  asyncHandler((req, res) => {
+  asyncHandler(async (req, res) => {
     const query = req.query as Record<string, unknown>;
     const type = LOG_TYPES.includes(query.type as AdminLogType)
       ? (query.type as AdminLogType)
       : "audit";
     const { page, pageSize } = pagination(toInt(query.page, 1), toInt(query.pageSize, 20));
-    res.json(adminLogs(type, { ...logOptions(req), page, pageSize }));
+    const result = adminLogs(type, { ...logOptions(req), page, pageSize });
+    // 归属地先批量查进缓存再补到每一行（列表一次只查新出现的那几个 IP）
+    await fillIpLocations(result.items.map((item) => item.ip));
+    res.json({
+      ...result,
+      items: result.items.map((item) => ({
+        ...item,
+        ipLocation: getCachedIpLocation(item.ip),
+      })),
+    });
   }),
 );
 

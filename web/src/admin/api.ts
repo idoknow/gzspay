@@ -1867,6 +1867,7 @@ function mapLog(raw: unknown, fallbackType: LogType): AdminLog {
     target: firstText(source, ["target", "targetName", "object"]),
     detail: firstText(source, ["detail", "description", "content", "message"]),
     ip: firstText(source, ["ip", "ipMasked", "ipAddress"]),
+    ipLocation: firstText(source, ["ipLocation", "location"]) ?? null,
     userAgent: firstText(source, ["userAgent", "ua"]),
     result: firstText(source, ["result", "outcome", "status"]),
     level: firstText(source, ["level", "severity"]),

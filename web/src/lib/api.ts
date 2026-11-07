@@ -21,6 +21,8 @@ import type {
   MerchantPublic,
   MerchantResponse,
   Me,
+  NfcCard,
+  NfcCardState,
   NotificationSettings,
   OnboardingCardPayload,
   OnboardingEmailVerifyPayload,
@@ -880,4 +882,22 @@ export async function getMerchantBills(limit = 20): Promise<BillImport[]> {
 /** 账单详情（含未匹配流水） */
 export function getMerchantBill(id: string): Promise<BillImportDetail> {
   return api.get<BillImportDetail>(`/merchant/bills/${encodeURIComponent(id)}`);
+}
+
+/* NFC 卡片：自己这张卡的状态、开启 / 更换、关闭，以及别人贴一贴读到的公开信息 */
+
+export function getNfcCard(): Promise<NfcCardState> {
+  return api.get<NfcCardState>("/me/nfc-card");
+}
+
+export function enableNfcCard(): Promise<NfcCardState> {
+  return api.post<NfcCardState>("/me/nfc-card");
+}
+
+export function disableNfcCard(): Promise<NfcCardState> {
+  return api.del<NfcCardState>("/me/nfc-card");
+}
+
+export function getPublicNfcCard(token: string): Promise<NfcCard> {
+  return api.get<NfcCard>(`/nfc/${encodeURIComponent(token)}`);
 }

@@ -546,6 +546,8 @@ export interface AdminLog {
   target: string | null;
   detail: string | null;
   ip: string | null;
+  /** IP 归属地（「江苏省 · 南京市」），查不到时为 null */
+  ipLocation: string | null;
   userAgent: string | null;
   result: string | null;
   level: string | null;

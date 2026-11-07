@@ -49,6 +49,7 @@ npm test                # 可选：运行接口测试
 | `GEO_BLOCK_NON_CHINA` | 设为 `1` 后只允许中国大陆 IP 访问，境外请求返回 `403 REGION_BLOCKED`（默认 `0` 关闭） |
 | `GEO_IP_WHITELIST` / `GEO_BYPASS_PATHS` | 白名单 IP / CIDR，以及始终放行的路径（默认含 `/api/health`） |
 | `GEO_UNKNOWN_POLICY` / `GEO_TRUST_HEADER` | 归属未知时 `deny`（默认拦截）或 `allow`；CDN 回源国家码请求头（如 `CF-IPCountry`，确认回源可信才配） |
+| `IP_LOCATION_ENABLED` | 登录设备与后台日志是否显示 IP 归属地（默认 `1`，测试环境为 `0`）；数据来自公开 IP 库 `ipwho.is`（失败回退百度），服务端缓存 7 天后过期，设为 `0` 即完全不发外部请求 |
 
 > 启动时会做安全自检：生产环境下若 `SESSION_SECRET` 仍是示例值、短于 32 字符，或站点地址不是 https（且未设置 `ALLOW_INSECURE_BASE_URL=1`），服务会打印原因后直接退出。完整安全说明见 [security.md](./security.md)。
 >

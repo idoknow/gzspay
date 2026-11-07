@@ -23,8 +23,7 @@ import {
 } from "../services/devices.js";
 import {
   bindCampusCard,
-  findUserByEmail,
-  isQqEmailValue,
+  findUserByEmail,  isQqEmailValue,
   mailUserWithSetting,
   notifyProfileChanged,
   setPaymentPassword,
@@ -35,6 +34,7 @@ import {
   verifyPaymentPassword,
 } from "../services/users.js";
 import type { ProfileChangeField } from "../services/users.js";
+import { disableNfcCard, nfcCardState, rotateNfcToken } from "../services/nfc.js";
 
 export const meRouter: Router = Router();
 
@@ -42,6 +42,38 @@ meRouter.use(requireUser());
 
 meRouter.get("/", (req, res) => {
   res.json(toMe(req.auth!.user));
+});
+
+// ---- NFC 卡片：开启 / 更换令牌 / 关闭（令牌就是别人贴一贴读到的公开链接） ----
+meRouter.get("/nfc-card", (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(nfcCardState(req.auth!.user));
+});
+
+meRouter.post("/nfc-card", (req, res) => {
+  const state = rotateNfcToken(req.auth!.user);
+  writeAudit({
+    actorId: req.auth!.user.id,
+    actorRole: "user",
+    action: "nfc.card_enabled",
+    detail: "开启或更换了 NFC 卡片链接",
+    ip: requestIp(req),
+  });
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(state);
+});
+
+meRouter.delete("/nfc-card", (req, res) => {
+  const state = disableNfcCard(req.auth!.user);
+  writeAudit({
+    actorId: req.auth!.user.id,
+    actorRole: "user",
+    action: "nfc.card_disabled",
+    detail: "关闭了 NFC 卡片链接",
+    ip: requestIp(req),
+  });
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(state);
 });
 
 const profileSchema = z.object({
@@ -227,13 +259,16 @@ meRouter.patch(
 
 // ---------------- 登录设备 ----------------
 
-meRouter.get("/devices", (req, res) => {
-  const auth = req.auth!;
-  res.json({
-    items: listUserDevices(auth.user.id, auth.session.id),
-    onlineWindowMinutes: ONLINE_WINDOW_MINUTES,
-  });
-});
+meRouter.get(
+  "/devices",
+  asyncHandler(async (req, res) => {
+    const auth = req.auth!;
+    res.json({
+      items: await listUserDevices(auth.user.id, auth.session.id),
+      onlineWindowMinutes: ONLINE_WINDOW_MINUTES,
+    });
+  }),
+);
 
 meRouter.post(
   "/devices/logout-others",

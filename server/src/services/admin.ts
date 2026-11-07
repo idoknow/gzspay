@@ -1512,6 +1512,8 @@ export interface AdminLogDto {
   target: string | null;
   detail: string | null;
   ip: string | null;
+  /** IP 归属地（「江苏省 · 南京市」），由路由层补上，查不到时为 null */
+  ipLocation?: string | null;
   userAgent: string | null;
   result: string | null;
   level: string | null;

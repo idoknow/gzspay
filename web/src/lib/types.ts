@@ -51,6 +51,8 @@ export interface LoginDevice {
   os: string;
   browser: string;
   ip: string | null;
+  /** IP 归属地（「江苏省 · 南京市」），查不到时为 null */
+  ipLocation: string | null;
   createdAt: string;
   lastSeenAt: string;
   expiresAt: string;
@@ -696,4 +698,20 @@ export interface BillImport {
 /** 账单详情：只带未匹配的流水 */
 export interface BillImportDetail extends BillImport {
   transactions: BillTransaction[];
+}
+
+/** NFC 卡片：别人贴一贴读到的公开信息 */
+export interface NfcCard {
+  displayName: string;
+  avatarUrl: string | null;
+  studentNoMasked: string;
+  cardNoMasked: string;
+  merchant: boolean;
+}
+
+/** 自己这张 NFC 卡片的状态 */
+export interface NfcCardState {
+  enabled: boolean;
+  url: string | null;
+  token: string | null;
 }

@@ -88,7 +88,13 @@ function StatusBadge({
 
 /** 复制用的设备信息摘要 */
 function deviceInfoText(device: LoginDevice): string {
-  return [device.deviceName, device.os, device.browser, device.ip ? `IP ${device.ip}` : ""]
+  return [
+    device.deviceName,
+    device.os,
+    device.browser,
+    device.ip ? `IP ${device.ip}` : "",
+    device.ipLocation ?? "",
+  ]
     .filter(Boolean)
     .join(" · ");
 }
@@ -323,6 +329,12 @@ export function DevicesPage(): ReactNode {
                         <dt className="shrink-0">IP</dt>
                         <dd className="min-w-0 truncate font-mono">{device.ip || "未知"}</dd>
                       </div>
+                      {device.ipLocation ? (
+                        <div className="flex gap-2">
+                          <dt className="shrink-0">归属地</dt>
+                          <dd className="min-w-0 truncate">{device.ipLocation}</dd>
+                        </div>
+                      ) : null}
                       <div className="flex gap-2">
                         <dt className="shrink-0">登录时间</dt>
                         <dd>{formatDateTime(device.createdAt)}</dd>

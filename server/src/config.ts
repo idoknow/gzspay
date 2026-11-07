@@ -40,6 +40,8 @@ function bool(name: string, fallback: boolean): boolean {
 
 const nodeEnv = str("NODE_ENV", "development");
 const isProduction = nodeEnv === "production";
+/** 测试环境不查外部接口：跑测试不该依赖网络，也不该把测试 IP 发出去 */
+const isTestEnv = nodeEnv === "test";
 const appBaseUrl = str("APP_BASE_URL", "http://localhost:5173").replace(/\/+$/, "");
 const publicBaseUrl = str("PUBLIC_BASE_URL", appBaseUrl).replace(/\/+$/, "");
 /** 额外的写请求来源白名单，逗号分隔（例如局域网开发地址 http://192.168.1.10:5173） */
@@ -87,6 +89,14 @@ export const config = {
    * 否则攻击者伪造该头即可拿着任意 IP 绕过限流与地区限制。
    */
   trustProxy: str("TRUST_PROXY", "false"),
+
+  /**
+   * IP 归属地：在「登录设备」「后台日志」里显示 IP 大概位置。
+   * 查询要访问公开的免密接口（ipwho.is / 百度），不需要配置密钥；
+   * 不希望把访客 IP 发出去时设为 `IP_LOCATION_ENABLED=0` 关掉。
+   * 测试环境默认关闭，只在显式配置时打开。
+   */
+  ipLocationEnabled: bool("IP_LOCATION_ENABLED", !isTestEnv),
 
   campux: {
     baseUrl: optionalStr("CAMPUX_BASE_URL") ?? "",

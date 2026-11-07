@@ -26,6 +26,7 @@ export interface UserRow {
   email_verified: number;
   card_no: string | null;
   avatar_url: string | null;
+  nfc_token: string | null;
   payment_pwd_hash: string | null;
   payment_fail_count: number;
   payment_fail_window_start: string | null;

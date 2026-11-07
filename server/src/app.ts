@@ -27,6 +27,7 @@ import { dynamicRouter } from "./routes/dynamic.js";
 import { meRouter } from "./routes/me.js";
 import { merchantRouter } from "./routes/merchant.js";
 import { miscRouter } from "./routes/misc.js";
+import { nfcRouter } from "./routes/nfc.js";
 import { onboardingRouter } from "./routes/onboarding.js";
 import { ticketsRouter } from "./routes/tickets.js";
 import { ordersRouter } from "./routes/orders.js";
@@ -156,6 +157,7 @@ export function createApp(): Express {
   api.use("/auth", authRouter);
   api.use("/onboarding", onboardingRouter);
 api.use("/avatar", avatarRouter);
+api.use("/nfc", nfcRouter);
   api.use("/me", meRouter);
   api.use("/merchant", merchantRouter);
   api.use("/orders", ordersRouter);

@@ -262,7 +262,10 @@ export function LogsPage() {
                       <LogResultCell log={log} />
                     </td>
                     <td className="admin-text-sm admin-mono admin-log-col-ip">
-                      {log.ip || "—"}
+                      <span className="block">{log.ip || "—"}</span>
+                      {log.ipLocation ? (
+                        <span className="admin-text-xs admin-muted block">{log.ipLocation}</span>
+                      ) : null}
                     </td>
                     <td className="admin-log-col-detail">
                       <div className="admin-log-detail-cell">
@@ -355,6 +358,7 @@ export function LogsPage() {
               <KVGrid
                 items={[
                   { label: "IP 地址", value: detail.ip || "—", mono: true },
+                  { label: "IP 归属地", value: detail.ipLocation || "—" },
                   { label: "User-Agent", value: detail.userAgent || "—" },
                 ]}
               />

@@ -41,6 +41,7 @@ const DynamicCodePage = lazyPage(() => import("./pages/DynamicCodePage"), "Dynam
 const GuidePage = lazyPage(() => import("./pages/GuidePage"), "GuidePage");
 const MePage = lazyPage(() => import("./pages/MePage"), "MePage");
 const MemberCardPage = lazyPage(() => import("./pages/MemberCardPage"), "MemberCardPage");
+const NfcCardPage = lazyPage(() => import("./pages/NfcCardPage"), "NfcCardPage");
 const MerchantPage = lazyPage(() => import("./pages/MerchantPage"), "MerchantPage");
 const MerchantCollectPage = lazyPage(() => import("./pages/MerchantCollectPage"), "MerchantCollectPage");
 const MerchantRegisterPage = lazyPage(() => import("./pages/MerchantRegisterPage"), "MerchantRegisterPage");
@@ -160,6 +161,14 @@ const router = createBrowserRouter([
     element: (
       <PageSuspense>
         <GuidePage />
+      </PageSuspense>
+    ),
+  },
+  {
+    path: "/nfc/:token",
+    element: (
+      <PageSuspense>
+        <NfcCardPage />
       </PageSuspense>
     ),
   },

@@ -5,6 +5,7 @@
  * 「在线」与后台用户管理保持一致：会话未过期且最近 5 分钟内有请求。
  */
 import { execute, nowIso, queryAll } from "../db/index.js";
+import { fillIpLocations, getCachedIpLocation } from "../lib/ip-location.js";
 import type { SessionRow } from "../lib/types.js";
 import { pushToUser } from "./events.js";
 
@@ -28,6 +29,8 @@ export interface DeviceView extends DeviceDescriptor {
   /** 是否就是当前发起请求的设备 */
   current: boolean;
   ip: string | null;
+  /** IP 归属地（「江苏省 · 南京市」），查不到或未开启时为 null */
+  ipLocation: string | null;
   createdAt: string;
   lastSeenAt: string;
   expiresAt: string;
@@ -52,6 +55,10 @@ export function describeUserAgent(raw: string | null): DeviceDescriptor {
     return { deviceName: "未知设备", deviceType: "other", os: "未知系统", browser: "未知客户端" };
   }
   const browser = describeBrowser(userAgent);
+  // 安卓客户端（WebView 壳）会在 User-Agent 里带上 GzspayApp/x.y，设备列表里统一显示为「客户端」
+  if (/GzspayApp\//i.test(userAgent)) {
+    return { deviceName: "gzspay 客户端", deviceType: "mobile", os: "Android", browser: "客户端" };
+  }
   if (/iPhone/i.test(userAgent)) {
     return { deviceName: "iPhone", deviceType: "mobile", os: "iOS", browser };
   }
@@ -87,11 +94,16 @@ function isOnline(session: SessionRow, now: string, since: string): boolean {
 }
 
 /** 列出该用户最近的登录设备（含已过期但尚未清理的会话）。 */
-export function listUserDevices(userId: string, currentSessionId: string | null): DeviceView[] {
+export async function listUserDevices(
+  userId: string,
+  currentSessionId: string | null,
+): Promise<DeviceView[]> {
   const rows = queryAll<SessionRow>(
     `SELECT * FROM sessions WHERE user_id = ? ORDER BY last_seen_at DESC LIMIT ${DEVICE_LIMIT}`,
     userId,
   );
+  // 归属地来自公开接口，先批量查进缓存，再同步读出来，避免每行都等一次网络
+  await fillIpLocations(rows.map((row) => row.ip));
   const now = nowIso();
   const since = new Date(Date.now() - ONLINE_WINDOW_MINUTES * 60_000).toISOString();
   return rows.map((row) => ({
@@ -99,6 +111,7 @@ export function listUserDevices(userId: string, currentSessionId: string | null)
     current: currentSessionId !== null && row.id === currentSessionId,
     ...describeUserAgent(row.user_agent),
     ip: row.ip,
+    ipLocation: getCachedIpLocation(row.ip),
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
     expiresAt: row.expires_at,

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
   email_verified INTEGER NOT NULL DEFAULT 0,
   card_no TEXT UNIQUE,
   avatar_url TEXT,
+  nfc_token TEXT,                             -- NFC 卡片公开链接的令牌（可随时更换）
   payment_pwd_hash TEXT,
   payment_fail_count INTEGER NOT NULL DEFAULT 0,
   payment_fail_window_start TEXT,

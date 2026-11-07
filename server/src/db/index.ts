@@ -97,6 +97,13 @@ function applyLegacyMigrations(): void {
   if (!columns.some((column) => column.name === "method")) {
     db.exec("ALTER TABLE login_logs ADD COLUMN method TEXT;");
   }
+  const userColumns = db
+    .prepare("PRAGMA table_info(users)")
+    .all() as { name: string }[];
+  if (!userColumns.some((column) => column.name === "nfc_token")) {
+    db.exec("ALTER TABLE users ADD COLUMN nfc_token TEXT;");
+  }
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nfc_token ON users(nfc_token);");
   const orderColumns = db
     .prepare("PRAGMA table_info(orders)")
     .all() as { name: string }[];
