@@ -95,6 +95,12 @@ interface Me {
     ticket: boolean;
     /** 平台公告邮件通知 */
     announcement: boolean;
+    /** 个人信息修改邮件通知 */
+    profile: boolean;
+    /** 支付密码修改/重置邮件通知 */
+    password: boolean;
+    /** 登录提醒邮件通知 */
+    login: boolean;
   };
   createdAt: string;
 }
@@ -104,7 +110,7 @@ interface Me {
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/api/auth/session` | 当前登录态：`{ authenticated, me?, onboardStep?, isAdmin, campuxConfigured, site: { name, schoolName, icp } }`；`campuxConfigured` 表示是否已配置校园墙 OAuth；`site.icp` 为站点备案号（空字符串表示未填写，未登录也会返回，登录页与全站页脚据此展示） |
+| `GET` | `/api/auth/session` | 当前登录态：`{ authenticated, sessionId?, me?, onboardStep?, isAdmin, campuxConfigured, site: { name, schoolName, icp } }`；`sessionId` 是当前会话 id（`sessions.id`，登录态返回），前端用它判断「被强制下线的是不是我」；`campuxConfigured` 表示是否已配置校园墙 OAuth；`site.icp` 为站点备案号（空字符串表示未填写，未登录也会返回，登录页与全站页脚据此展示） |
 | `GET` | `/api/auth/login` | 302 跳转校园墙授权页（生成 state + PKCE） |
 | `GET` | `/api/auth/callback?code&state` | 校园墙回调，成功后 302 到 `APP_BASE_URL/`（新用户到 `/onboarding`，`redirect=/admin` 时到 `/admin`）；系统未初始化时第一个登录的账号自动成为超级管理员。state 带 `purpose=password_verify` 时不切换登录态，只核对授权账号与当前登录账号一致后写入一次性验证记录，再跳回 `/me/password?campux=1` |
 | `POST` | `/api/auth/logout` | 退出登录，清 Cookie |
@@ -159,11 +165,11 @@ interface Me {
 | `POST` | `/api/me/email/start` | `{ email, paymentPassword }` 发送新邮箱验证码 |
 | `POST` | `/api/me/email/verify` | `{ email, code, paymentPassword }` 完成换绑 |
 | `POST` | `/api/me/card` | `{ cardContent, paymentPassword }` 换绑校园卡（新卡未被占用，旧卡解绑） |
-| `PATCH` | `/api/me/settings` | `{ newOrder?, paid?, settled?, ticket?, announcement? }` 邮件开关 |
+| `PATCH` | `/api/me/settings` | `{ newOrder?, paid?, settled?, ticket?, announcement?, profile?, password?, login? }` 邮件开关（未传的字段保留原值） |
 | `GET` | `/api/me/card-qr` | `{ content, cardNoMasked }` 我的校园卡二维码内容 |
-| `GET` | `/api/me/devices` | `{ items: LoginDevice[], onlineWindowMinutes }` 登录设备列表；`LoginDevice = { id, current, deviceName, deviceType: "mobile"\|"tablet"\|"desktop"\|"other", os, browser, ip, createdAt, lastSeenAt, expiresAt, online }`，`current` 为当前请求所属会话，`online` 指会话未过期且最近 `onlineWindowMinutes`（5）分钟内有请求 |
-| `POST` | `/api/me/devices/:id/logout` | 退出指定设备，`{ ok: true, current }`；退出的是当前设备时会同时清掉会话 Cookie |
-| `POST` | `/api/me/devices/logout-others` | 退出除当前设备外的所有设备，`{ ok: true, revoked }` |
+| `GET` | `/api/me/devices` | `{ items: LoginDevice[], onlineWindowMinutes }` 登录设备列表；`LoginDevice = { id, current, deviceName, deviceType: "mobile"\|"tablet"\|"desktop"\|"other", os, browser, ip, createdAt, lastSeenAt, expiresAt, online }`，`current` 表示该条就是当前请求所属会话（界面显示「本机」），`online` 指会话未过期且最近 `onlineWindowMinutes`（5）分钟内有请求。列表按 `lastSeenAt` 倒序，最多 30 条；`online` 只反映请求时刻的状态，前端靠 `session_revoked` / `devices_update` 事件加 12 秒轮询刷新 |
+| `POST` | `/api/me/devices/:id/logout` | 退出指定设备，`{ ok: true, current }`；退出的是当前设备时会同时清掉会话 Cookie。被退出的会话若开着 `/api/events/stream`，会立刻收到 `session_revoked`（`reason: "device"`） |
+| `POST` | `/api/me/devices/logout-others` | 退出除当前设备外的所有设备，`{ ok: true, revoked }`；每台被退出的设备都会收到 `session_revoked` |
 | `GET` | `/api/about` | `{ version, changelog: [{version, date, items[], groups: [{title, items[]}]}], site: { name, schoolName, icp }, privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文，日期为 YYYY-MM-DD；`site.icp` 为空字符串表示未填写备案号） |
 
 ## 5. 商家
@@ -291,7 +297,7 @@ interface OrderSummary {
 | `GET` | `/api/dynamic-code/requests/:id` | 收款请求详情 |
 | `POST` | `/api/dynamic-code/requests/:id/accept` | 客户在自己手机上确认：`{ paymentPassword }` → 创建订单，返回 `{ request, order, orderId }` |
 | `POST` | `/api/dynamic-code/requests/:id/reject` | 客户拒绝 → `{ request }` |
-| `GET` | `/api/events/stream` | SSE：`payment_request`、`order_update` 事件推送（30 秒一次注释心跳） |
+| `GET` | `/api/events/stream` | SSE 事件通道：`payment_request`、`order_update`、`ticket_update`、`session_revoked`、`devices_update`（25 秒一次 `ping` 心跳，重连间隔由服务端下发 `retry`） |
 
 令牌消费时机：`resolve` 不消费；`POST /api/dynamic-code/request`（商家发起收款）或`POST /api/orders` 带 `dynamicCodeToken`（客户主动付款）时消费。
 
@@ -312,13 +318,30 @@ interface PaymentRequest {
 }
 ```
 
-SSE 事件格式：`event: payment_request` / `event: order_update`，`data:` 为单行 JSON。
-`payment_request` 的 data 是上面的 `PaymentRequest` 扁平对象；`order_update` 的 data 为 `{ orderId, status }`。
+SSE 事件格式：`event: <事件名>`，`data:` 为单行 JSON。
+
+| 事件 | data | 说明 |
+| --- | --- | --- |
+| `payment_request` | `PaymentRequest`（上方接口定义） | 商家扫动态码发起收款 |
+| `order_update` | `{ orderId, status }` | 订单状态变化 |
+| `ticket_update` | `{ ticketId \| null, orderId \| null }` | 工单有新消息 / 被关闭 |
+| `session_revoked` | `{ sessionId, sessionIds, reason }` | 某些登录会话被撤销：`reason` 为 `"device"`（在设备管理里被退出）、`"admin"`（管理员强制下线）或 `"other"`；`sessionIds` 是被撤销的全部会话，`sessionId` 为其中第一条。客户端拿它和 `GET /api/auth/session` 返回的 `sessionId` 比较，相等就立刻退出登录 |
+| `devices_update` | `{ reason }` | 登录设备列表有变化，`reason` 为 `"login"`（新登录）、`"logout"`（主动退出）或 `"device"` / `"admin"`（被强制下线），设备页据此立即刷新 |
+| `ready` | `{ connectedAt }` | 连接建立后的第一条事件 |
+| `ping` | 时间戳数字 | 心跳，25 秒一次，客户端可忽略 |
 
 ```ts
 interface SSEOrderUpdate {
   orderId: string;
   status: "pending_payment" | "paid" | "completed" | "cancelled";
+}
+
+interface SSESessionRevoked {
+  /** 被撤销的会话 id（多条时为第一条） */
+  sessionId: string;
+  /** 被撤销的全部会话 id */
+  sessionIds: string[];
+  reason: "device" | "admin" | "other";
 }
 ```
 

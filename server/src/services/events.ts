@@ -5,6 +5,8 @@ import type { AuthContext } from "../lib/types.js";
 interface SseClient {
   id: number;
   userId: string;
+  /** 建立这条连接所用的会话 id：撤销会话时可以只通知命中的那一端 */
+  sessionId: string;
   res: Response;
 }
 
@@ -16,7 +18,16 @@ const MAX_CLIENTS_PER_USER = 5;
 /** 单进程 SSE 连接总数上限，超过后拒绝新连接，保护内存与 fd */
 const MAX_CLIENTS_TOTAL = 2000;
 
-export type SseEventName = "payment_request" | "order_update" | "ticket_update" | "ready" | "ping";
+export type SseEventName =
+  | "payment_request"
+  | "order_update"
+  | "ticket_update"
+  /** 某个登录会话被撤销（其它设备退出、管理员强制下线） */
+  | "session_revoked"
+  /** 登录设备列表有变化（登录 / 退出），前端据此刷新列表 */
+  | "devices_update"
+  | "ready"
+  | "ping";
 
 function countUserClients(userId: string): number {
   let count = 0;
@@ -56,7 +67,7 @@ export function eventStreamHandler(req: Request, res: Response): void {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
 
-  const client: SseClient = { id: nextClientId++, userId: auth.user.id, res };
+  const client: SseClient = { id: nextClientId++, userId: auth.user.id, sessionId: auth.session.id, res };
   clients.add(client);
   // 断线后客户端按 retry 自动重连
   res.write(`retry: ${Math.max(1000, config.security.dynamicCodeRefreshSeconds * 1000)}\n\n`);
@@ -76,10 +87,23 @@ export function eventStreamHandler(req: Request, res: Response): void {
   res.on("close", cleanup);
 }
 
+/** 推送选项：跳过某个会话自己的连接（例如「我在这台设备上踢掉别人」时不必通知自己） */
+export interface PushOptions {
+  exceptSessionId?: string | null;
+}
+
 /** 向单个用户推送事件（只推给该用户的所有在线连接） */
-export function pushToUser(userId: string, event: SseEventName, data: unknown): void {
+export function pushToUser(
+  userId: string,
+  event: SseEventName,
+  data: unknown,
+  options: PushOptions = {},
+): void {
+  const except = options.exceptSessionId ?? null;
   for (const client of clients) {
-    if (client.userId === userId) writeEvent(client, event, data);
+    if (client.userId !== userId) continue;
+    if (except !== null && client.sessionId === except) continue;
+    writeEvent(client, event, data);
   }
 }
 

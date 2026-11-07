@@ -144,6 +144,16 @@ function applyLegacyMigrations(): void {
   if (!notificationColumns.some((column) => column.name === "announcement")) {
     db.exec("ALTER TABLE notification_settings ADD COLUMN announcement INTEGER NOT NULL DEFAULT 1;");
   }
+  // 账号安全类通知（个人信息修改 / 密码修改 / 登录提醒）默认开启，旧库补齐列后保持开启
+  if (!notificationColumns.some((column) => column.name === "profile")) {
+    db.exec("ALTER TABLE notification_settings ADD COLUMN profile INTEGER NOT NULL DEFAULT 1;");
+  }
+  if (!notificationColumns.some((column) => column.name === "password")) {
+    db.exec("ALTER TABLE notification_settings ADD COLUMN password INTEGER NOT NULL DEFAULT 1;");
+  }
+  if (!notificationColumns.some((column) => column.name === "login")) {
+    db.exec("ALTER TABLE notification_settings ADD COLUMN login INTEGER NOT NULL DEFAULT 1;");
+  }
 
   const ticketColumns = db
     .prepare("PRAGMA table_info(tickets)")

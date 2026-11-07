@@ -11,7 +11,7 @@ import { issueEmailCode, consumeEmailCode, latestCodeEmail } from "../lib/email.
 import { AppError, errors } from "../lib/errors.js";
 import { asyncHandler, requireUser } from "../lib/http.js";
 import { rateLimit, userKey } from "../lib/rate-limit.js";
-import { sendMailInBackground, templates } from "../lib/mail.js";
+import { templates } from "../lib/mail.js";
 import { clearSessionCookie } from "../lib/session.js";
 import { requestIp } from "../lib/types.js";
 import { parse } from "../lib/validate.js";
@@ -25,6 +25,8 @@ import {
   bindCampusCard,
   findUserByEmail,
   isQqEmailValue,
+  mailUserWithSetting,
+  notifyProfileChanged,
   setPaymentPassword,
   setRealName,
   setStudentNo,
@@ -32,6 +34,7 @@ import {
   toMe,
   verifyPaymentPassword,
 } from "../services/users.js";
+import type { ProfileChangeField } from "../services/users.js";
 
 export const meRouter: Router = Router();
 
@@ -57,6 +60,7 @@ meRouter.patch(
       throw errors.validation("没有需要修改的内容");
     }
     verifyPaymentPassword(user, body.paymentPassword, requestIp(req));
+    const changed: ProfileChangeField[] = [];
     let updated = user;
     if (body.surname || body.givenName) {
       updated = setRealName(
@@ -65,10 +69,16 @@ meRouter.patch(
         body.givenName ?? updated.given_name ?? "",
         requestIp(req),
       );
+      if (updated.surname !== user.surname || updated.given_name !== user.given_name) {
+        changed.push("name");
+      }
     }
     if (body.studentNo) {
       updated = setStudentNo(updated, body.studentNo, requestIp(req));
+      if (updated.student_no !== user.student_no) changed.push("studentNo");
     }
+    // 只改动了真实变化的字段才发提醒邮件
+    notifyProfileChanged(updated, changed, requestIp(req));
     res.json(toMe(updated));
   }),
 );
@@ -136,6 +146,9 @@ meRouter.post(
       ip: requestIp(req),
     });
     const updated = setVerifiedEmail(user, body.email, requestIp(req));
+    if (updated.email !== user.email) {
+      notifyProfileChanged(updated, ["email"], requestIp(req));
+    }
     res.json(toMe(updated));
   }),
 );
@@ -159,6 +172,9 @@ meRouter.post(
     const body = parse(cardSchema, req.body);
     verifyPaymentPassword(user, body.paymentPassword, requestIp(req));
     const updated = bindCampusCard(user, body.cardContent, requestIp(req));
+    if (updated.card_no !== user.card_no) {
+      notifyProfileChanged(updated, ["card"], requestIp(req));
+    }
     res.json(toMe(updated));
   }),
 );
@@ -169,6 +185,9 @@ const settingsSchema = z.object({
   settled: z.boolean().optional(),
   ticket: z.boolean().optional(),
   announcement: z.boolean().optional(),
+  profile: z.boolean().optional(),
+  password: z.boolean().optional(),
+  login: z.boolean().optional(),
 });
 
 meRouter.patch(
@@ -182,17 +201,24 @@ meRouter.patch(
       settled: number;
       ticket: number;
       announcement: number;
+      profile: number;
+      password: number;
+      login: number;
     }>("SELECT * FROM notification_settings WHERE user_id = ?", user.id);
     if (!current) throw errors.notFound("通知设置不存在");
     execute(
       `UPDATE notification_settings
-          SET new_order = ?, paid = ?, settled = ?, ticket = ?, announcement = ?
+          SET new_order = ?, paid = ?, settled = ?, ticket = ?, announcement = ?,
+              profile = ?, password = ?, login = ?
         WHERE user_id = ?`,
       body.newOrder === undefined ? current.new_order : body.newOrder ? 1 : 0,
       body.paid === undefined ? current.paid : body.paid ? 1 : 0,
       body.settled === undefined ? current.settled : body.settled ? 1 : 0,
       body.ticket === undefined ? current.ticket : body.ticket ? 1 : 0,
       body.announcement === undefined ? current.announcement : body.announcement ? 1 : 0,
+      body.profile === undefined ? current.profile : body.profile ? 1 : 0,
+      body.password === undefined ? current.password : body.password ? 1 : 0,
+      body.login === undefined ? current.login : body.login ? 1 : 0,
       user.id,
     );
     res.json(toMe(req.auth!.user));
@@ -232,7 +258,7 @@ meRouter.post(
   asyncHandler((req, res) => {
     const auth = req.auth!;
     const sessionId = String(req.params.id);
-    if (!revokeUserDevice(auth.user.id, sessionId)) {
+    if (!revokeUserDevice(auth.user.id, sessionId, auth.session.id)) {
       throw errors.notFound("设备不存在或已退出登录");
     }
     const current = sessionId === auth.session.id;
@@ -411,9 +437,8 @@ meRouter.post(
     if (row.expires_at <= nowIso()) throw errors.validation("重置凭证已过期，请重新获取验证码");
     setPaymentPassword(user, body.password, requestIp(req));
     execute("UPDATE password_reset_tokens SET used_at = ? WHERE id = ?", nowIso(), row.id);
-    if (user.email) {
-      sendMailInBackground(templates.passwordChanged(user.email));
-    }
+    // 密码修改提醒：受「密码修改」开关控制，开关关闭时不发信
+    mailUserWithSetting(user.id, templates.passwordChanged(user.email ?? ""), "password");
     writeAudit({
       actorId: user.id,
       actorRole: "user",

@@ -261,6 +261,12 @@ export interface NotificationSettingsRow {
   ticket: number;
   /** 平台公告邮件通知，1 表示开启 */
   announcement: number;
+  /** 个人信息修改邮件通知，1 表示开启 */
+  profile: number;
+  /** 支付密码修改/重置邮件通知，1 表示开启 */
+  password: number;
+  /** 登录提醒邮件通知，1 表示开启 */
+  login: number;
 }
 
 export interface PublicUser {
@@ -298,6 +304,12 @@ export interface Me {
     ticket: boolean;
     /** 平台公告邮件通知 */
     announcement: boolean;
+    /** 个人信息修改邮件通知 */
+    profile: boolean;
+    /** 支付密码修改/重置邮件通知 */
+    password: boolean;
+    /** 登录提醒邮件通知 */
+    login: boolean;
   };
   createdAt: string;
 }

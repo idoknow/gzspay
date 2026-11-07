@@ -6,6 +6,7 @@
  */
 import { execute, nowIso, queryAll } from "../db/index.js";
 import type { SessionRow } from "../lib/types.js";
+import { pushToUser } from "./events.js";
 
 /** 判定「在线」的活跃窗口（分钟）：会话未过期且最近这么多分钟内有请求。 */
 export const ONLINE_WINDOW_MINUTES = 5;
@@ -105,8 +106,45 @@ export function listUserDevices(userId: string, currentSessionId: string | null)
   }));
 }
 
+/** 会话被撤销的原因：设备管理里手动退出、管理员强制下线、其它（账号异常等）。 */
+export type SessionRevokeReason = "device" | "admin" | "other";
+
+/**
+ * 通知该用户的在线连接「某些会话已被撤销」。
+ *
+ * 前端只在自己那条会话命中 sessionIds 时才立刻退出登录（不必等刷新）；
+ * 同时推一条 devices_update，让正开着的「登录设备」页马上刷新列表。
+ * exceptSessionId：操作方自己的会话不受影响，不必收到（也免得自己踢自己）。
+ */
+export function notifySessionsRevoked(
+  userId: string,
+  sessionIds: string[],
+  reason: SessionRevokeReason,
+  exceptSessionId?: string | null,
+): void {
+  if (sessionIds.length === 0) return;
+  pushToUser(
+    userId,
+    "session_revoked",
+    { sessionId: sessionIds[0] ?? "", sessionIds, reason },
+    { exceptSessionId },
+  );
+  pushToUser(userId, "devices_update", { reason }, { exceptSessionId });
+}
+
+/** 列出某个用户的全部会话 id（管理员强制下线前先取，用来精确通知被下线的设备）。 */
+export function listSessionIds(userId: string): string[] {
+  return queryAll<{ id: string }>("SELECT id FROM sessions WHERE user_id = ?", userId).map(
+    (row) => row.id,
+  );
+}
+
 /** 强制退出指定设备（只能操作自己的会话）。返回是否找到并删除。 */
-export function revokeUserDevice(userId: string, sessionId: string): boolean {
+export function revokeUserDevice(
+  userId: string,
+  sessionId: string,
+  actorSessionId: string | null = null,
+): boolean {
   const row = queryAll<{ id: string }>(
     "SELECT id FROM sessions WHERE id = ? AND user_id = ?",
     sessionId,
@@ -114,14 +152,25 @@ export function revokeUserDevice(userId: string, sessionId: string): boolean {
   )[0];
   if (!row) return false;
   execute("DELETE FROM sessions WHERE id = ?", sessionId);
+  notifySessionsRevoked(userId, [sessionId], "device", actorSessionId);
   return true;
 }
 
 /** 退出除当前设备外的其它设备，返回退出数量。 */
 export function revokeOtherUserDevices(userId: string, currentSessionId: string | null): number {
-  if (currentSessionId) {
-    return execute("DELETE FROM sessions WHERE user_id = ? AND id != ?", userId, currentSessionId)
-      .changes;
-  }
-  return execute("DELETE FROM sessions WHERE user_id = ?", userId).changes;
+  // 先取走被删的会话 id：删完就查不到了，而前端要靠它判断「是不是我这条会话」
+  const revokedIds = currentSessionId
+    ? queryAll<{ id: string }>(
+        "SELECT id FROM sessions WHERE user_id = ? AND id != ?",
+        userId,
+        currentSessionId,
+      ).map((row) => row.id)
+    : queryAll<{ id: string }>("SELECT id FROM sessions WHERE user_id = ?", userId).map(
+        (row) => row.id,
+      );
+  const changes = currentSessionId
+    ? execute("DELETE FROM sessions WHERE user_id = ? AND id != ?", userId, currentSessionId).changes
+    : execute("DELETE FROM sessions WHERE user_id = ?", userId).changes;
+  notifySessionsRevoked(userId, revokedIds, "device", currentSessionId);
+  return changes;
 }

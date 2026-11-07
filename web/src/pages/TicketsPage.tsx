@@ -32,7 +32,7 @@ function TicketCard({ item, onOpen }: { item: TicketSummary; onOpen: () => void 
     <button
       type="button"
       onClick={onOpen}
-      className="card card-interactive block w-full px-4 py-3.5 text-left watch:rounded-2xl watch:px-3 watch:py-2.5"
+      className="card card-interactive block w-full px-4 py-3.5 text-left watch:rounded-2xl watch:px-3 watch:py-2.5 md:px-4 md:py-4 md:hover:-translate-y-px md:hover:shadow-[0_18px_36px_-28px_rgba(0,0,0,0.65)]"
     >
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-2 text-[11px] font-semibold text-muted watch:h-7 watch:w-7">
@@ -93,16 +93,16 @@ export function TicketsPage(): ReactNode {
 
   return (
     <div className="bg-app min-h-[100dvh]">
-      <PageHeader title="交易工单" back />
+      <PageHeader title="交易工单" back containerClassName="md:max-w-[860px]" />
 
-      <main className="page page-with-nav space-y-4 pt-4 watch:space-y-3 watch:pt-3">
-        <div className="chip-group flex w-full gap-1.5">
+      <main className="page page-with-nav space-y-4 pt-4 watch:space-y-3 watch:pt-3 md:max-w-[860px]">
+        <div className="chip-group flex w-full gap-1.5 md:w-auto md:gap-2">
           {FILTERS.map((option) => (
             <button
               key={option.value}
               type="button"
               aria-pressed={filter === option.value}
-              className={cn("chip flex-1", filter === option.value && "chip-active")}
+              className={cn("chip flex-1 md:flex-none md:px-6", filter === option.value && "chip-active")}
               onClick={() => setFilter(option.value)}
             >
               {option.label}
@@ -128,7 +128,7 @@ export function TicketsPage(): ReactNode {
             }
           />
         ) : (
-          <div className="space-y-2.5 watch:space-y-2">
+          <div className="space-y-2.5 watch:space-y-2 md:grid md:grid-cols-2 md:gap-2.5 md:space-y-0 xl:grid-cols-3">
             {items.map((item) => (
               <TicketCard key={item.id} item={item} onOpen={() => navigate(`/tickets/${item.id}`)} />
             ))}

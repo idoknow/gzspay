@@ -4,7 +4,7 @@ import { config, isCampuxConfigured } from "../config.js";
 import { execute, isoAfter, nowIso, queryOne } from "../db/index.js";
 import { writeAudit, writeLoginLog } from "../lib/audit.js";
 import { completeAuthorization, createAuthorizationRequest, OAUTH_STATE_COOKIE, oauthStateCookieOptions } from "../lib/campux.js";
-import { randomToken } from "../lib/crypto.js";
+import { randomToken, hashToken } from "../lib/crypto.js";
 import { AppError, errors } from "../lib/errors.js";
 import { asyncHandler, attachUser } from "../lib/http.js";
 import { rateLimit } from "../lib/rate-limit.js";
@@ -19,7 +19,8 @@ import {
 import type { AdminRow } from "../lib/types.js";
 import { requestIp } from "../lib/types.js";
 import { ensureFirstAdmin } from "../services/setup.js";
-import { loginOrRegister, toMe } from "../services/users.js";
+import { pushToUser } from "../services/events.js";
+import { loginOrRegister, notifyLogin, toMe } from "../services/users.js";
 
 export const authRouter: Router = Router();
 
@@ -45,6 +46,8 @@ authRouter.get("/session", attachUser, (req, res) => {
   }
   res.json({
     authenticated: true,
+    /** 当前会话 id（sessions.id）：前端用它判断自己是否已被强制下线 */
+    sessionId: auth.session.id,
     onboarded: auth.user.onboarded === 1,
     onboardStep: auth.user.onboard_step,
     isAdmin: adminRoleOf(auth.user.id) !== undefined,
@@ -214,6 +217,10 @@ authRouter.get(
         ip,
         userAgent: req.headers["user-agent"],
       });
+      // 登录提醒邮件（时间、IP、设备简述），受「登录通知」开关控制；刚注册还没有邮箱时自动跳过
+      notifyLogin(result.user, { ip, userAgent: req.headers["user-agent"] ?? null });
+      // 已登录的其它设备上开着「登录设备」页时，立刻把新设备刷新出来
+      pushToUser(result.user.id, "devices_update", { reason: "login" });
       const adminTarget = redirectTo === "/admin" || Boolean(redirectTo?.startsWith("/admin/"));
       if (!result.onboardingComplete && !adminTarget) {
         res.redirect(302, `${config.appBaseUrl}/onboarding`);
@@ -247,7 +254,18 @@ authRouter.post(
   }),
   (req, res) => {
     const token = sessionTokenFromRequest(req);
-    if (token) revokeSessionByToken(token);
+    if (token) {
+      const sessionId = hashToken(token);
+      const owner = queryOne<{ user_id: string }>(
+        "SELECT user_id FROM sessions WHERE id = ?",
+        sessionId,
+      );
+      revokeSessionByToken(token);
+      // 该用户其它设备上开着的「登录设备」页立刻把这一台从列表里去掉
+      if (owner) {
+        pushToUser(owner.user_id, "devices_update", { reason: "logout" }, { exceptSessionId: sessionId });
+      }
+    }
     clearSessionCookie(res);
     res.json({ ok: true });
   },

@@ -1,7 +1,7 @@
-/** 交易统计报告画布：把汇总与两张图表画成一张图，用于导出 PNG / PDF（浏览器端）。 */
+/** 交易统计报告画布：把汇总与全部图表画成一张图，用于导出 PNG / PDF（浏览器端）。 */
 
 import { formatCents } from "./format";
-import type { StatsBucket, StatsSummary } from "./types";
+import type { StatsBucket, StatsChannelStat, StatsSummary } from "./types";
 
 export interface StatsReportInput {
   rangeLabel: string;
@@ -309,17 +309,191 @@ function drawLineChart(
   return top + height;
 }
 
+interface BarSeriesSpec {
+  label: string;
+  color: string;
+  values: number[];
+}
+
+/** 通用分组柱状图：订单笔数趋势、交易时段分布都用它画 */
+function drawGroupedBars(
+  ctx: CanvasRenderingContext2D,
+  top: number,
+  input: {
+    title: string;
+    note?: string;
+    labels: string[];
+    series: BarSeriesSpec[];
+    axisFormat: (value: number) => string;
+    height?: number;
+  },
+): number {
+  const height = input.height ?? 272;
+  card(ctx, PAD, top, WIDTH - PAD * 2, height);
+  const innerX = PAD + 20;
+  const innerRight = WIDTH - PAD - 20;
+  drawText(ctx, input.title, innerX, top + 34, { size: 16, weight: 700 });
+  if (input.note) {
+    drawText(ctx, input.note, innerX, top + 52, { size: 11, color: COLOR.muted });
+  }
+
+  // 图例：右对齐、从右往左排
+  let legendX = innerRight;
+  for (const item of [...input.series].reverse()) {
+    ctx.font = `500 12px ${FONT_STACK}`;
+    const labelWidth = ctx.measureText(item.label).width;
+    legendX -= labelWidth;
+    drawText(ctx, item.label, legendX, top + 32, { size: 12, color: COLOR.muted });
+    legendX -= 18;
+    ctx.fillStyle = item.color;
+    roundedRect(ctx, legendX, top + 23, 10, 10, 3);
+    ctx.fill();
+    legendX -= 20;
+  }
+
+  const plotX = innerX + 44;
+  const plotY = top + (input.note ? 78 : 62);
+  const plotWidth = innerRight - plotX;
+  const plotHeight = top + height - 42 - plotY;
+
+  if (input.labels.length === 0 || input.series.length === 0) {
+    drawText(ctx, "该区间暂无交易", innerX, plotY + plotHeight / 2, { size: 14, color: COLOR.muted });
+    return top + height;
+  }
+
+  const max = Math.max(1, ...input.series.flatMap((series) => series.values));
+  ctx.strokeStyle = COLOR.line;
+  ctx.lineWidth = 1;
+  for (const ratio of [0, 0.25, 0.5, 0.75, 1]) {
+    const y = plotY + plotHeight * (1 - ratio);
+    ctx.beginPath();
+    ctx.moveTo(plotX, y);
+    ctx.lineTo(plotX + plotWidth, y);
+    ctx.stroke();
+    drawText(ctx, input.axisFormat(max * ratio), plotX - 10, y + 4, {
+      size: 11,
+      color: COLOR.muted,
+      align: "right",
+    });
+  }
+
+  const groupWidth = plotWidth / Math.max(1, input.labels.length);
+  const barWidth = Math.max(3, Math.min(18, (groupWidth * 0.66) / input.series.length));
+  const labelStep = Math.max(1, Math.ceil(input.labels.length / 7));
+  input.labels.forEach((label, index) => {
+    const center = plotX + groupWidth * (index + 0.5);
+    const offset = (input.series.length * (barWidth + 3) - 3) / 2;
+    input.series.forEach((series, seriesIndex) => {
+      const value = series.values[index] ?? 0;
+      const barHeight = (value / max) * plotHeight;
+      ctx.fillStyle = series.color;
+      roundedRect(
+        ctx,
+        center - offset + seriesIndex * (barWidth + 3),
+        plotY + plotHeight - barHeight,
+        barWidth,
+        barHeight,
+        3,
+      );
+      ctx.fill();
+    });
+    if (index % labelStep === 0) {
+      drawText(ctx, label, center, plotY + plotHeight + 22, {
+        size: 11,
+        color: COLOR.muted,
+        align: "center",
+      });
+    }
+  });
+
+  return top + height;
+}
+
+const SLICE_COLORS = [COLOR.brand, COLOR.accent, COLOR.success, "#8a63ff", "#39b8c9", COLOR.danger];
+
+/** 收款方式占比环形图 */
+function drawChannelDonut(
+  ctx: CanvasRenderingContext2D,
+  top: number,
+  channels: StatsChannelStat[],
+): number {
+  const height = 268;
+  card(ctx, PAD, top, WIDTH - PAD * 2, height);
+  const innerX = PAD + 20;
+  drawText(ctx, "收款方式", innerX, top + 34, { size: 16, weight: 700 });
+  drawText(ctx, "已支付订单金额占比", innerX, top + 52, { size: 11, color: COLOR.muted });
+
+  const usable = channels.filter((item) => item.amountCents > 0);
+  const total = usable.reduce((sum, item) => sum + item.amountCents, 0);
+  if (total <= 0) {
+    drawText(ctx, "该区间暂无已支付订单", innerX, top + 140, { size: 14, color: COLOR.muted });
+    return top + height;
+  }
+
+  const centerX = innerX + 112;
+  const centerY = top + 162;
+  const radius = 72;
+  let angle = -Math.PI / 2;
+  usable.forEach((item, index) => {
+    const sweep = (item.amountCents / total) * Math.PI * 2;
+    ctx.strokeStyle = SLICE_COLORS[index % SLICE_COLORS.length] ?? COLOR.brand;
+    ctx.lineWidth = 24;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, angle, angle + sweep);
+    ctx.stroke();
+    angle += sweep;
+  });
+  drawText(ctx, "收款合计", centerX, centerY - 8, { size: 11, color: COLOR.muted, align: "center" });
+  drawText(ctx, `¥${formatCents(total)}`, centerX, centerY + 16, { size: 16, weight: 700, align: "center" });
+
+  let legendY = top + 100;
+  const legendX = centerX + radius + 60;
+  usable.forEach((item, index) => {
+    ctx.fillStyle = SLICE_COLORS[index % SLICE_COLORS.length] ?? COLOR.brand;
+    roundedRect(ctx, legendX, legendY - 9, 10, 10, 3);
+    ctx.fill();
+    drawText(ctx, item.label, legendX + 18, legendY, { size: 13, weight: 600 });
+    const percent = ((item.amountCents / total) * 100).toFixed(1);
+    drawText(ctx, `¥${formatCents(item.amountCents)} · ${percent}% · ${item.count} 笔`, legendX + 18, legendY + 18, {
+      size: 11,
+      color: COLOR.muted,
+    });
+    legendY += 40;
+  });
+
+  return top + height;
+}
+
 /** 把统计结果画成一张报告图（2 倍像素密度，宽度 880 逻辑像素） */
 export function renderStatsReport(input: StatsReportInput): StatsReportCanvas {
   // 先按固定高度估算，画完再按实际内容截取
   const headerHeight = 84;
   const summaryHeight = 92;
   const barHeight = 292;
+  const countHeight = 272;
   const lineHeight = 272;
+  const donutHeight = 268;
+  const hourHeight = 264;
   const footerHeight = 56;
   const gap = 16;
   const height =
-    PAD + headerHeight + gap + summaryHeight + gap + barHeight + gap + lineHeight + gap + footerHeight + PAD;
+    PAD +
+    headerHeight +
+    gap +
+    summaryHeight +
+    gap +
+    barHeight +
+    gap +
+    countHeight +
+    gap +
+    lineHeight +
+    gap +
+    donutHeight +
+    gap +
+    hourHeight +
+    gap +
+    footerHeight +
+    PAD;
 
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(WIDTH * SCALE);
@@ -355,7 +529,41 @@ export function renderStatsReport(input: StatsReportInput): StatsReportCanvas {
   let cursor = PAD + headerHeight + gap;
   cursor = drawSummary(ctx, cursor, input.summary) + gap;
   cursor = drawBarChart(ctx, cursor, input.buckets, input.granularity) + gap;
+  cursor =
+    drawGroupedBars(ctx, cursor, {
+      title: "订单笔数趋势",
+      labels: input.buckets.map((bucket) => bucketLabel(bucket.key, input.granularity)),
+      series: [
+        {
+          label: "支出笔数",
+          color: COLOR.brand,
+          values: input.buckets.map((bucket) => bucket.expenseCount ?? 0),
+        },
+        {
+          label: "收入笔数",
+          color: COLOR.accent,
+          values: input.buckets.map((bucket) => bucket.incomeCount ?? 0),
+        },
+      ],
+      axisFormat: (value) => `${Math.round(value)}`,
+    }) + gap;
   cursor = drawLineChart(ctx, cursor, input.buckets, input.granularity) + gap;
+  cursor = drawChannelDonut(ctx, cursor, input.summary.channels) + gap;
+  cursor =
+    drawGroupedBars(ctx, cursor, {
+      title: "交易时段",
+      note: "按小时统计（0–23 时）",
+      labels: input.summary.hours.map((item) => `${item.hour}时`),
+      series: [
+        {
+          label: "订单数",
+          color: COLOR.brand,
+          values: input.summary.hours.map((item) => item.count),
+        },
+      ],
+      axisFormat: (value) => `${Math.round(value)}`,
+      height: hourHeight,
+    }) + gap;
 
   // 页脚
   drawText(ctx, "由 gzspay 校园收付款自动生成 · 统计口径以订单金额为准", PAD, cursor + 20, {

@@ -1,18 +1,20 @@
 /** 登录设备管理：查看登录过的设备与在线状态，可强制退出其它设备。 */
 
-import { useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorBlock, PageLoading } from "../components/Loading";
 import { useToast } from "../components/Toast";
-import { getLoginDevices, logoutDevice, logoutOtherDevices } from "../lib/api";
-import { cn, formatDateTime } from "../lib/format";
-import { useAsync } from "../lib/hooks";
+import { getLoginDevices, logoutDevice, logoutOtherDevices, subscribeEvents } from "../lib/api";
+import { cn, formatDateTime, formatFriendlyTime } from "../lib/format";
+import { useInterval, useVisible } from "../lib/hooks";
 import { errorMessage } from "../lib/http";
 import { useAuth } from "../lib/session";
-import type { LoginDevice, LoginDeviceType } from "../lib/types";
+import type { LoginDevice, LoginDeviceType, LoginDevicesResponse } from "../lib/types";
+
+/** 自动刷新间隔：页面可见时每 12 秒静默刷新一次在线状态（SSE 只是加速，不能只靠它） */
+const REFRESH_INTERVAL_MS = 12_000;
 
 function PhoneIcon(): ReactNode {
   return (
@@ -48,33 +50,96 @@ function DeviceTypeIcon({ type }: { type: LoginDeviceType }): ReactNode {
   return <DesktopIcon />;
 }
 
-function OnlineBadge({ online }: { online: boolean }): ReactNode {
+/** 在线状态文案：在线 / 刚刚活跃 / 最近 N 分钟 / 更早用友好时间 */
+function statusText(device: LoginDevice, onlineWindowMinutes: number): string {
+  if (device.online) return "在线";
+  const lastSeen = Date.parse(device.lastSeenAt);
+  if (Number.isNaN(lastSeen)) return "已离线";
+  const minutes = Math.floor((Date.now() - lastSeen) / 60_000);
+  if (minutes <= Math.max(1, onlineWindowMinutes)) return "刚刚活跃";
+  if (minutes < 60) return `最近 ${minutes} 分钟`;
+  return formatFriendlyTime(device.lastSeenAt);
+}
+
+function StatusBadge({
+  device,
+  onlineWindowMinutes,
+}: {
+  device: LoginDevice;
+  onlineWindowMinutes: number;
+}): ReactNode {
   return (
     <span
       className={cn(
         "ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-        online ? "bg-success-soft text-success" : "bg-surface-2 text-muted",
+        device.online ? "bg-success-soft text-success" : "bg-surface-2 text-muted",
       )}
     >
       <span
-        className={cn("h-1.5 w-1.5 rounded-full", online ? "bg-success" : "bg-muted/60")}
+        className={cn("h-1.5 w-1.5 rounded-full", device.online ? "bg-success" : "bg-muted/60")}
         aria-hidden="true"
       />
-      {online ? "在线" : "已离线"}
+      {statusText(device, onlineWindowMinutes)}
     </span>
   );
 }
 
 export function DevicesPage(): ReactNode {
   const toast = useToast();
-  const navigate = useNavigate();
   const { logout } = useAuth();
   const [pending, setPending] = useState<LoginDevice | null>(null);
   const [othersOpen, setOthersOpen] = useState(false);
   const [working, setWorking] = useState(false);
-  const devices = useAsync(() => getLoginDevices(), []);
+  const [data, setData] = useState<LoginDevicesResponse | null>(null);
+  const [loadError, setLoadError] = useState<unknown>(null);
+  /** 只有第一次加载显示骨架屏；之后的静默刷新保留旧数据，避免列表闪烁 */
+  const [firstLoad, setFirstLoad] = useState(true);
+  const visible = useVisible();
+  /** 请求序号：并发的刷新可能乱序返回，只认最新那次，避免在线状态回退 */
+  const requestRef = useRef(0);
 
-  const items = devices.data?.items ?? [];
+  const load = useCallback(async (): Promise<void> => {
+    const seq = requestRef.current + 1;
+    requestRef.current = seq;
+    try {
+      const next = await getLoginDevices();
+      if (seq !== requestRef.current) return;
+      setData(next);
+      setLoadError(null);
+    } catch (cause) {
+      if (seq !== requestRef.current) return;
+      setLoadError(cause);
+    } finally {
+      if (seq === requestRef.current) setFirstLoad(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // 实时：其它设备被退出、本机被强制下线、以及别处新登录，都会立刻刷新列表
+  useEffect(
+    () =>
+      subscribeEvents({
+        onSessionRevoked: () => void load(),
+        onDevicesUpdate: () => void load(),
+      }),
+    [load],
+  );
+
+  // 兜底：SSE 断开（休眠、弱网、服务重启）时靠轮询维持「在线状态」的新鲜度
+  useInterval(() => void load(), visible ? REFRESH_INTERVAL_MS : null);
+
+  // 从后台切回前台时立刻刷新一次（轮询在隐藏期间是停的）
+  const wasVisibleRef = useRef(visible);
+  useEffect(() => {
+    if (visible && !wasVisibleRef.current) void load();
+    wasVisibleRef.current = visible;
+  }, [visible, load]);
+
+  const items = data?.items ?? [];
+  const onlineWindowMinutes = data?.onlineWindowMinutes ?? 5;
   const onlineCount = items.filter((item) => item.online).length;
   const otherCount = items.filter((item) => !item.current).length;
 
@@ -88,7 +153,7 @@ export function DevicesPage(): ReactNode {
         return;
       }
       toast.success(`已退出「${device.deviceName}」`);
-      devices.reload();
+      await load();
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
@@ -104,7 +169,7 @@ export function DevicesPage(): ReactNode {
       toast.success(
         result.revoked > 0 ? `已退出其它 ${result.revoked} 台设备` : "没有需要退出的设备",
       );
-      devices.reload();
+      await load();
     } catch (cause) {
       toast.error(errorMessage(cause));
     } finally {
@@ -149,9 +214,9 @@ export function DevicesPage(): ReactNode {
           </div>
         </section>
 
-        {devices.error && !devices.data ? (
-          <ErrorBlock message={errorMessage(devices.error)} onRetry={() => devices.reload()} />
-        ) : devices.loading && !devices.data ? (
+        {loadError && !data ? (
+          <ErrorBlock message={errorMessage(loadError)} onRetry={() => void load()} />
+        ) : firstLoad && !data ? (
           <PageLoading text="正在加载登录设备…" />
         ) : items.length === 0 ? (
           <EmptyState
@@ -180,10 +245,10 @@ export function DevicesPage(): ReactNode {
                       </p>
                       {device.current ? (
                         <span className="shrink-0 rounded-full bg-brand-soft px-1.5 py-0.5 text-[10px] font-medium text-brand">
-                          当前设备
+                          本机
                         </span>
                       ) : null}
-                      <OnlineBadge online={device.online} />
+                      <StatusBadge device={device} onlineWindowMinutes={onlineWindowMinutes} />
                     </div>
                     <p className="mt-0.5 text-[11px] text-muted">
                       {device.os} · {device.browser}
@@ -199,7 +264,9 @@ export function DevicesPage(): ReactNode {
                       </div>
                       <div className="flex gap-2">
                         <dt className="shrink-0">最近活跃</dt>
-                        <dd>{formatDateTime(device.lastSeenAt)}</dd>
+                        <dd title={formatDateTime(device.lastSeenAt)}>
+                          {formatFriendlyTime(device.lastSeenAt)}
+                        </dd>
                       </div>
                     </dl>
                   </div>
@@ -232,7 +299,8 @@ export function DevicesPage(): ReactNode {
         ) : null}
 
         <p className="px-2 text-center text-[10px] leading-relaxed text-muted">
-          「在线」指最近 {devices.data?.onlineWindowMinutes ?? 5} 分钟内有活动；离线设备也可强制退出。
+          「在线」指最近 {onlineWindowMinutes} 分钟内有活动，列表每 {REFRESH_INTERVAL_MS / 1000}{" "}
+          秒自动刷新；离线设备也可强制退出。
         </p>
       </main>
 

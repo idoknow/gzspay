@@ -656,11 +656,27 @@ export function payPaymentCollectionById(
 /* 9. SSE 实时推送                                                     */
 /* ------------------------------------------------------------------ */
 
+/** 会话被撤销的原因 */
+export type SessionRevokedReason = "device" | "admin" | "other";
+
+/** `session_revoked` 事件载荷（服务端字段缺失时前端已做兜底） */
+export interface SessionRevokedPayload {
+  /** 被撤销的会话 id（多条时为第一条；服务端没给则为 null） */
+  sessionId: string | null;
+  /** 被撤销的全部会话 id */
+  sessionIds: string[];
+  reason: SessionRevokedReason;
+}
+
 export interface EventStreamHandlers {
   onPaymentRequest?: (request: PaymentRequest) => void;
   onOrderUpdate?: (payload: { orderId: string; status?: OrderStatus }) => void;
   /** 工单有新消息/被关闭时触发，页面据此刷新列表与未读 */
   onTicketUpdate?: (payload: { ticketId: string | null; orderId: string | null }) => void;
+  /** 某些登录会话被撤销（其它设备强制退出、管理员强制下线）时触发 */
+  onSessionRevoked?: (payload: SessionRevokedPayload) => void;
+  /** 登录设备列表有变化（新登录 / 退出）时触发，设备页据此静默刷新 */
+  onDevicesUpdate?: () => void;
   onOpen?: () => void;
   onError?: () => void;
 }
@@ -675,7 +691,7 @@ function parseEventData(event: Event): unknown {
   }
 }
 
-/** 订阅服务端事件（payment_request / order_update），返回取消订阅函数 */
+/** 订阅服务端事件（payment_request / order_update / ticket_update / session_revoked），返回取消订阅函数 */
 export function subscribeEvents(handlers: EventStreamHandlers): () => void {
   let closed = false;
   const source = openEventStream("/events/stream");
@@ -717,6 +733,24 @@ export function subscribeEvents(handlers: EventStreamHandlers): () => void {
       typeof data.ticketId === "string" ? data.ticketId : typeof data.id === "string" ? data.id : null;
     const orderId = typeof data.orderId === "string" ? data.orderId : null;
     handlers.onTicketUpdate?.({ ticketId, orderId });
+  });
+  source.addEventListener("session_revoked", (event) => {
+    const data = parseEventData(event);
+    if (!isRecord(data)) return;
+    const sessionId = typeof data.sessionId === "string" && data.sessionId ? data.sessionId : null;
+    const sessionIds = Array.isArray(data.sessionIds)
+      ? data.sessionIds.filter((value): value is string => typeof value === "string" && value !== "")
+      : sessionId
+        ? [sessionId]
+        : [];
+    const reason =
+      data.reason === "device" || data.reason === "admin" || data.reason === "other"
+        ? data.reason
+        : "other";
+    handlers.onSessionRevoked?.({ sessionId, sessionIds, reason });
+  });
+  source.addEventListener("devices_update", () => {
+    handlers.onDevicesUpdate?.();
   });
   source.addEventListener("error", () => {
     if (!closed) handlers.onError?.();

@@ -15,6 +15,8 @@ export interface PageHeaderProps {
   /** 透明背景（用于覆盖在内容上的场景） */
   transparent?: boolean;
   className?: string;
+  /** 桌面端放宽头部容器（例如宽屏列表页），默认与页面同宽 520px */
+  containerClassName?: string;
 }
 
 export function PageHeader({
@@ -25,6 +27,7 @@ export function PageHeader({
   right,
   transparent = false,
   className,
+  containerClassName,
 }: PageHeaderProps): ReactNode {
   const navigate = useNavigate();
 
@@ -48,7 +51,12 @@ export function PageHeader({
         className,
       )}
     >
-      <div className="mx-auto flex w-full max-w-[520px] items-center gap-3 px-4 py-3 watch:gap-2 watch:px-2.5 watch:py-2">
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-[520px] items-center gap-3 px-4 py-3 watch:gap-2 watch:px-2.5 watch:py-2",
+          containerClassName,
+        )}
+      >
         {back ? (
           <button
             type="button"

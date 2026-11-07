@@ -368,6 +368,20 @@ export function renderEmailText(content: EmailContent): string {
   return lines.join("\n");
 }
 
+/**
+ * 邮件正文里的时间统一按北京时间（UTC+8）展示：库里存的是 UTC，
+ * 收件人基本都在国内，直接给 ISO 串会让人以为时间不对。
+ */
+function mailTimeText(iso: string): string {
+  const time = Date.parse(iso);
+  if (Number.isNaN(time)) return iso;
+  const shifted = new Date(time + 8 * 60 * 60 * 1000);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())} ${pad(
+    shifted.getUTCHours(),
+  )}:${pad(shifted.getUTCMinutes())}`;
+}
+
 function buildMessage(params: {
   subject: string;
   kind: string;
@@ -544,11 +558,54 @@ const templates = {
       },
     });
   },
+  /** 个人信息修改提醒（收件人由 mailUserWithSetting 填） */
+  profileChanged(params: { fields: string[]; ip: string; at: string }): MailMessage {
+    const fields = params.fields.join("、");
+    return buildMessage({
+      subject: "【gzspay】个人信息已修改",
+      kind: "profile",
+      content: {
+        badge: "资料变更",
+        tone: "warning",
+        title: "个人信息已修改",
+        preheader: `你的账号资料刚刚修改：${fields}`,
+        intro: "你的账号资料刚刚被修改，修改内容如下：",
+        rows: [
+          { label: "修改内容", value: fields, strong: true },
+          { label: "时间", value: mailTimeText(params.at) },
+          { label: "IP 地址", value: params.ip },
+        ],
+        action: { label: "打开个人信息", url: `${config.publicBaseUrl}/me/profile` },
+        note: "如果不是你本人操作，请立即修改支付密码，并联系管理员。",
+      },
+    });
+  },
+  /** 登录提醒：每次登录成功都发一封，便于发现陌生登录 */
+  login(params: { at: string; ip: string; device: string }): MailMessage {
+    return buildMessage({
+      subject: "【gzspay】登录提醒",
+      kind: "login",
+      content: {
+        badge: "登录提醒",
+        tone: "brand",
+        title: "你的账号刚刚登录",
+        preheader: `登录时间 ${mailTimeText(params.at)} · ${params.device}`,
+        intro: "你的账号刚刚登录 gzspay，登录信息如下：",
+        rows: [
+          { label: "时间", value: mailTimeText(params.at) },
+          { label: "IP 地址", value: params.ip },
+          { label: "设备", value: params.device },
+        ],
+        action: { label: "查看登录设备", url: `${config.publicBaseUrl}/me/devices` },
+        note: "如果不是你本人登录，请尽快修改支付密码，并在「登录设备管理」里退出其它设备。",
+      },
+    });
+  },
   passwordChanged(to: string): MailMessage {
     return buildMessage({
       to,
       subject: "【gzspay】支付密码已修改",
-      kind: "security",
+      kind: "password",
       content: {
         badge: "安全提醒",
         tone: "warning",

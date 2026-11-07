@@ -144,7 +144,7 @@ export function ChangePasswordPage(): ReactNode {
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-muted">当前邮箱：{me?.emailMasked || "未绑定"}</p>
+          <p className="mt-2 text-[11px] text-muted">当前邮箱：{me?.email || "未绑定"}</p>
         </section>
 
         {claiming ? (
@@ -190,7 +190,7 @@ export function ChangePasswordPage(): ReactNode {
         {step === "verify" ? (
           <section className="card space-y-3 p-4">
             <h2 className="text-sm font-semibold text-text">输入验证码</h2>
-            <p className="text-xs text-muted">验证码已发送至 {me?.emailMasked || "你的邮箱"}，10 分钟内有效。</p>
+            <p className="text-xs text-muted">验证码已发送至 {me?.email || "你的邮箱"}，10 分钟内有效。</p>
             <input
               className="input text-center text-lg tracking-[0.5em]"
               inputMode="numeric"

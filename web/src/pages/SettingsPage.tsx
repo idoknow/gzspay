@@ -132,6 +132,9 @@ const NOTIFY_ROWS: { key: keyof NotificationSettings; title: string; description
   { key: "settled", title: "结算通知", description: "确认收款、取消等状态变更" },
   { key: "ticket", title: "工单通知", description: "工单有新消息或客服介入" },
   { key: "announcement", title: "平台公告", description: "发布新公告时" },
+  { key: "profile", title: "个人信息修改", description: "姓名、学号、邮箱、校园卡变更后" },
+  { key: "password", title: "密码修改", description: "支付密码修改或重置后" },
+  { key: "login", title: "登录通知", description: "每次登录成功后，含时间与 IP" },
 ];
 
 export function SettingsPage(): ReactNode {
@@ -148,6 +151,9 @@ export function SettingsPage(): ReactNode {
       settled: true,
       ticket: true,
       announcement: true,
+      profile: true,
+      password: true,
+      login: true,
     },
   );
 

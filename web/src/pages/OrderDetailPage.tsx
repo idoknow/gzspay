@@ -1053,7 +1053,6 @@ export function OrderDetailPage(): ReactNode {
             onClick={handlePrintPdf}
           >
             <span className="text-sm font-semibold text-text">PDF</span>
-            <span className="text-[11px] text-muted">打印后另存为 PDF</span>
           </button>
         </div>
       </Dialog>

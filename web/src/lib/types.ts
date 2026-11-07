@@ -30,6 +30,12 @@ export interface NotificationSettings {
   ticket: boolean;
   /** 平台公告邮件通知 */
   announcement: boolean;
+  /** 个人信息修改邮件通知 */
+  profile: boolean;
+  /** 支付密码修改/重置邮件通知 */
+  password: boolean;
+  /** 登录提醒邮件通知 */
+  login: boolean;
 }
 
 /** 登录设备类型 */
@@ -94,6 +100,11 @@ export interface SiteInfo {
 /** GET /api/auth/session */
 export interface SessionResponse {
   authenticated: boolean;
+  /**
+   * 当前会话 id（服务端 sessions.id）：前端拿它和 `session_revoked` 里的
+   * sessionId 比较，判断「被强制下线的是不是我」。
+   */
+  sessionId?: string;
   me?: Me;
   onboardStep?: OnboardStep;
   isAdmin?: boolean;

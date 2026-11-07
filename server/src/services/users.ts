@@ -26,6 +26,7 @@ import type {
   PublicUser,
   UserRow,
 } from "../lib/types.js";
+import { describeUserAgent } from "./devices.js";
 
 export function displayNameOf(user: UserRow): string {
   return (
@@ -80,8 +81,9 @@ export function ensureNotificationSettings(userId: string): NotificationSettings
   );
   if (existing) return existing;
   execute(
-    `INSERT INTO notification_settings (user_id, new_order, paid, settled, ticket, announcement)
-     VALUES (?, 1, 1, 1, 1, 1)`,
+    `INSERT INTO notification_settings
+       (user_id, new_order, paid, settled, ticket, announcement, profile, password, login)
+     VALUES (?, 1, 1, 1, 1, 1, 1, 1, 1)`,
     userId,
   );
   return {
@@ -91,6 +93,9 @@ export function ensureNotificationSettings(userId: string): NotificationSettings
     settled: 1,
     ticket: 1,
     announcement: 1,
+    profile: 1,
+    password: 1,
+    login: 1,
   };
 }
 
@@ -99,7 +104,10 @@ export type NotificationSettingKey =
   | "paid"
   | "settled"
   | "ticket"
-  | "announcement";
+  | "announcement"
+  | "profile"
+  | "password"
+  | "login";
 
 /**
  * 按用户的通知开关发邮件：没有邮箱、或对应开关关闭时直接跳过。
@@ -115,6 +123,48 @@ export function mailUserWithSetting(
   const settings = ensureNotificationSettings(userId);
   if (settings[setting] !== 1) return;
   sendMailInBackground({ ...message, to: user.email });
+}
+
+/** 「个人信息修改」邮件里列出的字段，顺序即邮件中的展示顺序 */
+export type ProfileChangeField = "name" | "studentNo" | "email" | "card";
+
+const PROFILE_CHANGE_LABELS: Record<ProfileChangeField, string> = {
+  name: "姓名",
+  studentNo: "学号",
+  email: "邮箱",
+  card: "校园卡号",
+};
+
+/**
+ * 个人信息修改成功后发提醒邮件（受「个人信息修改」开关控制）。
+ * 字段值没有真正变化时（changed 为空）不发信，避免重复提交也收到提醒。
+ */
+export function notifyProfileChanged(
+  user: UserRow,
+  changed: ProfileChangeField[],
+  ip: string,
+): void {
+  if (changed.length === 0) return;
+  const fields = changed.map((field) => PROFILE_CHANGE_LABELS[field]);
+  mailUserWithSetting(
+    user.id,
+    templates.profileChanged({ fields, ip, at: nowIso() }),
+    "profile",
+  );
+}
+
+/** 登录成功后发登录提醒邮件（受「登录通知」开关控制），含时间、IP 与设备简述。 */
+export function notifyLogin(user: UserRow, params: { ip: string; userAgent: string | null }): void {
+  const device = describeUserAgent(params.userAgent);
+  mailUserWithSetting(
+    user.id,
+    templates.login({
+      at: nowIso(),
+      ip: params.ip,
+      device: `${device.deviceName} · ${device.os} · ${device.browser}`,
+    }),
+    "login",
+  );
 }
 
 export function toMe(user: UserRow): Me {
@@ -143,6 +193,9 @@ export function toMe(user: UserRow): Me {
       settled: notification.settled === 1,
       ticket: notification.ticket === 1,
       announcement: notification.announcement === 1,
+      profile: notification.profile === 1,
+      password: notification.password === 1,
+      login: notification.login === 1,
     },
     createdAt: user.created_at,
   };

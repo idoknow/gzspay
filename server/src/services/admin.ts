@@ -38,6 +38,7 @@ import {
   type SaveConfigInput,
 } from "../lib/runtime-config.js";
 import { trafficStats, type TrafficStatsPayload } from "../lib/traffic.js";
+import { listSessionIds, notifySessionsRevoked } from "./devices.js";
 
 /* ------------------------------------------------------------------ 通用 */
 
@@ -574,7 +575,10 @@ export function resetUserCard(actorId: string, userId: string, ip: string) {
 }
 
 export function forceUserLogout(actorId: string, userId: string, ip: string) {
+  // 先记下会话 id，删掉之后就查不到了：被下线的设备靠它立刻感知并退出登录
+  const sessionIds = listSessionIds(userId);
   revokeUserSessions(userId);
+  notifySessionsRevoked(userId, sessionIds, "admin");
   writeAudit({
     actorId,
     actorRole: "admin",
