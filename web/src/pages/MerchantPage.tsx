@@ -6,6 +6,7 @@ import { Avatar } from "../components/Avatar";
 import { ChannelIcon } from "../components/ChannelIcon";
 import { Dialog } from "../components/Dialog";
 import { EmptyState } from "../components/EmptyState";
+import { EyeIcon } from "../components/EyeIcon";
 import { ErrorBlock, LoadingBlock } from "../components/Loading";
 import { PageHeader } from "../components/PageHeader";
 import { PaymentPasswordDialog } from "../components/PaymentPasswordDialog";
@@ -32,6 +33,74 @@ interface QrEditState {
 }
 
 /** 渠道标识使用官方图标（支付宝 / 微信支付 / QQ 钱包），让三行收款方式更容易区分。 */
+
+/** 更换收款码：环形箭头。 */
+function RefreshIcon(): ReactNode {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M20 11.5a8 8 0 1 0-2.6 6.1" />
+      <path d="M20 5v6h-6" />
+    </svg>
+  );
+}
+
+/** 上传收款码：向上箭头 + 托盘。 */
+function UploadIcon(): ReactNode {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 16V4.6" />
+      <path d="m7.6 8.8 4.4-4.2 4.4 4.2" />
+      <path d="M4.6 15.4v2.8a1.8 1.8 0 0 0 1.8 1.8h11.2a1.8 1.8 0 0 0 1.8-1.8v-2.8" />
+    </svg>
+  );
+}
+
+interface IconButtonProps {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+  tone?: "default" | "brand";
+}
+
+/** 收款方式行内的图标按钮：文字说明放到 aria-label / title，界面只留图标。 */
+function IconButton({ label, onClick, children, tone = "default" }: IconButtonProps): ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition active:scale-95 watch:h-7.5 watch:w-7.5",
+        tone === "brand"
+          ? "border-brand/30 bg-brand-soft text-brand hover:border-brand/50"
+          : "border-line/70 bg-surface text-muted hover:border-line hover:text-text",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function MerchantPage(): ReactNode {
   const toast = useToast();
@@ -314,39 +383,29 @@ export function MerchantPage(): ReactNode {
                         {item.hasQr ? "已上传" : "未上传"}
                       </span>
                     </div>
-                    {item.hasQr ? (
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                        <button
-                          type="button"
-                          onClick={() => setQrView(item.channel)}
-                          className="text-[11px] font-medium text-brand transition active:opacity-70"
-                        >
-                          查看收款码
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openQrEdit(item.channel)}
-                          className="text-[11px] font-medium text-muted transition active:opacity-70"
-                        >
-                          更换收款码
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => openQrEdit(item.channel)}
-                        className="mt-0.5 text-[11px] font-medium text-brand transition active:opacity-70"
-                      >
-                        上传收款码
-                      </button>
-                    )}
                   </div>
-                  <Toggle
-                    checked={item.enabled}
-                    disabled={busyChannel === item.channel}
-                    onChange={(next) => void handleToggle(item, next)}
-                    label={`${item.label}收款开关`}
-                  />
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {item.hasQr ? (
+                      <>
+                        <IconButton label="查看收款码" onClick={() => setQrView(item.channel)}>
+                          <EyeIcon size={15} />
+                        </IconButton>
+                        <IconButton label="更换收款码" onClick={() => openQrEdit(item.channel)}>
+                          <RefreshIcon />
+                        </IconButton>
+                      </>
+                    ) : (
+                      <IconButton label="上传收款码" tone="brand" onClick={() => openQrEdit(item.channel)}>
+                        <UploadIcon />
+                      </IconButton>
+                    )}
+                    <Toggle
+                      checked={item.enabled}
+                      disabled={busyChannel === item.channel}
+                      onChange={(next) => void handleToggle(item, next)}
+                      label={`${item.label}收款开关`}
+                    />
+                  </div>
                 </div>
               );
             })}
