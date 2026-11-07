@@ -1,7 +1,9 @@
 package top.idoknow.gzspay;
 
+import android.content.Context;
 import android.nfc.cardemulation.HostApduService;
 import android.os.Bundle;
+import android.util.Log;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -12,6 +14,9 @@ import java.util.Arrays;
  */
 public class NfcCardService extends HostApduService {
 
+    private static final String TAG = "gzspay-nfc";
+    private static final String PREFS = "gzspay_nfc";
+    private static final String KEY_URL = "card_url";
     private static final byte[] NDEF_AID = hex("D2760000850101");
     /** Capability Container：说明这张卡有 0x0034 字节的 NDEF 文件，可读。 */
     private static final byte[] CAPABILITY_CONTAINER = hex("000F20003B00340406E10400FF00FF");
@@ -23,8 +28,22 @@ public class NfcCardService extends HostApduService {
 
     private int selectedFile = FILE_NONE;
 
-    public static void setCardUrl(String url) {
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        // 进程被杀后重启时先用手上缓存的一份，避免还没同步就被读到空卡
+        cardUrl = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_URL, null);
+        Log.i(TAG, "service ready, url " + (cardUrl == null ? "missing" : "cached"));
+    }
+
+    public static void setCardUrl(Context context, String url) {
         cardUrl = url;
+        context.getApplicationContext()
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_URL, url)
+                .apply();
+        Log.i(TAG, "card url " + (url == null ? "cleared" : "updated"));
     }
 
     public static String getCardUrl() {
@@ -48,7 +67,14 @@ public class NfcCardService extends HostApduService {
                 return Arrays.equals(name, NDEF_AID) ? hex("9000") : hex("6A82");
             }
             if (p1 == 0x00) {
-                int fileId = ((apdu[4] & 0xFF) << 8) | (apdu[5] & 0xFF);
+                // SELECT by file id 有两种写法：带 Lc（00 A4 00 0C 02 E1 03）和不带 Lc（00 A4 00 0C E1 03）
+                int fileId;
+                if (apdu.length >= 7 && (apdu[4] & 0xFF) == 0x02) {
+                    fileId = ((apdu[5] & 0xFF) << 8) | (apdu[6] & 0xFF);
+                } else {
+                    fileId = ((apdu[4] & 0xFF) << 8) | (apdu[5] & 0xFF);
+                }
+                Log.i(TAG, "select file " + Integer.toHexString(fileId));
                 if (fileId == 0xE103) {
                     selectedFile = FILE_CC;
                     return hex("9000");
@@ -103,6 +129,7 @@ public class NfcCardService extends HostApduService {
     private byte[] ndefFile() {
         String url = cardUrl;
         if (url == null || url.isEmpty()) {
+            Log.i(TAG, "reader asked for the card but no url synced yet");
             return null;
         }
         byte[] message = ndefUriRecord(url);

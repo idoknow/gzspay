@@ -2,6 +2,15 @@ plugins {
     id 'com.android.application'
 }
 
+// Release 签名：把 android/keystore.properties（不入库）放在 android/ 下即可，
+// 内容为 storeFile / storePassword / keyAlias / keyPassword。没有这个文件时 release
+// 退化成 debug 签名，方便没有密钥的人照样能打包试装。
+def keystoreFile = rootProject.file('keystore.properties')
+def keystoreProps = new Properties()
+if (keystoreFile.exists()) {
+    keystoreFile.withInputStream { keystoreProps.load(it) }
+}
+
 android {
     namespace 'top.idoknow.gzspay'
     compileSdk 34
@@ -15,6 +24,17 @@ android {
         buildConfigField 'String', 'DEFAULT_BASE_URL', '"https://p.idoknow.top"'
     }
 
+    signingConfigs {
+        release {
+            if (keystoreFile.exists()) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix ''
@@ -22,6 +42,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystoreFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 

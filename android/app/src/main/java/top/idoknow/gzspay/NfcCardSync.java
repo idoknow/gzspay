@@ -1,6 +1,7 @@
 package top.idoknow.gzspay;
 
 import android.content.Context;
+import android.util.Log;
 import android.webkit.CookieManager;
 
 import org.json.JSONObject;
@@ -17,6 +18,8 @@ import java.nio.charset.StandardCharsets;
  */
 public final class NfcCardSync {
 
+    private static final String TAG = "gzspay-nfc";
+
     private NfcCardSync() {
     }
 
@@ -27,7 +30,8 @@ public final class NfcCardSync {
                 String base = BuildConfig.DEFAULT_BASE_URL;
                 String cookie = CookieManager.getInstance().getCookie(base);
                 if (cookie == null || cookie.isEmpty()) {
-                    NfcCardService.setCardUrl(null);
+                    Log.i(TAG, "no cookie yet, skip sync");
+                    NfcCardService.setCardUrl(appContext, null);
                     return;
                 }
                 HttpURLConnection connection = (HttpURLConnection) new URL(base + "/api/me/nfc-card").openConnection();
@@ -38,16 +42,19 @@ public final class NfcCardSync {
                 connection.setReadTimeout(8000);
                 int code = connection.getResponseCode();
                 if (code != 200) {
-                    NfcCardService.setCardUrl(null);
+                    Log.i(TAG, "sync http " + code);
+                    NfcCardService.setCardUrl(appContext, null);
                     return;
                 }
                 String body = readAll(connection.getInputStream());
                 JSONObject json = new JSONObject(body);
                 boolean enabled = json.optBoolean("enabled", false);
                 String url = enabled ? json.optString("url", null) : null;
-                NfcCardService.setCardUrl(url == null || url.isEmpty() ? null : url);
+                Log.i(TAG, "sync ok, enabled=" + enabled);
+                NfcCardService.setCardUrl(appContext, url == null || url.isEmpty() ? null : url);
             } catch (Exception cause) {
-                NfcCardService.setCardUrl(null);
+                Log.w(TAG, "sync failed: " + cause);
+                NfcCardService.setCardUrl(appContext, null);
             }
         }, "nfc-card-sync").start();
     }

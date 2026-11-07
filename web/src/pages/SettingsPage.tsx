@@ -9,6 +9,7 @@ import { Toggle } from "../components/Toggle";
 import { ExitPrivacyButton } from "../components/PrivacyMode";
 import { useToast } from "../components/Toast";
 import { updateNotificationSettings } from "../lib/api";
+import { clientBridge } from "../lib/client";
 import { cn } from "../lib/format";
 import { errorMessage } from "../lib/http";
 import { enablePrivacyMode, usePrivacyMode } from "../lib/privacy";
@@ -140,6 +141,7 @@ const NOTIFY_ROWS: { key: keyof NotificationSettings; title: string; description
 ];
 
 export function SettingsPage(): ReactNode {
+  const client = clientBridge();
   const toast = useToast();
   const navigate = useNavigate();
   const { me, patchMe } = useAuth();
@@ -335,6 +337,39 @@ export function SettingsPage(): ReactNode {
             )}
           </div>
         </section>
+
+        {client ? (
+          <section className="card p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-text">客户端</h2>
+              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-muted">
+                v{client.version()}
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted">
+              应用锁只在本机生效；NFC 卡片打开后，别人贴一贴就能读到。
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm flex-1"
+                onClick={() => client.openLockSetup()}
+              >
+                应用锁设置
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm flex-1"
+                onClick={() => {
+                  client.refreshNfc();
+                  toast.success("正在刷新 NFC 卡片");
+                }}
+              >
+                刷新 NFC
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         {privacy.enabled ? (
           <section className="card p-4">

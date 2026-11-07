@@ -32,6 +32,8 @@ android/app/build/
 android/.gradle/
 android/local.properties
 android/.cxx/
+android/keystore/
+android/keystore.properties
 *.apk
 *.aab
 *.jks
@@ -46,3 +48,4 @@ Thumbs.db
 
 # 测试与覆盖率
 coverage/
+.tmp-build/

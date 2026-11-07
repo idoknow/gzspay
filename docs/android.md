@@ -6,7 +6,7 @@
 
 - **打开就是站点**：启动后用 WebView 打开 `https://p.idoknow.top`（地址写在 `android/app/build.gradle` 的 `DEFAULT_BASE_URL`），账号、订单、工单、收付款码与网页完全一致。
 - **应用锁**：四位数密码、六位数密码、手势密码，或者调用系统的指纹 / 人脸。锁只在本地生效，密码只保存加盐哈希；冷启动必须验证，切到后台超过 30 秒再回来也要重新验证，未验证就退出应用。
-- **NFC 卡片**：先在「我的卡片」页开启 NFC 卡片，客户端会带着登录状态取回 `https://<站点>/nfc/<token>`，并用 HCE 把手机自己变成一张 NFC 标签。对方用手机贴一贴即可打开这张（只有脱敏信息的）卡片页；在网页上关闭或更换链接后，客户端下次回到前台会自动同步。
+- **NFC 卡片**：先在「我的卡片」页开启 NFC 卡片，客户端会带着登录状态取回 `https://<站点>/nfc/<token>`，并用 HCE 把手机自己变成一张 NFC 标签（Type 4 Tag，NDEF URI 记录）。对方用手机贴一贴即可打开这张（只有脱敏信息的）卡片页；在网页上关闭或更换链接后，客户端会立刻重新同步，之后每 30 秒也会自动同步一次。
 - **本地缓存**：WebView 默认缓存（`LOAD_DEFAULT`）、DOM Storage 与数据库都打开，静态资源命中浏览器缓存，弱网时首屏更快。
 - **设备识别**：请求带 `GzspayApp/<版本>` 的 UA，服务端会在「登录设备管理」里把它显示为「gzspay 客户端」。
 - **能唤起支付宝**：网页里的「支付宝一键付款」会跳到 `alipays://`，客户端把这类非 http(s) 链接交给系统处理，微信内置浏览器打不开的问题在这里不存在。
@@ -30,13 +30,44 @@ cd android
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-正式分发时换成自己的签名：在 `android/app/build.gradle` 的 `signingConfigs` 里配置 keystore，再跑 `./gradlew assembleRelease`。
+正式分发用 release 签名：
+
+```bash
+cd android
+./gradlew assembleRelease
+# 产物：android/app/build/outputs/apk/release/app-release.apk
+```
+
+签名配置从 `android/keystore.properties` 读取（不入库，`android/keystore/` 同样不入库）：
+
+```properties
+storeFile=keystore/gzspay-release.jks
+storePassword=<密码>
+keyAlias=gzspay
+keyPassword=<密码>
+```
+
+没有这个文件时 release 会退化成 debug 签名，方便别人只改代码时打包。**keystore 与密码必须自己备份**，换掉之后新包无法覆盖安装旧包，只能卸载重装。
 
 ## 使用
 
-- **应用锁**：在客户端里点右上角菜单 →「应用锁设置」，选四/六位数字或手势（都要输入两次）；设置好后可以再打开「允许用指纹 / 人脸解锁」。「关闭应用锁」会清掉本地保存的哈希。
-- **NFC 卡片**：先在网页「我的」→ 顶部卡片 →「NFC 卡片」开关打开；手机开启 NFC 并点亮屏幕，对方手机贴近背面即可读取。没开启时读取会提示卡片不存在。
-- **刷新卡片**：菜单里有「刷新 NFC 卡片」，用于在网页上更换链接后立刻生效。
+- **应用锁**：在客户端里打开「设置」→「客户端」卡片 →「应用锁设置」，选四/六位数字或手势（都要输入两次）；设置好后可以再打开「允许用指纹 / 人脸解锁」。「关闭应用锁」会清掉本地保存的哈希。网页在浏览器里打开时没有这张卡片。
+- **NFC 卡片**：先在网页「我的」→ 顶部卡片 →「NFC 卡片」开关打开；手机开启 NFC 并点亮屏幕（HCE 只在解锁状态响应），对方手机贴近背面即可读取。没开启时读取会提示卡片不存在。
+- **刷新卡片**：同一张「客户端」卡片里的「刷新 NFC」，用于在网页上更换链接后立刻生效；正常情况每 30 秒也会自动同步。
+
+## 排障
+
+```bash
+# 看客户端同步 NFC 卡片的过程
+adb logcat -s gzspay-nfc
+
+# 确认手机支持 HCE、当前已注册的 AID
+adb shell dumpsys nfc | findstr /i "D2760000850101"
+```
+
+- 日志里 `sync ok, enabled=false` 表示网页上还没打开 NFC 卡片开关，不是客户端的问题。
+- 日志里 `no cookie yet` 表示 WebView 还没登录，登录后会自动重试。
+- 别人贴读没有任何反应时，先确认双方手机的 NFC 天线位置（一般在背面靠上），以及被读手机上「NFC 卡片」是否已开启。
 
 ## 边界
 

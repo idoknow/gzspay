@@ -4,9 +4,8 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -16,14 +15,25 @@ import androidx.appcompat.app.AppCompatActivity;
 
 /**
  * 应用外壳：用 WebView 打开 gzspay，加上本地缓存与 UA 标识，进出前后台时做应用锁。
+ * 客户端专属的入口（应用锁设置、刷新 NFC）由网页通过 {@code window.GzspayClient} 调过来，
+ * 这样界面上不额外盖一个悬浮按钮。
  */
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_UNLOCK = 1001;
-    private static final String LOCK_PAGE = "/unlock";
+    private static final long NFC_SYNC_INTERVAL_MS = 30_000L;
 
     private WebView webView;
     private boolean waitingUnlock = false;
+
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable nfcTick = new Runnable() {
+        @Override
+        public void run() {
+            NfcCardSync.refresh(MainActivity.this);
+            handler.postDelayed(this, NFC_SYNC_INTERVAL_MS);
+        }
+    };
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -63,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
         });
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
+        webView.addJavascriptInterface(new ClientBridge(), "GzspayClient");
         setContentView(webView);
 
         if (savedInstanceState != null) {
@@ -102,11 +113,14 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         requestUnlockIfNeeded();
         NfcCardSync.refresh(this);
+        handler.removeCallbacks(nfcTick);
+        handler.postDelayed(nfcTick, NFC_SYNC_INTERVAL_MS);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        handler.removeCallbacks(nfcTick);
         LockStore.onAppBackground();
     }
 
@@ -126,38 +140,45 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(0, 1, 0, "应用锁设置");
-        menu.add(0, 2, 1, "刷新 NFC 卡片");
-        menu.add(0, 3, 2, "回到首页");
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        int id = item.getItemId();
-        if (id == 1) {
-            startActivity(new Intent(this, LockSetupActivity.class));
-            return true;
-        }
-        if (id == 2) {
-            NfcCardSync.refresh(this);
-            android.widget.Toast.makeText(this, "已刷新 NFC 卡片状态", android.widget.Toast.LENGTH_SHORT).show();
-            return true;
-        }
-        if (id == 3) {
-            webView.loadUrl(BuildConfig.DEFAULT_BASE_URL + "/me");
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    @Override
     protected void onDestroy() {
+        handler.removeCallbacks(nfcTick);
         if (webView != null) {
             webView.destroy();
             webView = null;
         }
         super.onDestroy();
+    }
+
+    /** 网页里的 window.GzspayClient：客户端专属能力，只在装了客户端的手机上有。 */
+    private final class ClientBridge {
+
+        @JavascriptInterface
+        public String version() {
+            return BuildConfig.VERSION_NAME;
+        }
+
+        @JavascriptInterface
+        public boolean nfcReady() {
+            return NfcCardService.getCardUrl() != null;
+        }
+
+        @JavascriptInterface
+        public void refreshNfc() {
+            NfcCardSync.refresh(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void openLockSetup() {
+            runOnUiThread(() -> startActivity(new Intent(MainActivity.this, LockSetupActivity.class)));
+        }
+
+        @JavascriptInterface
+        public void goHome() {
+            runOnUiThread(() -> {
+                if (webView != null) {
+                    webView.loadUrl(BuildConfig.DEFAULT_BASE_URL + "/me");
+                }
+            });
+        }
     }
 }
