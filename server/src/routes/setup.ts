@@ -2,7 +2,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { errors } from "../lib/errors.js";
 import { avatarPathOf } from "../lib/avatar.js";
-import { asyncHandler } from "../lib/http.js";
+import { attachAdmin, asyncHandler } from "../lib/http.js";
 import { clientIp, rateLimit } from "../lib/rate-limit.js";
 import { setupTokenRequired, verifySetupToken } from "../lib/setup-token.js";
 import { requestIp } from "../lib/types.js";
@@ -17,9 +17,20 @@ function currentUserOf(req: Request): { id: string; displayName: string; avatarU
   return { id: user.id, displayName: displayNameOf(user), avatarUrl: avatarPathOf(user) };
 }
 
-function statusPayload(req: Request) {
+function statusPayload(req: Request, includeIntegrations = false) {
+  const status = setupStatus();
+  // 初始化完成后，校园墙地址 / Client ID、SMTP 主机与账号属于部署细节：
+  // 未登录或非管理员只需要布尔状态与站点展示信息，不再下发这些值。
+  const safeStatus =
+    status.initialized && !includeIntegrations
+      ? {
+          ...status,
+          campux: { ...status.campux, baseUrl: "", clientId: "", scope: "" },
+          mail: { ...status.mail, host: "", username: "", fromName: "", fromAddress: "" },
+        }
+      : status;
   return {
-    ...setupStatus(),
+    ...safeStatus,
     currentUser: currentUserOf(req),
     /** true 表示页面需要填写服务端日志里打印的一次性初始化令牌 */
     setupTokenRequired: setupTokenRequired(),
@@ -40,13 +51,13 @@ setupRouter.post(
     if (!verifySetupToken(body.token)) {
       throw errors.forbidden("初始化令牌不正确，请查看服务端启动日志里的「初始化令牌」");
     }
-    res.json({ ok: true, status: statusPayload(req) });
+    res.json({ ok: true, status: statusPayload(req, true) });
   }),
 );
 
-/** 初始化状态：无需登录即可读取 */
-setupRouter.get("/status", (req, res) => {
-  res.json(statusPayload(req));
+/** 初始化状态：初始化前无需登录；初始化完成后只向管理员返回完整集成配置 */
+setupRouter.get("/status", attachAdmin, (req, res) => {
+  res.json(statusPayload(req, Boolean(req.admin)));
 });
 
 const urlField = z
@@ -106,7 +117,7 @@ setupRouter.post(
       );
     }
     saveSetupConfig(payload, requestIp(req));
-    res.json({ ok: true, status: statusPayload(req) });
+    res.json({ ok: true, status: statusPayload(req, true) });
   }),
 );
 

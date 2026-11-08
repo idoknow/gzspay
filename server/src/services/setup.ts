@@ -128,6 +128,11 @@ export function finishSetup(user: UserRow, ip: string): AdminRow {
   if (!isCampuxReady()) {
     throw errors.validation("请先配置校园墙登录，否则无法验证身份");
   }
+  // 校园墙若已通过环境变量配置好，未初始化实例的登录本身不需要令牌；
+  // 这里若不校验，任何先登录的人都能调用本接口把自己写成超级管理员。
+  if (!setupTokenVerified()) {
+    throw errors.forbidden("首次初始化需要填写服务端日志里的初始化令牌");
+  }
   let admin = findAdminRow(user.id);
   if (!admin) {
     execute(

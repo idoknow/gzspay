@@ -43,6 +43,15 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024, files: 3, fields: 10 },
 });
 
+/** 入驻要解码最多 3 张 5MB 图片，按用户限流，避免反复上传消耗 CPU */
+const registerLimit = rateLimit({
+  scope: "merchant.register",
+  limit: 10,
+  windowSeconds: 60,
+  keyBy: userKey,
+  message: "提交太频繁了，请稍后再试",
+});
+
 function fileFrom(req: Parameters<typeof asyncHandler>[0] | never, field: string): Buffer | undefined {
   const files = (req as unknown as { files?: Record<string, Express.Multer.File[]> }).files;
   const file = files?.[field]?.[0];
@@ -76,6 +85,7 @@ merchantRouter.get("/", requireUser(), (req, res) => {
 merchantRouter.post(
   "/register",
   requireUser(),
+  registerLimit,
   upload.fields([
     { name: "qr_alipay", maxCount: 1 },
     { name: "qr_wechat", maxCount: 1 },

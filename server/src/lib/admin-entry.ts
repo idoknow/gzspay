@@ -186,6 +186,19 @@ const entryProbeLimit = rateLimit({
   keyBy: (req) => req.ip ?? req.socket.remoteAddress ?? "unknown",
 });
 
+/**
+ * 入口名猜测防护：`/<猜错的名字>/admin` 不经过上面的真实入口分支，
+ * 会变成「302 = 猜中、404 = 猜错」的无成本 oracle，可被全速跑字典。
+ * 用独立计数桶，避免与真实入口/后台页面的探测额度互相挤占。
+ */
+const entryGuessLimit = rateLimit({
+  scope: "admin.entry.guess",
+  limit: 10,
+  windowSeconds: 60,
+  message: "请求太频繁了，请稍后再试",
+  keyBy: (req) => req.ip ?? req.socket.remoteAddress ?? "unknown",
+});
+
 export function createAdminEntryGuard(): (req: Request, res: Response, next: NextFunction) => void {
   return function adminEntryGuard(req: Request, res: Response, next: NextFunction): void {
     const { entryPath } = readAdminEntryConfig();
@@ -215,6 +228,12 @@ export function createAdminEntryGuard(): (req: Request, res: Response, next: Nex
       }
       // 安全入口下的其它路径当作普通页面处理，交给后面的路由 / 404
       next();
+      return;
+    }
+
+    // 猜错的入口名也要限流，否则可以全速枚举哪个 /<名字>/admin 会返回 302
+    if (/^\/[^/]+\/admin(?:\/|$)/.test(pathname)) {
+      entryGuessLimit(req, res, () => next());
       return;
     }
 

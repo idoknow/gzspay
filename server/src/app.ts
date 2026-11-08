@@ -17,7 +17,7 @@ import { createAdminEntryGuard } from "./lib/admin-entry.js";
 import { createGeoGuard } from "./lib/geo.js";
 import { recordRequestMetric } from "./lib/metrics.js";
 import { createStaticAssets, sendAsset } from "./lib/static-assets.js";
-import { createTrafficMiddleware } from "./lib/traffic.js";
+import { createTrafficMiddleware, normalizeRoute } from "./lib/traffic.js";
 import { geoGuardConfig } from "./lib/runtime-config.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
@@ -50,7 +50,13 @@ function metricsMiddleware(req: Request, res: Response, next: NextFunction): voi
   const startedAt = process.hrtime.bigint();
   res.on("finish", () => {
     const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-    recordRequestMetric(req.method, req.path, res.statusCode, Math.round(durationMs));
+    // 存归一化后的路由维度，避免扫描器用随机路径把 request_metrics 撑大
+    recordRequestMetric(
+      req.method,
+      normalizeRoute(req.method, req.path),
+      res.statusCode,
+      Math.round(durationMs),
+    );
   });
   next();
 }
