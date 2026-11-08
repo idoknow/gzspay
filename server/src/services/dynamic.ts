@@ -12,6 +12,7 @@ import {
 import { createOrderAsPayer, findOrderById, type OrderDto, toOrderDto } from "./orders.js";
 import { enabledChannels, merchantNameOf, payerNameSnapshotOf } from "./merchant.js";
 import { pushToUser } from "./events.js";
+import { pushNotification } from "./push.js";
 import { displayNameOf, findUserById, publicUserOf, verifyPaymentPassword } from "./users.js";
 
 export interface DynamicCodeDto {
@@ -226,6 +227,11 @@ export function createPaymentRequest(
     reservedNote: dto.reservedNote,
     merchantName: dto.merchantName,
     expiresAt: dto.expiresAt,
+  });
+  pushNotification(customer.id, {
+    title: "收到收款请求",
+    body: `${dto.merchantName} 向你收款 ￥${(dto.amountCents / 100).toFixed(2)}`,
+    url: "/trades",
   });
   writeAudit({
     actorId: merchantUser.id,

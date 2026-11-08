@@ -35,6 +35,7 @@ import {
 } from "../services/users.js";
 import type { ProfileChangeField } from "../services/users.js";
 import { disableNfcCard, nfcCardState, rotateNfcToken } from "../services/nfc.js";
+import { registerPushToken, removePushToken } from "../services/push.js";
 
 export const meRouter: Router = Router();
 
@@ -75,6 +76,31 @@ meRouter.delete("/nfc-card", (req, res) => {
   res.setHeader("Cache-Control", "private, no-store");
   res.json(state);
 });
+
+// ---- FCM 设备令牌：客户端拿到 token 后注册，退出登录时注销 ----
+const pushTokenSchema = z.object({
+  token: z.string().trim().min(20, "推送令牌格式不正确").max(4096),
+  platform: z.enum(["android"]).optional(),
+});
+
+meRouter.post(
+  "/push-token",
+  rateLimit({ scope: "me.push_token", limit: 30, windowSeconds: 60, keyBy: userKey }),
+  asyncHandler((req, res) => {
+    const body = parse(pushTokenSchema, req.body);
+    registerPushToken(req.auth!.user.id, body.token, body.platform ?? "android");
+    res.status(201).json({ ok: true });
+  }),
+);
+
+meRouter.delete(
+  "/push-token",
+  asyncHandler((req, res) => {
+    const body = parse(z.object({ token: z.string().trim().min(1).max(4096) }), req.body);
+    removePushToken(req.auth!.user.id, body.token);
+    res.json({ ok: true });
+  }),
+);
 
 const profileSchema = z.object({
   surname: z.string().trim().min(1).max(20).optional(),

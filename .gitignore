@@ -34,6 +34,9 @@ android/local.properties
 android/.cxx/
 android/keystore/
 android/keystore.properties
+# Firebase 客户端配置（含本机项目标识）与服务账号私钥（绝不入库）
+android/app/google-services.json
+*firebase-adminsdk*.json
 *.apk
 *.aab
 *.jks

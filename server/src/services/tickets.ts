@@ -14,6 +14,7 @@ import type {
 import { templates } from "../lib/mail.js";
 import { likePattern } from "../lib/sql.js";
 import { pushToUser } from "./events.js";
+import { pushNotification } from "./push.js";
 import { findOrderById, requireOrderForUser } from "./orders.js";
 import { displayNameOf, findUserById, mailUserWithSetting, publicUserOf } from "./users.js";
 
@@ -409,6 +410,11 @@ export function createTicket(user: UserRow, input: CreateTicketInput, ip: string
     preview: description.slice(0, 60),
     createdAt: now,
   });
+  pushNotification(counterparty.id, {
+    title: "收到新的交易工单",
+    body: `${displayNameOf(user)}：${description.slice(0, 60)}`,
+    url: `/tickets/${ticketId}`,
+  });
   mailTicketNotice(counterparty.id, ticketId, order, displayNameOf(user), description, true);
 
   return { ticket: getTicket(ticketId, user), existing: false };
@@ -511,6 +517,11 @@ export function sendTicketMessage(ticketId: string, user: UserRow, body: string,
     preview: text.slice(0, 60),
     createdAt: now,
   });
+  pushNotification(counterparty.id, {
+    title: "工单有新消息",
+    body: `${displayNameOf(user)}：${text.slice(0, 60)}`,
+    url: `/tickets/${ticket.id}`,
+  });
   mailTicketNotice(counterparty.id, ticket.id, order, displayNameOf(user), text, false);
   return getTicket(ticket.id, user);
 }
@@ -549,6 +560,11 @@ export function closeTicket(ticketId: string, user: UserRow, ip: string): Ticket
       orderNo: order.order_no,
       status: "closed",
       createdAt: now,
+    });
+    pushNotification(counterparty.id, {
+      title: "工单已结束",
+      body: `订单 ${order.order_no} 的工单已结束`,
+      url: `/tickets/${ticket.id}`,
     });
   }
   return getTicket(ticket.id, user);

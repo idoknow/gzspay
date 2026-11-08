@@ -170,7 +170,11 @@ interface Me {
 | `GET` | `/api/me/devices` | `{ items: LoginDevice[], onlineWindowMinutes }` 登录设备列表；`LoginDevice = { id, current, deviceName, deviceType: "mobile"\|"tablet"\|"desktop"\|"other", os, browser, ip, ipLocation: string \| null, createdAt, lastSeenAt, expiresAt, online }`，`current` 表示该条就是当前请求所属会话（界面显示「本机」），`online` 指会话未过期且最近 `onlineWindowMinutes`（5）分钟内有请求，`ipLocation` 是 IP 归属地（「江苏省 · 南京市」，内网为「内网地址」，查不到为 `null`）。列表按 `lastSeenAt` 倒序，最多 30 条；`online` 只反映请求时刻的状态，前端靠 `session_revoked` / `devices_update` 事件加 12 秒轮询刷新 |
 | `POST` | `/api/me/devices/:id/logout` | 退出指定设备，`{ ok: true, current }`；退出的是当前设备时会同时清掉会话 Cookie。被退出的会话若开着 `/api/events/stream`，会立刻收到 `session_revoked`（`reason: "device"`） |
 | `POST` | `/api/me/devices/logout-others` | 退出除当前设备外的所有设备，`{ ok: true, revoked }`；每台被退出的设备都会收到 `session_revoked` |
+| `POST` | `/api/me/push-token` | 注册客户端 FCM 令牌：`{ token, platform?: "android" }`（30 次/分钟；同一 token 幂等，单账号最多保留 10 台设备） |
+| `DELETE` | `/api/me/push-token` | 注销当前设备的令牌：`{ token }` |
 | `GET` | `/api/about` | `{ version, changelog: [{version, date, items[], groups: [{title, items[]}]}], site: { name, schoolName, icp }, privacy, terms, privacyUpdatedAt, termsUpdatedAt, legalEffectiveAt }`（privacy/terms 为 Markdown 原文，日期为 YYYY-MM-DD；`site.icp` 为空字符串表示未填写备案号） |
+
+推送：服务端在收款请求、订单状态变化、工单创建 / 新消息 / 关闭时通过 FCM HTTP v1 推送 `{ title, body, url }`；点开通知会打开对应的站内页面（订单详情或工单详情）。没有配置 `FCM_SERVICE_ACCOUNT_JSON` / `FCM_SERVICE_ACCOUNT_FILE` 时静默跳过。
 
 ## 5. 商家
 

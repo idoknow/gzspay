@@ -5,6 +5,7 @@ import { writeAudit, writeRiskLog } from "../lib/audit.js";
 import { newId } from "../lib/crypto.js";
 import { errors } from "../lib/errors.js";
 import { sendMailInBackground, templates } from "../lib/mail.js";
+import { pushNotification } from "./push.js";
 import { readPaymentProofFile, removePaymentProofFile, savePaymentProofFile } from "../lib/payment-proof.js";
 import {
   CHANNEL_LABELS,
@@ -291,6 +292,13 @@ function addEvent(orderId: string, type: string, actorRole: string, actorId: str
   );
 }
 
+const ORDER_STATUS_PUSH_TEXT: Record<OrderStatus, string> = {
+  pending_payment: "待付款",
+  paid: "已支付待确认",
+  completed: "已完成",
+  cancelled: "已取消",
+};
+
 function notifyOrderUpdate(order: OrderRow): void {
   const payloadFor = (userId: string): Record<string, unknown> => {
     const role = roleOf(order, userId);
@@ -308,6 +316,17 @@ function notifyOrderUpdate(order: OrderRow): void {
   };
   pushToUser(order.payer_id, "order_update", payloadFor(order.payer_id));
   pushToUser(order.merchant_id, "order_update", payloadFor(order.merchant_id));
+  const pushBody = `${order.title} · ${ORDER_STATUS_PUSH_TEXT[order.status]}`;
+  pushNotification(order.payer_id, {
+    title: "订单状态有更新",
+    body: pushBody,
+    url: `/orders/${order.id}`,
+  });
+  pushNotification(order.merchant_id, {
+    title: "订单状态有更新",
+    body: pushBody,
+    url: `/orders/${order.id}`,
+  });
 }
 
 // ---------------- 下单 ----------------

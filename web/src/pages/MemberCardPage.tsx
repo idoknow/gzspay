@@ -116,6 +116,8 @@ function NfcPanel(): ReactNode {
 
 export function MemberCardPage(): ReactNode {
   const { me } = useAuth();
+  // NFC 卡片的开启 / 更换 / 关闭只在客户端内提供，浏览器里不暴露这个开关
+  const client = clientBridge();
   const cardRef = useRef<HTMLDivElement | null>(null);
   const dragging = useRef(false);
   const origin = useRef({ x: 0, y: 0 });
@@ -325,7 +327,7 @@ export function MemberCardPage(): ReactNode {
           />
         </div>
 
-        <NfcPanel />
+        {client ? <NfcPanel /> : null}
       </main>
     </div>
   );

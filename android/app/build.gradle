@@ -2,6 +2,11 @@ plugins {
     id 'com.android.application'
 }
 
+// google-services.json 不入库；没有文件时不应用插件，保证没有 Firebase 配置也能编译与安装
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
 // Release 签名：把 android/keystore.properties（不入库）放在 android/ 下即可，
 // 内容为 storeFile / storePassword / keyAlias / keyPassword。没有这个文件时 release
 // 退化成 debug 签名，方便没有密钥的人照样能打包试装。
@@ -61,5 +66,7 @@ android {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.biometric:biometric:1.1.0'
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
     testImplementation 'junit:junit:4.13.2'
 }

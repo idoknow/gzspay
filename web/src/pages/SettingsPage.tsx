@@ -349,25 +349,32 @@ export function SettingsPage(): ReactNode {
             <p className="mt-1 text-[11px] leading-relaxed text-muted">
               应用锁只在本机生效；NFC 卡片打开后，别人贴一贴就能读到。
             </p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
-                className="btn btn-secondary btn-sm flex-1"
-                onClick={() => client.openLockSetup()}
+                className="btn btn-secondary btn-sm"
+                onClick={() => navigate("/me/app-lock")}
               >
                 应用锁设置
               </button>
               <button
                 type="button"
-                className="btn btn-outline btn-sm flex-1"
-                onClick={() => {
-                  client.refreshNfc();
-                  toast.success("正在刷新 NFC 卡片");
-                }}
+                className="btn btn-secondary btn-sm"
+                onClick={() => navigate("/me/permissions")}
               >
-                刷新 NFC
+                权限与通知
               </button>
             </div>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm mt-2 w-full"
+              onClick={() => {
+                client.refreshNfc();
+                toast.success("正在刷新 NFC 卡片");
+              }}
+            >
+              刷新 NFC
+            </button>
           </section>
         ) : null}
 

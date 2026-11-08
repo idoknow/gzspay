@@ -288,15 +288,17 @@ logo、当前版本号、更新日志（按版本倒序，未发布的记录按�
 
 ### 6.9 安卓客户端与 NFC 卡片
 
-`android/` 是薄壳，页面仍是站点本身（`DEFAULT_BASE_URL`，WebView + 默认缓存 + DOM Storage），只补三件网页做不到的事：
+`android/` 是薄壳，页面仍是站点本身（`DEFAULT_BASE_URL`，WebView + 默认缓存 + DOM Storage），只补网页做不到的几件事：
 
-1. **应用锁**：数字密码（4 / 6 位）或手势图案，另可叠加系统的指纹 / 人脸。密码只存「盐 + SHA-256」，不存明文；冷启动必须验证，切后台超过 30 秒回来也要重新验证，未验证中途返回直接退出应用。
-2. **NFC 卡片**：网页「我的卡片」里的开关决定是否开放（`web/src/pages/MemberCardPage.tsx` 的 `NfcPanel`）。开启时 `POST /api/me/nfc-card` 生成 24 字节随机令牌，得到 `https://<站点>/nfc/<token>`；客户端带登录 Cookie 请求 `GET /api/me/nfc-card` 拿到这个链接，再用 HCE（`NfcCardService`，Type 4 Tag + NDEF URI 记录）让手机自己当标签。别人贴一贴就打开 `/nfc/:token` 这张卡片页——页面上只有姓名、头像、打码学号、打码校园卡号与是否商家，没有任何令牌以外的身份信息。
-3. **设备识别**：UA 追加 `GzspayApp/<版本>`，服务端 `describeUserAgent` 把它识别为「gzspay 客户端 / Android」。
+1. **应用锁**：数字密码（4 / 6 位）或手势图案，另可叠加系统的指纹 / 人脸。密码只存「盐 + SHA-256」，不存明文；冷启动必须验证，切后台超过 30 秒回来也要重新验证，未验证中途返回直接退出应用。设置界面在网页 `/me/app-lock`（通过桥接把密码交给原生保存），原生只保留解锁界面。
+2. **NFC 卡片**：开关只在客户端内的「我的卡片」页显示（`web/src/pages/MemberCardPage.tsx` 的 `NfcPanel`，浏览器里隐藏）。开启时 `POST /api/me/nfc-card` 生成 24 字节随机令牌，得到 `https://<站点>/nfc/<token>`；客户端带登录 Cookie 请求 `GET /api/me/nfc-card` 拿到这个链接，再用 HCE（`NfcCardService`，Type 4 Tag + NDEF URI 记录）让手机自己当标签。别人贴一贴就打开 `/nfc/:token` 这张卡片页——页面上只有姓名、头像、打码学号、打码校园卡号与是否商家，没有任何令牌以外的身份信息。
+3. **NFC 读卡**：WebView 不支持 Web NFC，客户端改用系统 ReaderMode 读卡，NDEF 文本解析在 `NdefTextParser`（带 JVM 单测），读到的卡号回填到网页的绑定 / 扫码流程。
+4. **设备识别**：UA 追加 `GzspayApp/<版本>`，服务端 `describeUserAgent` 把它识别为「gzspay 客户端 / Android」。
+5. **通知推送**：FCM。客户端启动时请求通知与相机权限，令牌通过 `POST /api/me/push-token` 注册；服务端在收款请求、订单状态与工单消息时推送，点开跳对应页面；`/me/permissions` 显示权限状态与令牌是否已注册。
 
 令牌可以随时「更换」或关闭；关闭后 `/api/nfc/<token>` 立即 404，客户端每 30 秒、以及网页里开关变化时（通过 `window.GzspayClient.refreshNfc()`）同步状态。HCE 只在屏幕点亮且解锁后才响应（`requireDeviceUnlock="true"`），读取限流 60 次/分钟；读卡端选择文件可能带 Lc（`00 A4 00 0C 02 E1 03`），`NfcCardService` 两种格式都认。
 
-客户端专属入口不走界面浮层：`MainActivity` 通过 `addJavascriptInterface` 暴露 `window.GzspayClient`（`version` / `nfcReady` / `refreshNfc` / `openLockSetup` / `goHome`），网页在「设置」页渲染一张「客户端」卡片（`web/src/lib/client.ts` 判断桥是否存在），应用锁设置与刷新 NFC 都在这里；浏览器里打开时这张卡片不渲染。release 签名从 `android/keystore.properties` 读（不入库），缺失时退化成 debug 签名。
+客户端专属入口不走界面浮层：`MainActivity` 通过 `addJavascriptInterface` 暴露 `window.GzspayClient`（`version` / `nfcReady` / `refreshNfc` / `lockStatus` / `saveLock` / `clearLock` / `setBiometric` / `startNfcRead` / `stopNfcRead` / `pushToken` / 权限相关方法 / `goHome`），网页在「设置」页渲染一张「客户端」卡片（`web/src/lib/client.ts` 判断桥是否存在），应用锁设置、权限与通知、刷新 NFC 都从这里进入（`/me/app-lock`、`/me/permissions`）；浏览器里打开时这张卡片不渲染。release 签名从 `android/keystore.properties` 读（不入库），缺失时退化成 debug 签名。
 
 
 ## 7. 商家发布页

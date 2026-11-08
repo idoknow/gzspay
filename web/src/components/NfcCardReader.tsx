@@ -1,6 +1,7 @@
 /** 安卓手机 NFC 读卡：读取卡片 NDEF 文本（卡片名称即校园卡卡号）。 */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { clientBridge } from "../lib/client";
 import { cn, isCardNo, normalizeCardNo } from "../lib/format";
 
 interface NdefRecordLike {
@@ -28,9 +29,10 @@ function ndefReaderCtor(): NdefReaderCtor | null {
   return typeof ctor === "function" ? ctor : null;
 }
 
-/** 当前设备/浏览器是否支持 Web NFC（安卓 Chrome 等） */
+/** 当前设备是否支持读卡：浏览器看 Web NFC，客户端看原生桥接 */
 export function isNfcSupported(): boolean {
-  return ndefReaderCtor() !== null;
+  if (ndefReaderCtor() !== null) return true;
+  return typeof clientBridge()?.startNfcRead === "function";
 }
 
 function decodeRecord(record: NdefRecordLike): string | null {
@@ -67,6 +69,8 @@ export function NfcCardReader({
   className,
   tone = "default",
 }: NfcCardReaderProps): ReactNode {
+  const bridge = clientBridge();
+  const nativeReader = typeof bridge?.startNfcRead === "function";
   const supported = isNfcSupported();
   const [scanning, setScanning] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -85,10 +89,35 @@ export function NfcCardReader({
   const stop = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    if (nativeReader) {
+      window.__gzspayNfcRead = undefined;
+      bridge?.stopNfcRead?.();
+    }
     setScanning(false);
-  }, []);
+  }, [bridge, nativeReader]);
 
   const start = useCallback(async (): Promise<void> => {
+    if (nativeReader) {
+      const accept = (text: string): void => {
+        const normalized = normalizeCardNo(text);
+        if (!isCardNo(normalized)) {
+          setNotice("读到的内容不是卡号");
+          return;
+        }
+        if (typeof navigator.vibrate === "function") navigator.vibrate(50);
+        stop();
+        onRead(normalized);
+      };
+      window.__gzspayNfcRead = accept;
+      if (!bridge?.startNfcRead?.()) {
+        window.__gzspayNfcRead = undefined;
+        setNotice("NFC 未开启，请在系统设置里打开 NFC");
+        return;
+      }
+      setNotice(null);
+      setScanning(true);
+      return;
+    }
     const ctor = ndefReaderCtor();
     if (!ctor) {
       setNotice("当前浏览器不支持 NFC 读卡");
@@ -122,7 +151,7 @@ export function NfcCardReader({
       abortRef.current = null;
       setNotice("无法启动 NFC，请检查系统 NFC 设置");
     }
-  }, [onRead, stop]);
+  }, [bridge, nativeReader, onRead, stop]);
 
   // 只支持 Web NFC 的浏览器（安卓 Chrome）才显示入口，其他设备不占位
   if (!supported) return null;

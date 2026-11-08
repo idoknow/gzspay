@@ -1,6 +1,7 @@
 /** 集中式 API 层：页面只调用这里，不直接 fetch / 不直接拼接口路径。 */
 
-import { api, openEventStream, ApiError } from "./http";
+import { clientBridge } from "./client";
+import { api, request, openEventStream, ApiError } from "./http";
 import { PAY_CHANNEL_LABELS } from "./types";
 import type {
   AboutResponse,
@@ -139,7 +140,16 @@ export function getSession(): Promise<SessionResponse> {
   return api.get<SessionResponse>("/auth/session");
 }
 
-export function logout(): Promise<{ ok: boolean }> {
+export async function logout(): Promise<{ ok: boolean }> {
+  // 退出登录前先注销这台设备的推送令牌（此时会话还有效），避免下一位使用者收到上一个账号的通知
+  const token = clientBridge()?.pushToken?.();
+  if (token) {
+    try {
+      await removePushToken(token);
+    } catch {
+      // 注销令牌失败不阻塞退出
+    }
+  }
   return api.post<{ ok: boolean }>("/auth/logout");
 }
 
@@ -900,4 +910,14 @@ export function disableNfcCard(): Promise<NfcCardState> {
 
 export function getPublicNfcCard(token: string): Promise<NfcCard> {
   return api.get<NfcCard>(`/nfc/${encodeURIComponent(token)}`);
+}
+
+/** 把客户端的 FCM 令牌注册到服务端；重复注册是幂等的 */
+export function registerPushToken(token: string): Promise<{ ok: boolean }> {
+  return api.post<{ ok: boolean }>("/me/push-token", { token, platform: "android" });
+}
+
+/** 注销当前设备的推送令牌 */
+export function removePushToken(token: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/me/push-token", { method: "DELETE", body: { token } });
 }

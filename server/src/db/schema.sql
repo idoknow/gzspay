@@ -464,3 +464,13 @@ CREATE TABLE IF NOT EXISTS app_config (
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- FCM 设备令牌：同一账号可有多台设备，客户端登录后注册，退出时注销
+CREATE TABLE IF NOT EXISTS push_tokens (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL DEFAULT 'android',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id);

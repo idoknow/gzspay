@@ -9,6 +9,7 @@ import { LoadingBlock, PageLoading } from "./components/Loading";
 import { PaymentRequestDialog } from "./components/PaymentRequestDialog";
 import { DevtoolsShield, PrivacyGuard, PrivacyModeBanner, PrivacyModePrompt, PrivacySessionGuard } from "./components/PrivacyMode";
 import { getSetupStatus } from "./lib/api";
+import { usePushRegistration } from "./lib/push";
 import { AuthProvider, useAuth } from "./lib/session";
 import type { SessionResponse, SetupStatus } from "./lib/types";
 import { BootPage } from "./pages/BootPage";
@@ -35,6 +36,7 @@ const AboutPage = lazyPage(() => import("./pages/AboutPage"), "AboutPage");
 const AnnouncementDetailPage = lazyPage(() => import("./pages/AnnouncementDetailPage"), "AnnouncementDetailPage");
 const AnnouncementsPage = lazyPage(() => import("./pages/AnnouncementsPage"), "AnnouncementsPage");
 const ChangePasswordPage = lazyPage(() => import("./pages/ChangePasswordPage"), "ChangePasswordPage");
+const AppLockPage = lazyPage(() => import("./pages/AppLockPage"), "AppLockPage");
 const CollectPage = lazyPage(() => import("./pages/CollectPage"), "CollectPage");
 const DevicesPage = lazyPage(() => import("./pages/DevicesPage"), "DevicesPage");
 const DynamicCodePage = lazyPage(() => import("./pages/DynamicCodePage"), "DynamicCodePage");
@@ -49,6 +51,7 @@ const OnboardingPage = lazyPage(() => import("./pages/OnboardingPage"), "Onboard
 const OrderDetailPage = lazyPage(() => import("./pages/OrderDetailPage"), "OrderDetailPage");
 const OrderPrintPage = lazyPage(() => import("./pages/OrderPrintPage"), "OrderPrintPage");
 const PayPage = lazyPage(() => import("./pages/PayPage"), "PayPage");
+const PermissionsPage = lazyPage(() => import("./pages/PermissionsPage"), "PermissionsPage");
 const ProductsPage = lazyPage(() => import("./pages/ProductsPage"), "ProductsPage");
 const ProfilePage = lazyPage(() => import("./pages/ProfilePage"), "ProfilePage");
 const SettingsPage = lazyPage(() => import("./pages/SettingsPage"), "SettingsPage");
@@ -198,6 +201,8 @@ const router = createBrowserRouter([
       { path: "/me/stats", element: <StatsPage /> },
       { path: "/me/profile", element: <PrivacyGuard title="个人信息"><ProfilePage /></PrivacyGuard> },
       { path: "/me/card", element: <PrivacyGuard title="我的卡片" description="隐私模式下不展示个人信息卡片。"><MemberCardPage /></PrivacyGuard> },
+      { path: "/me/app-lock", element: <AppLockPage /> },
+      { path: "/me/permissions", element: <PermissionsPage /> },
       { path: "/me/password", element: <ChangePasswordPage /> },
       { path: "/me/settings", element: <SettingsPage /> },
       { path: "/me/devices", element: <PrivacyGuard title="登录设备管理" description="隐私模式下不展示登录设备。"><DevicesPage /></PrivacyGuard> },
@@ -216,6 +221,7 @@ const router = createBrowserRouter([
 
 export function App(): ReactNode {
   const [session, setSession] = useState<SessionResponse | null>(null);
+  usePushRegistration(Boolean(session));
   const [setup, setSetup] = useState<SetupStatus | null>(null);
   /** 初始化状态是否已检查完成（请求失败也算完成，避免卡在加载态） */
   const [setupSettled, setSetupSettled] = useState(false);

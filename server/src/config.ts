@@ -149,6 +149,16 @@ export const config = {
   },
 
   /**
+   * FCM 推送：填服务账号 JSON（或文件路径）后启用；未配置时推送静默跳过，
+   * 不影响订单与工单业务。项目 ID 默认取服务账号里的 project_id。
+   */
+  push: {
+    serviceAccountJson: str("FCM_SERVICE_ACCOUNT_JSON", ""),
+    serviceAccountFile: str("FCM_SERVICE_ACCOUNT_FILE", ""),
+    projectId: str("FCM_PROJECT_ID", ""),
+  },
+
+  /**
    * 地区访问限制：默认关闭；打开后只放行中国大陆 IP（依据 APNIC CN 分配段）。
    * 数据由 scripts/geo/build-cn-ranges.mjs 生成到 server/src/data/cn-ip-ranges.json。
    */
